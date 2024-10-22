@@ -1,7 +1,6 @@
 import {
     Manager,
     LavalinkNodeOptions,
-    RestError,
     LavalinkNode
 } from "lavacord";
 import { prefix as consolePrefix } from "./config/console";
@@ -33,7 +32,7 @@ export class LavalinkServer {
     private async connectToLavalinkServer(): Promise<void> {
         const connectionResult = await this.manager.connect();
         
-        if ( connectionResult )
+        if ( connectionResult.length > 0 )
             console.log(consolePrefix.lavalink + 'Lavalink server connected successfully!');
         else
             console.log(consolePrefix.lavalink + 'Lavalink server connection failed :(');

@@ -9,6 +9,13 @@ export default async function joinChannel(channel: VoiceBasedChannel, guild: Gui
         node: "1" // lavalink node id, based on array of nodes
     }, {selfdeaf: true});
 
+    player.once("warn", warn => console.warn(warn));
+    player.once("error", error => console.error(error));
+    player.once("end", data => {
+        if (data.type === "TrackEndEvent" && data.reason === "replaced") return; // Ignore replaced reason to prevent skip loops
+        // Play next song
+    });
+
     if (
         !player.state.connected
     )

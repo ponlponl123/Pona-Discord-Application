@@ -6,7 +6,7 @@ import {
 } from "discord.js";
 import isUserInVoiceChannel from "@/utils/isUserIsInVoiceChannel";
 import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
-import joinVoiceChannel from "@/utils/lavacord/joinVoiceChannelAsPlayer";
+import joinVoiceChannel from "@/utils/magma/joinVoiceChannelAsPlayer";
 
 export const data = new SlashCommandBuilder()
   .setName('join')
@@ -37,8 +37,9 @@ export async function execute(interaction: CommandInteraction) {
     });
   }
 
-  if ( interaction.guild?.id && member.voice.channel ) {
+  if ( interaction.channel && interaction.guild?.id && member.voice.channel ) {
     const player = await joinVoiceChannel(
+      interaction.channel,
       member.voice.channel,
       member.voice.channel.guild
     )

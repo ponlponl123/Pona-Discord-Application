@@ -1,8 +1,9 @@
-import { Player } from "lavacord";
-import { Guild, VoiceBasedChannel } from "discord.js";
+import { Player } from "magmastream";
+import { Guild, TextBasedChannel, VoiceBasedChannel } from "discord.js";
 
 export interface lavaPlayer {
     player: Player;
-    channel: VoiceBasedChannel;
+    voiceChannel: VoiceBasedChannel;
+    textChannel: TextBasedChannel;
     guild: Guild;
 }

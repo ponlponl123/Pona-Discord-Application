@@ -26,7 +26,7 @@ export function createHttpServer(port: number) {
 
     app.listen(port);
 
-    console.log(consolePrefix.system + `API Server running at ${port}! 📡`);
+    console.log(consolePrefix.system + `\x1b[32mAPI Server running at ${port}! 📡\x1b[0m`);
 
     return app;
 }

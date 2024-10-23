@@ -1,0 +1,25 @@
+import { SearchResult, Track } from 'magmastream';
+import { lavalink } from '@/index'
+import { GuildMember } from 'discord.js';
+
+export default async function getSongs(search: string, author: GuildMember): Promise<string | Track> {
+    let res: SearchResult;
+
+    try {
+        // Search for tracks using a query or url, using a query searches youtube automatically and the track requester object
+        res = await lavalink.manager.search(search, author);
+        // Check the load type as this command is not that advanced for basics
+        if (res.loadType === 'empty') throw res;
+        if (res.loadType === 'playlist') {
+            throw { message: 'Playlists are not supported with this command.' };
+        }
+    } catch (err: any) {
+        return `there was an error while searching: ${err.message}`;
+    }
+
+    if (res.loadType === 'error') {
+        return 'there was no tracks found with that query.';
+    }
+
+    return res.tracks[0];
+}

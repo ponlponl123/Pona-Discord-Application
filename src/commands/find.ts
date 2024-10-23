@@ -7,8 +7,8 @@ import {
     UserContextMenuCommandInteraction
 } from "discord.js";
 import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
-import joinVoiceChannel from "@/utils/lavacord/joinVoiceChannelAsPlayer";
-import getSongs from "@/utils/lavacord/getSongs";
+import joinVoiceChannel from "@/utils/magma/joinVoiceChannelAsPlayer";
+import getSongs from "@/utils/magma/getSongs";
 import { DiscordGatewayAdapterCreator, VoiceConnection } from "@discordjs/voice";
 
 export const data = new SlashCommandBuilder()
@@ -23,88 +23,88 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: CommandInteraction) {
     const member = interaction.member as GuildMember;
-    const input = interaction.options.get("input")?.value as string;
+    // const input = interaction.options.get("input")?.value as string;
 
-    if ( !member.voice.channel ) {
-        const embed = new EmbedBuilder()
-            .setDescription('<:X_:1298270493639446548> · **Invalid voice channel**!')
-            .setFooter({
-                text: 'Please enter a voice channel.'
-            })
-            .setColor('#F2789F');
+    // if ( !member.voice.channel ) {
+    //     const embed = new EmbedBuilder()
+    //         .setDescription('<:X_:1298270493639446548> · **Invalid voice channel**!')
+    //         .setFooter({
+    //             text: 'Please enter a voice channel.'
+    //         })
+    //         .setColor('#F2789F');
         
-        return interaction.reply({
-            embeds: [embed]
-        });
-    }
+    //     return interaction.reply({
+    //         embeds: [embed]
+    //     });
+    // }
 
-    const currentVoiceConnectionInGuild = isPonaInVoiceChannel(member.voice.channel.guildId, false) as VoiceConnection[];
+    // const currentVoiceConnectionInGuild = isPonaInVoiceChannel(member.voice.channel.guildId, false) as VoiceConnection[];
 
-    if (
-        currentVoiceConnectionInGuild.length === 0
-    )
-    {
-        const player = await joinVoiceChannel(
-            member.voice.channel,
-            member.voice.channel.guild
-        )
+    // if (
+    //     currentVoiceConnectionInGuild.length === 0
+    // )
+    // {
+    //     const player = await joinVoiceChannel(
+    //         member.voice.channel,
+    //         member.voice.channel.guild
+    //     )
 
-        if ( !player ) {
-            const embed = new EmbedBuilder()
-              .setDescription('<:X_:1298270493639446548> · **Error occurated, please try again later**!')
-              .setColor('DarkRed');
+    //     if ( !player ) {
+    //         const embed = new EmbedBuilder()
+    //           .setDescription('<:X_:1298270493639446548> · **Error occurated, please try again later**!')
+    //           .setColor('DarkRed');
             
-            return interaction.reply({
-              embeds: [embed]
-            });
-        }
-    }
+    //         return interaction.reply({
+    //           embeds: [embed]
+    //         });
+    //     }
+    // }
 
-    if (
-        currentVoiceConnectionInGuild[0].joinConfig.channelId !== member.voice.channel.id
-    )
-    {
-        const embed = new EmbedBuilder()
-            .setDescription('<:X_:1298270493639446548> · **Invalid voice channel**!')
-            .setFooter({
-                text: 'Not a same voice channel'
-            })
-            .setColor('#F2789F');
+    // if (
+    //     currentVoiceConnectionInGuild[0].joinConfig.channelId !== member.voice.channel.id
+    // )
+    // {
+    //     const embed = new EmbedBuilder()
+    //         .setDescription('<:X_:1298270493639446548> · **Invalid voice channel**!')
+    //         .setFooter({
+    //             text: 'Not a same voice channel'
+    //         })
+    //         .setColor('#F2789F');
         
-        return interaction.reply({
-            embeds: [embed]
-        });
-    }
+    //     return interaction.reply({
+    //         embeds: [embed]
+    //     });
+    // }
 
-    if ( !input ) {
-        const embed = new EmbedBuilder()
-          .setDescription('<:X_:1298270493639446548> · **Input cannot be void**!')
-          .setColor('DarkRed');
+    // if ( !input ) {
+    //     const embed = new EmbedBuilder()
+    //       .setDescription('<:X_:1298270493639446548> · **Input cannot be void**!')
+    //       .setColor('DarkRed');
         
-        return interaction.reply({
-          embeds: [embed]
-        });
-    }
+    //     return interaction.reply({
+    //       embeds: [embed]
+    //     });
+    // }
 
-    const result = await getSongs("ytsearch:" + input);
+    // const result = await getSongs("ytsearch:" + input);
     
-    if ( result ) {
-        console.log("Searching result", result);
+    // if ( result ) {
+    //     console.log("Searching result", result);
 
-        const embed = new EmbedBuilder()
-          .setDescription('<:Check:1298270444150980619> · **Searching result is in terminal**!')
-          .setColor('#F9C5D5');
+    //     const embed = new EmbedBuilder()
+    //       .setDescription('<:Check:1298270444150980619> · **Searching result is in terminal**!')
+    //       .setColor('#F9C5D5');
         
-        return interaction.reply({
-          embeds: [embed]
-        });
-    }
+    //     return interaction.reply({
+    //       embeds: [embed]
+    //     });
+    // }
+
+    // const embed = new EmbedBuilder()
+    //   .setDescription('<:Check:1298270444150980619> · **No searching result** :(')
+    //   .setColor('#F9C5D5');
     
-    const embed = new EmbedBuilder()
-      .setDescription('<:Check:1298270444150980619> · **No searching result** :(')
-      .setColor('#F9C5D5');
-    
-    return interaction.reply({
-      embeds: [embed]
-    });
+    // return interaction.reply({
+    //   embeds: [embed]
+    // });
 }

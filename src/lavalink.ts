@@ -1,40 +1,51 @@
 import {
     Manager,
-    LavalinkNodeOptions,
-    LavalinkNode
-} from "lavacord";
+    Node,
+    NodeOptions
+} from "magmastream";
 import { prefix as consolePrefix } from "./config/console";
+import { discordClient as self } from "@/index";
 import { config } from "./config/lavalink";
 
-export const nodes: LavalinkNodeOptions[] = [
-    { id: "1", host: config.host, port: config.port, password: config.password }
-]
-
 export class LavalinkServer {
-    public manager;
+    public manager: Manager;
+    public lavanodes = new Array<NodeOptions>();
 
     public constructor(public readonly clientId: string) {
-        this.manager = new Manager(nodes, {
-            user: clientId, // Client id
-            send: (packet) => {
-                
+        console.log(consolePrefix.system + `\x1b[33mLogging in lavalink server with ${clientId}...\x1b[0m`);
+
+        this.lavanodes.push({
+            identifier: "1",
+            host: config.host,
+            port: config.port,
+            password: config.password,
+            retryAmount: 1000,
+            retryDelay: 10000,
+            resumeStatus: true, // default: false,
+            resumeTimeout: 1000,
+            secure: false
+        })
+
+        this.manager = new Manager({
+            nodes: this.lavanodes,
+            send: (id, payload) => {
+                const guild = self.client.guilds.cache.get(id);
+                // NOTE: FOR ERIS YOU NEED JSON.stringify() THE PAYLOAD
+                if (guild) guild.shard.send(payload);
+                console.log(consolePrefix.lavalink + "Manager send: " + JSON.stringify(payload));
             }
         });
 
-        // The error event, which you should handle otherwise your application will crash when an error is emitted
-        this.manager.on("error", (error: unknown, node: LavalinkNode) => {
-            node // is the node which the error is from
+        // Emitted whenever a node connects
+        this.manager.on('nodeConnect', (node: Node) => {
+            console.log(consolePrefix.lavalink + `Node "${node.options.identifier}" connected.`);
         });
 
-        this.connectToLavalinkServer();
-    }
+        // The error event, which you should handle otherwise your application will crash when an error is emitted
+        this.manager.on("nodeError", (node: Node, error: Error) => {
+            console.log(consolePrefix.lavalink + `Node "${node.options.identifier}" encountered an error: ${error.message}.`);
+        });
 
-    private async connectToLavalinkServer(): Promise<void> {
-        const connectionResult = await this.manager.connect();
-        
-        if ( connectionResult.length > 0 )
-            console.log(consolePrefix.lavalink + 'Lavalink server connected successfully!');
-        else
-            console.log(consolePrefix.lavalink + 'Lavalink server connection failed :(');
+        this.manager.init(clientId);
     }
 }

@@ -17,6 +17,7 @@ import { lavaPlayer } from './interfaces/lavaPlayer';
 import { config } from './config/discord';
 import { commands } from './commands';
 import { prefix as consolePrefix } from 'config/console'
+import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from './utils/isPonaInVoiceChannel';
 
 export class Pona {
     public readonly prefix = 'pona!';
@@ -28,10 +29,10 @@ export class Pona {
 
     public constructor( public readonly client: Client ) {
         this.client.login(config.DISCORD_TOKEN);
-        console.log(consolePrefix.system + "Logging in...");
+        console.log(consolePrefix.system + "\x1b[33mLogging in discord application...\x1b[0m");
     
         this.client.once(Events.ClientReady, async (event) => {
-            console.log(consolePrefix.system + "Discord bot is ready! 🤖");
+            console.log(consolePrefix.system + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} is ready! 🤖\x1b[0m`);
             
             this.registerSlashCommands();
         });
@@ -44,6 +45,17 @@ export class Pona {
 
         this.client.on(Events.Warn, (info) => console.log(consolePrefix.discord + info));
         this.client.on(Events.Error, console.error);
+
+        this.client.on(Events.VoiceStateUpdate, async (_oldState, _newState): Promise<any> => {
+            if ( _oldState.channelId && !_newState.channelId ) {
+                const getCurrentVoiceChannel = isPonaInVoiceChannel( _oldState.guild.id, false ) as IsPonaInVoiceChannel[];
+                if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'player' ) {
+                    this.playerConnections = this.playerConnections.filter((connection) => connection.guild.id !== _oldState.guild.id)
+                } else if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'voice' ) {
+                    this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== _oldState.guild.id)
+                }
+            }
+        });
     
         this.client.on(Events.InteractionCreate, async (interaction): Promise<any> => {
             if (!interaction.isCommand()) {

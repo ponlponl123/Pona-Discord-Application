@@ -12,6 +12,7 @@ const client = new Client({
         "Guilds",
         "GuildMessages",
         "DirectMessages",
+        "MessageContent",
         IntentsBitField.Flags.GuildVoiceStates
     ],
 });

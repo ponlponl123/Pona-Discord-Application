@@ -1,15 +1,17 @@
 const date = new Date();
 const hours = date.getHours();
 
+import { lang } from './i18n'
+
 let message: string;
 
 if ( hours > 6 && hours < 12 )
-    message = `☀️ อรุณสวัสดิ์!`;
+    message = lang.data.welcomeMessage.morning;
 else if ( hours > 11 && hours < 18 )
-    message = `🌤️ สวัสดีวันนี้อากาศดีนะ!`;
+    message = lang.data.welcomeMessage.afternoon;
 else if ( hours > 17 && hours < 21 )
-    message = `🌙 สวัสดีตอนเย็น!`;
+    message = lang.data.welcomeMessage.evening;
 else
-    message = `🛏️ ราตรีสวัสดิ์!`;
+    message = lang.data.welcomeMessage.night;
 
 export const welcomeMessage = message;

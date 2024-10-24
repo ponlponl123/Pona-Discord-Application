@@ -4,6 +4,7 @@ import {
     SlashCommandBuilder,
     EmbedBuilder,
 } from "discord.js";
+import { discordClient as self } from "@/index";
 import warningEmbedBuilder from "@/utils/embeds/warning";
 import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@/utils/magma/isVoiceActionRequirement";
@@ -36,20 +37,25 @@ export default async function execute(interaction: CommandInteraction) {
 
     if ( playback.length > 0 ) {
         const queueEmbed = new EmbedBuilder()
-            .setTitle('🎼 Pona! Music Queue')
+            .setAuthor({
+                name: '🎼 Pona! Music Queue',
+                url: `https://pona.ponlponl123.com/g/${member.guild.id}/queue`
+            })
             .setColor('#F9C5D5')
+            .setTitle(playback[0].player.queue.current && playback[0].player.queue.current.title)
+            .setURL(playback[0].player.queue.current?.uri || '')
+            .setThumbnail(playback[0].player.queue.current && playback[0].player.queue.current.thumbnail || '')
+            .setDescription(`โดย ${playback[0].player.queue.current?.author}\n‎ `)
+            .setFooter({
+                text: `เพิ่มโดย ${playback[0].player.queue.current?.requester?.username}` || '',
+                iconURL: playback[0].player.queue.current?.requester && (await self.client.users.fetch(playback[0].player.queue.current.requester.id)).avatarURL() || ''
+            })
             .setFields(
                 playback[0].player.queue.map((track, index) => ({
                     name: `${index+1}. ${track.title}`,
-                    value: `เพิ่มโดย <@${track.requester?.id}>`,
+                    value: `เพิ่มโดย <@${track.requester?.id}>\n‎ `,
                     inline: false
                 }))
-            )
-            .setFooter(
-                playback[0].player.queue.current && {
-                    text: `กำลังเล่น: ${playback[0].player.queue.current.title}`,
-                    iconURL: playback[0].player.queue.current.thumbnail || ''
-                }
             )
         return await interaction.reply({
             content: '',

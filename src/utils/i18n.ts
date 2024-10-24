@@ -1,14 +1,20 @@
-import th_TH from '@/../locates/th_TH.json'
-import en_US from '@/../locates/en_US.json'
+import th_TH from '@/../locates/th-TH.json'
+import en_US from '@/../locates/en-US.json'
 
 import dotenv from 'dotenv'
 dotenv.config();
 
-var local_lang = process.env.LANG || 'en_US';
+var default_lang = process.env.LANG || 'en_US';
 
-export const lang = th_TH;
+export default interface language {
+    code: string;
+    label: string;
+    data: object; // json file data
+}
 
 export const langs = [
-    { code: 'th_TH', label: 'ไทย' },
-    { code: 'en_US', label: 'English' },
-];
+    { code: 'th-TH', label: 'ไทย', data: th_TH },
+    { code: 'en-US', label: 'English', data: en_US },
+]
+
+export const lang = langs.filter(l => l.code === default_lang)[0];

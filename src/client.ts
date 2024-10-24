@@ -43,11 +43,11 @@ export class Pona {
         this.client.once(Events.ClientReady, async (event) => {
             console.log(consolePrefix.system + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} is ready! 🤖\x1b[0m`);
             
-            this.client.user?.setActivity({
-                name: welcomeMessage,
-                type: ActivityType.Custom,
-                url: 'https://pona.ponlponl123.com/'
-            })
+            // Welcome message
+            this.setWelcomeMessage();
+            setInterval(() => {
+                this.setWelcomeMessage();
+            }, 60 * 60 * 1000);
 
             this.registerSlashCommands();
             lavalink.manager.on('nodeConnect', async (node: Node) => {
@@ -66,7 +66,7 @@ export class Pona {
                 const guild = await this.client.guilds.fetch(player.guild) as Guild;
                 const checkIsPlayerIsExist = this.playerConnections.filter( rootPlayer => rootPlayer.player.guild === player.guild );
                 if ( getExistPlayer.length > 0 ) {
-                    console.log( consolePrefix.lavalink + '\x1b[32mIgnore exist player: \x1b[0m\x1b[47m\x1b[30m' + player.guild );
+                    console.log( consolePrefix.lavalink + '\x1b[32mIgnore exist player: \x1b[0m\x1b[47m\x1b[30m' + player.guild + '\x1b[0m' );
                     return true;
                 }
                 this.playerConnections.push({
@@ -75,7 +75,7 @@ export class Pona {
                     textChannel: textChannel,
                     guild: guild
                 })
-                console.log( consolePrefix.lavalink + '\x1b[32mRestored missing player: \x1b[0m\x1b[47m\x1b[30m' + player.guild );
+                console.log( consolePrefix.lavalink + '\x1b[32mRestored missing player: \x1b[0m\x1b[47m\x1b[30m' + player.guild + '\x1b[0m' );
             })
             lavalink.manager.init(config.DISCORD_CLIENT_ID);
         });
@@ -89,28 +89,30 @@ export class Pona {
         this.client.on(Events.Warn, (info) => console.log(consolePrefix.discord + info));
         this.client.on(Events.Error, console.error);
 
-        this.client.on(Events.VoiceStateUpdate, async (_oldState, _newState): Promise<any> => {
+        this.client.on(Events.VoiceStateUpdate, async (oldState, newState): Promise<any> => {
             if (
-                _oldState.client.user.id !== (this.client.user as User).id
+                this.client.user &&
+                oldState.member &&
+                oldState.member.user.id !== this.client.user.id
             ) return;
-            if ( _oldState.channelId && !_newState.channelId ) {
-                const getCurrentVoiceChannel = isPonaInVoiceChannel( _oldState.guild.id, false ) as IsPonaInVoiceChannel[];
+            if ( oldState.channelId && !newState.channelId ) {
+                const getCurrentVoiceChannel = isPonaInVoiceChannel( oldState.guild.id, false ) as IsPonaInVoiceChannel[];
                 if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'player' ) {
-                    this.playerConnections = this.playerConnections.filter((connection) => connection.guild.id !== _oldState.guild.id);
+                    this.playerConnections = this.playerConnections.filter((connection) => connection.guild.id !== oldState.guild.id);
                     await setVoiceChannelStatus((getCurrentVoiceChannel[0][0] as lavaPlayer).voiceChannel);
                 } else if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'voice' ) {
-                    this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== _oldState.guild.id);
+                    this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== oldState.guild.id);
                 }
                 this.saveSessionOnFile();
             } else if (
-                (_oldState.channelId && _newState.channelId) &&
-                _oldState.channelId !== _newState.channelId
+                (oldState.channelId && newState.channelId) &&
+                oldState.channelId !== newState.channelId
             ) {
-                const getCurrentPlayerState = isPonaInVoiceChannel( _oldState.guild.id, 'player' ) as lavaPlayer[];
+                const getCurrentPlayerState = isPonaInVoiceChannel( oldState.guild.id, 'player' ) as lavaPlayer[];
                 if ( getCurrentPlayerState.length > 0 ) {
-                    const playerConnection = this.playerConnections.findIndex((connection) => connection.guild.id === _oldState.guild.id);
-                    const getPreviousVoiceChannel = await this.client.channels.fetch(_oldState.channelId) as VoiceBasedChannel;
-                    const getCurrentVoiceChannel = await this.client.channels.fetch(_newState.channelId) as VoiceBasedChannel;
+                    const playerConnection = this.playerConnections.findIndex((connection) => connection.guild.id === oldState.guild.id);
+                    const getPreviousVoiceChannel = await this.client.channels.fetch(oldState.channelId) as VoiceBasedChannel;
+                    const getCurrentVoiceChannel = await this.client.channels.fetch(newState.channelId) as VoiceBasedChannel;
                     await setVoiceChannelStatus(getPreviousVoiceChannel);
                     if ( this.playerConnections[playerConnection].player.queue.current ){
                         await setVoiceChannelStatus(
@@ -118,7 +120,10 @@ export class Pona {
                             `กำลังฟัง ${this.playerConnections[playerConnection].player.queue.current.title} โดย ${this.playerConnections[playerConnection].player.queue.current.author}`
                         );
                     }
+                    this.playerConnections[playerConnection].player.voiceState.channel_id = getCurrentVoiceChannel.id;
+                    this.playerConnections[playerConnection].player.setVoiceChannel(getCurrentVoiceChannel.id);
                     this.playerConnections[playerConnection].voiceChannel = getCurrentVoiceChannel;
+                    this.saveSessionOnFile();
                 }
             }
         });
@@ -161,6 +166,14 @@ export class Pona {
             console.log(consolePrefix.discord + '\x1b[32mRegis Slash commands successfully!\x1b[0m');
         else
             console.log(consolePrefix.discord + '\x1b[31mRegis Slash commands failed :(\x1b[0m');
+    }
+
+    public setWelcomeMessage() {
+        this.client.user?.setActivity({
+            name: welcomeMessage,
+            type: ActivityType.Custom,
+            url: 'https://pona.ponlponl123.com/'
+        })
     }
 
     public saveGuildSettings(guild: Guild, settings: GuildSettings): boolean {

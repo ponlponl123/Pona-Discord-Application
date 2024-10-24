@@ -1,5 +1,6 @@
 import { CacheType, CommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, GuildMember, CommandInteractionOption } from "discord.js";
 import { lavaPlayer } from "@/interfaces/lavaPlayer";
+import isAvailable from "@/utils/magma/isAvailable";
 import errorEmbedBuilder from "@/utils/embeds/error";
 
 import playSubsystem from './music/play';
@@ -69,6 +70,13 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: CommandInteraction) {
     const member = interaction.member as GuildMember;
     const subCommand = (interaction.options as CommandInteractionOptionResolver<CacheType>).getSubcommand();
+    const isLavalinkIsAvailable = await isAvailable();
+
+    if ( !isLavalinkIsAvailable )
+        return interaction.reply({
+            embeds: [errorEmbedBuilder('Service is not available right now :(, please try again later.')],
+            ephemeral: true
+        });
 
     switch ( subCommand ) {
         case 'play':

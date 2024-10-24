@@ -7,3 +7,8 @@ dotenv.config();
 var local_lang = process.env.LANG || 'en_US';
 
 export const lang = th_TH;
+
+export const langs = [
+    { code: 'th_TH', label: 'ไทย' },
+    { code: 'en_US', label: 'English' },
+];

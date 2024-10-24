@@ -19,13 +19,15 @@ export default async function execute(interaction: CommandInteraction, value: bo
   
     if ( !voiceActionRequirement.isPonaInVoiceChannel ) {
         return interaction.reply({
-            embeds: [warningEmbedBuilder('Pona is not in voice channel.')]
+            embeds: [warningEmbedBuilder('Pona is not in voice channel.')],
+            ephemeral: true
         });
     }
   
     if ( !voiceActionRequirement.isUserInVoiceChannel || !voiceActionRequirement.isUserInSameVoiceChannel ) {
         return interaction.reply({
-            embeds: [warningEmbedBuilder('Please enter a same voice channel.')]
+            embeds: [warningEmbedBuilder('Please enter a same voice channel.')],
+            ephemeral: true
         });
     }
   
@@ -39,6 +41,7 @@ export default async function execute(interaction: CommandInteraction, value: bo
     }
 
     return interaction.reply({
-        embeds: [warningEmbedBuilder('No playback is currently active.')]
+        embeds: [warningEmbedBuilder('No playback is currently active.')],
+        ephemeral: true
     });
 }

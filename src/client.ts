@@ -25,8 +25,9 @@ import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from './utils/isPonaInVoic
 import { welcomeMessage } from './utils/getWelcomeMessage';
 import GuildSettings from './interfaces/guildSettings';
 import { lavalink } from "@/index";
-import { Manager, Node } from 'magmastream';
+import { Manager, Node, Player, Track } from 'magmastream';
 import fs from 'fs';
+import setVoiceChannelStatus from './utils/setVoiceChannelStatus';
 
 export class Pona {
     public readonly prefix = 'pona!';
@@ -49,10 +50,34 @@ export class Pona {
             })
 
             this.registerSlashCommands();
-            lavalink.manager.init(config.DISCORD_CLIENT_ID);
             lavalink.manager.on('nodeConnect', async (node: Node) => {
                 await this.loadSessionFromFile(node.manager);
+                console.log( consolePrefix.lavalink + `\x1b[41mNode "${node.options.identifier}(${node.address})" have ${node.manager.players.size} players\x1b[0m` );
+                node.manager.players.map(async player => {
+                    console.log( consolePrefix.lavalink + 'Founded player: ' + player.guild );
+                })
             })
+            lavalink.manager.on('playerCreate', async (player: Player) => {
+                const getExistPlayer = this.playerConnections.filter( rootPlayer => rootPlayer.player.guild === player.guild );
+                if ( getExistPlayer.length > 0 ) return true;
+                if ( !player.voiceChannel || !player.textChannel ) return false;
+                const voiceChannel = await this.client.channels.fetch(player.voiceChannel) as VoiceBasedChannel;
+                const textChannel = await this.client.channels.fetch(player.textChannel) as TextBasedChannel;
+                const guild = await this.client.guilds.fetch(player.guild) as Guild;
+                const checkIsPlayerIsExist = this.playerConnections.filter( rootPlayer => rootPlayer.player.guild === player.guild );
+                if ( getExistPlayer.length > 0 ) {
+                    console.log( consolePrefix.lavalink + '\x1b[32mIgnore exist player: \x1b[0m\x1b[47m\x1b[30m' + player.guild );
+                    return true;
+                }
+                this.playerConnections.push({
+                    player: player,
+                    voiceChannel: voiceChannel,
+                    textChannel: textChannel,
+                    guild: guild
+                })
+                console.log( consolePrefix.lavalink + '\x1b[32mRestored missing player: \x1b[0m\x1b[47m\x1b[30m' + player.guild );
+            })
+            lavalink.manager.init(config.DISCORD_CLIENT_ID);
         });
     
         this.client.on(Events.GuildCreate, async (guild: Guild) => {
@@ -65,13 +90,35 @@ export class Pona {
         this.client.on(Events.Error, console.error);
 
         this.client.on(Events.VoiceStateUpdate, async (_oldState, _newState): Promise<any> => {
-            if ( _oldState.client.user.username !== (this.client.user as User).username ) return false;
+            if (
+                _oldState.client.user.id !== (this.client.user as User).id
+            ) return;
             if ( _oldState.channelId && !_newState.channelId ) {
                 const getCurrentVoiceChannel = isPonaInVoiceChannel( _oldState.guild.id, false ) as IsPonaInVoiceChannel[];
                 if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'player' ) {
-                    this.playerConnections = this.playerConnections.filter((connection) => connection.guild.id !== _oldState.guild.id)
+                    this.playerConnections = this.playerConnections.filter((connection) => connection.guild.id !== _oldState.guild.id);
+                    await setVoiceChannelStatus((getCurrentVoiceChannel[0][0] as lavaPlayer).voiceChannel);
                 } else if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'voice' ) {
-                    this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== _oldState.guild.id)
+                    this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== _oldState.guild.id);
+                }
+                this.saveSessionOnFile();
+            } else if (
+                (_oldState.channelId && _newState.channelId) &&
+                _oldState.channelId !== _newState.channelId
+            ) {
+                const getCurrentPlayerState = isPonaInVoiceChannel( _oldState.guild.id, 'player' ) as lavaPlayer[];
+                if ( getCurrentPlayerState.length > 0 ) {
+                    const playerConnection = this.playerConnections.findIndex((connection) => connection.guild.id === _oldState.guild.id);
+                    const getPreviousVoiceChannel = await this.client.channels.fetch(_oldState.channelId) as VoiceBasedChannel;
+                    const getCurrentVoiceChannel = await this.client.channels.fetch(_newState.channelId) as VoiceBasedChannel;
+                    await setVoiceChannelStatus(getPreviousVoiceChannel);
+                    if ( this.playerConnections[playerConnection].player.queue.current ){
+                        await setVoiceChannelStatus(
+                            getCurrentVoiceChannel,
+                            `กำลังฟัง ${this.playerConnections[playerConnection].player.queue.current.title} โดย ${this.playerConnections[playerConnection].player.queue.current.author}`
+                        );
+                    }
+                    this.playerConnections[playerConnection].voiceChannel = getCurrentVoiceChannel;
                 }
             }
         });
@@ -186,23 +233,19 @@ export class Pona {
             for ( let i = 0; i < 2; i++ ) {
                 switch ( i ) {
                     case 1:
-                        if ( !fs.existsSync(ponaPlayerStateDir) )
-                            continue;
                         const playerStates = readdirSync(ponaPlayerStateDir).filter((file) => file.endsWith(".json"));
                         for (const state of playerStates) {
-                            const readSession = JSON.parse(fs.readFileSync(path.join(ponaPlayerStateDir, state), "utf8")) as lavaPlayer;
-                            if ( this.playerConnections.filter((e)=>e.guild.id === readSession.guild.id) ) continue;
+                            const readSession = JSON.parse(fs.readFileSync(path.join(ponaPlayerStateDir, state), "utf8"));
+                            if ( this.playerConnections.filter((e) => e.guild.id === readSession.guild.id).length > 0 ) continue;
                             fs.unlinkSync(path.join(ponaPlayerStateDir, state));
                             console.log(consolePrefix.discord + `\x1b[32mDrop inactive player: \x1b[0m\x1b[47m\x1b[30m ${readSession.guild.id} \x1b[0m`);
                         }
                         continue;
                     case 2:
-                        if ( !fs.existsSync(ponaVoiceStateDir) )
-                            continue;
                         const voiceStates = readdirSync(ponaVoiceStateDir).filter((file) => file.endsWith(".json"));
                         for (const state of voiceStates) {
                             const readSession = JSON.parse(fs.readFileSync(path.join(ponaVoiceStateDir, state), "utf8")) as VoiceConnection;
-                            if ( this.voiceConnections.filter((e)=>e.joinConfig.guildId === readSession.joinConfig.guildId) ) continue;
+                            if ( this.voiceConnections.filter((e)=>e.joinConfig.guildId === readSession.joinConfig.guildId).length > 0 ) continue;
                             fs.unlinkSync(path.join(ponaVoiceStateDir, state));
                             console.log(consolePrefix.discord + `\x1b[32mDrop inactive player: \x1b[0m\x1b[47m\x1b[30m ${readSession.joinConfig.guildId} \x1b[0m`);
                         }
@@ -262,13 +305,18 @@ export class Pona {
                     console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}!\nPlayer is never in lavalink\x1b[0m`)
                     return;
                 }
-                this.playerConnections.push({
-                    player: player,
-                    voiceChannel: fetchGuildData.channels.cache.get(playerConnectionData.voiceChannel.id) as VoiceBasedChannel,
-                    textChannel: fetchGuildData.channels.cache.get(playerConnectionData.textChannel.id) as TextBasedChannel,
-                    guild: fetchGuildData
-                });
-                console.log(consolePrefix.discord + `\x1b[32mReconnected to player: \x1b[0m\x1b[47m\x1b[30m ${playerConnectionData.player} \x1b[0m`);
+                const getExistPlayer = this.playerConnections.filter( rootPlayer => rootPlayer.player.guild === player.guild );
+                if ( getExistPlayer.length > 0 ) {
+                    console.log(consolePrefix.discord + `\x1b[32mIgnore exist player: \x1b[0m\x1b[47m\x1b[30m ${playerConnectionData.player} \x1b[0m`);
+                } else {
+                    this.playerConnections.push({
+                        player: player,
+                        voiceChannel: fetchGuildData.channels.cache.get(playerConnectionData.voiceChannel.id) as VoiceBasedChannel,
+                        textChannel: fetchGuildData.channels.cache.get(playerConnectionData.textChannel.id) as TextBasedChannel,
+                        guild: fetchGuildData
+                    });
+                    console.log(consolePrefix.discord + `\x1b[32mReconnected to player: \x1b[0m\x1b[47m\x1b[30m ${playerConnectionData.player} \x1b[0m`);
+                }
             } else {
                 for ( let i = 0; i < 2; i++ ) {
                     switch ( i ) {
@@ -279,19 +327,24 @@ export class Pona {
                             for (const state of playerStates) {
                                 const playerConnectionData = JSON.parse(fs.readFileSync(path.join(ponaPlayerStateDir, state), "utf8"));
                                 if ( !playerConnectionData.player ) {
-                                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}!\nPlayerId is not define in session file\x1b[0m`)
+                                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}! (PlayerId is not define in session file) \x1b[0m`)
                                     continue
                                 }
                                 const fetchGuildData = await this.client.guilds.fetch(playerConnectionData.player) as Guild;
                                 const player = lavalink.get(fetchGuildData.id);
                                 if ( !player ) {
-                                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}!\nPlayer is never in lavalink\x1b[0m`);
+                                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}! (Player is never in lavalink)\x1b[0m`);
                                     setTimeout(() => {
-                                        console.log(consolePrefix.discord + `\x1b[90mRetrying to restore session for ${playerConnectionData.player}!\nPlayer is never in lavalink\x1b[0m`);
+                                        console.log(consolePrefix.discord + `\x1b[90mRetrying to restore session for ${playerConnectionData.player}!\x1b[0m`);
                                         setTimeout(() => {
                                             this.loadSessionFromFile(lavalink, fetchGuildData.id)
                                         }, 1000);
                                     }, 320);
+                                    continue
+                                }
+                                const getExistPlayer = this.playerConnections.filter( rootPlayer => rootPlayer.player.guild === player.guild );
+                                if ( getExistPlayer.length > 0 ) {
+                                    console.log(consolePrefix.discord + `\x1b[32mIgnore exist player: \x1b[0m\x1b[47m\x1b[30m ${playerConnectionData.player} \x1b[0m`);
                                     continue
                                 }
                                 this.playerConnections.push({

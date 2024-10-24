@@ -22,7 +22,8 @@ export async function execute(interaction: CommandInteraction) {
       .setColor('#F9C5D5');
     
     return interaction.reply({
-      embeds: [embed]
+      embeds: [embed],
+      ephemeral: true
     });
   }
 
@@ -33,10 +34,11 @@ export async function execute(interaction: CommandInteraction) {
       .setColor('#F2789F');
     
     return interaction.reply({
-      embeds: [embed]
+      embeds: [embed],
+      ephemeral: true
     });
   }
-  
+
   if ( interaction.channel && interaction.guild?.id && member.voice.channel ) {
     const player = await joinVoiceChannel(
       interaction.channel,
@@ -60,6 +62,7 @@ export async function execute(interaction: CommandInteraction) {
     .setColor('DarkRed');
   
   return interaction.reply({
-    embeds: [embed]
+    embeds: [embed],
+    ephemeral: true
   });
 }

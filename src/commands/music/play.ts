@@ -37,7 +37,8 @@ export default async function execute(interaction: CommandInteraction) {
             .setColor('#F2789F');
         
         return interaction.reply({
-            embeds: [embed]
+            embeds: [embed],
+            ephemeral: true
         });
     }
 
@@ -59,7 +60,8 @@ export default async function execute(interaction: CommandInteraction) {
               .setColor('DarkRed');
             
             return interaction.reply({
-              embeds: [embed]
+              embeds: [embed],
+              ephemeral: true
             });
         }
     }
@@ -78,7 +80,8 @@ export default async function execute(interaction: CommandInteraction) {
             .setColor('#F2789F');
         
         return interaction.reply({
-            embeds: [embed]
+            embeds: [embed],
+            ephemeral: true
         });
     }
 
@@ -88,7 +91,8 @@ export default async function execute(interaction: CommandInteraction) {
           .setColor('DarkRed');
         
         return interaction.reply({
-          embeds: [embed]
+          embeds: [embed],
+          ephemeral: true
         });
     }
 
@@ -162,6 +166,7 @@ export default async function execute(interaction: CommandInteraction) {
       .setColor('#F9C5D5');
     
     return interaction.reply({
-      embeds: [embed]
+      embeds: [embed],
+      ephemeral: true
     });
 }

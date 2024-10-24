@@ -26,7 +26,8 @@ export default async function execute(interaction: CommandInteraction) {
             .setColor('#F2789F');
         
         return interaction.reply({
-            embeds: [embed]
+            embeds: [embed],
+            ephemeral: true
         });
     }
 
@@ -42,11 +43,12 @@ export default async function execute(interaction: CommandInteraction) {
                 .setColor('#F2789F');
             
             return interaction.reply({
-                embeds: [embed]
+                embeds: [embed],
+                ephemeral: true
             });
         }
 
-        if ( leaveVoiceChannelAsPlayer(currentConnectionInGuild[0].guild.id) )
+        if ( await leaveVoiceChannelAsPlayer(currentConnectionInGuild[0].guild.id) )
         {
             const embed = new EmbedBuilder()
               .setDescription('<:Check:1298270444150980619> · **Leaved**!')
@@ -63,6 +65,7 @@ export default async function execute(interaction: CommandInteraction) {
       .setColor('#F2789F');
     
     return interaction.reply({
-      embeds: [embed]
+      embeds: [embed],
+      ephemeral: true
     });
 }

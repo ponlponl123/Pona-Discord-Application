@@ -6,6 +6,7 @@ import playSubsystem from './music/play';
 import stopSubsystem from './music/leave';
 import skipSubsystem from './music/skip';
 import pauseSubsystem from './music/pause';
+import queueSubsystem from './music/queue';
 import loopSubsystem from './music/loop';
 import loopQueueSubsystem from './music/loop_queue';
 
@@ -38,6 +39,10 @@ export const data = new SlashCommandBuilder()
     .addSubcommand(subcommand => subcommand
         .setName('skip')
         .setDescription('Skip current track')
+    )
+    .addSubcommand(subcommand => subcommand
+        .setName('queue')
+        .setDescription('Display queue information')
     )
     .addSubcommand(subcommand => subcommand
         .setName('loop')
@@ -78,33 +83,56 @@ export async function execute(interaction: CommandInteraction) {
                 const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
                 return pauseSubsystem(interaction, playback.length > 0 && !playback[0].player.paused);
             }
+        case 'queue':
+            return queueSubsystem(interaction);
         case 'loop':
             {
                 const state = interaction.options.get('state') as CommandInteractionOption<CacheType>;
                 switch (state.value) {
                     case 'track':
                         {
-                            loopSubsystem(interaction, true, false);
-                            return interaction.reply({
-                                content: 'Repeat state: Only this track'
-                            })
+                            if (
+                                await loopSubsystem(interaction, true, false) === true &&
+                                interaction.isRepliable()
+                            )
+                                return interaction.reply({
+                                    content: 'Repeat state: Only this track'
+                                })
+                            else
+                                return;
                         }
                     case 'queue':
                         {
-                            loopQueueSubsystem(interaction, true, false);
-                            return interaction.reply({
-                                content: 'Repeat state: This queue'
-                            })
+                            if (
+                                await loopQueueSubsystem(interaction, true, false) === true &&
+                                interaction.isRepliable()
+                            )
+                                return interaction.reply({
+                                    content: 'Repeat state: This queue'
+                                })
+                            else
+                                return;
                         }
                     default:
                         {
-                            loopSubsystem(interaction, false, false);
-                            loopQueueSubsystem(interaction, false, false);
-                            return interaction.reply({
-                                content: 'Repeat state: Off'
-                            })
+                            if (
+                                await loopSubsystem(interaction, false, false) === true &&
+                                interaction.isRepliable()
+                            )
+                                if (
+                                    await loopQueueSubsystem(interaction, false, false) === true &&
+                                    interaction.isRepliable()
+                                )
+                                    return interaction.reply({
+                                        content: 'Repeat state: Off'
+                                    })
+                                else
+                                    return;
+                            else
+                                return;
                         }
                 }
+                return;
             }
         default:
             return interaction.reply({

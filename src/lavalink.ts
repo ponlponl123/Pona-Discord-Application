@@ -1,13 +1,16 @@
 import {
     Manager,
     Node,
-    NodeOptions
+    NodeOptions,
+    Player,
+    Track,
+    UnresolvedTrack
 } from "magmastream";
 import { prefix as consolePrefix } from "./config/console";
 import { discordClient as self } from "@/index";
 import { config as discordConf } from "./config/discord";
 import { config } from "./config/lavalink";
-import { Events, User } from "discord.js";
+import discord, { Routes, VoiceBasedChannel } from "discord.js";
 import leaveVoiceChannelAsPlayer from "./utils/magma/leaveVoiceChannelAsPlayer";
 
 export class LavalinkServer {
@@ -46,18 +49,35 @@ export class LavalinkServer {
 
         this.manager.on('trackStart', async (player, track) => {
             self.saveSessionOnFile();
-            if ( !player.textChannel ) return false;
-            const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
-            (channel && channel.isSendable()) && channel.send(`Now playing: \`${track.title}\`, requested by \`${(track.requester as User).username}\`.`);
+            // set voice channel status to current playing track
+            if ( !player.voiceChannel ) return false;
+            const rest = new discord.REST({ version: "10" }).setToken(discordConf.DISCORD_TOKEN);
+            await rest.put((Routes.channel(player.voiceChannel) + '/voice-status' as discord.RouteLike), {
+                body: {"status": `กำลังฟัง ${track.title} โดย ${track.author}`}
+            })
+
+            // Notify currently playing to text channel
+            // if ( !player.textChannel ) return false;
+            // const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
+            // (channel && channel.isSendable()) && channel.send(`Now playing: \`${track.title}\`, requested by \`${(track.requester as User).username}\`.`);
         });
 
         // Emitted the player queue ends
         this.manager.on('queueEnd', async (player) => {
+            // set voice channel status to null
+            if ( player.voiceChannel ) {
+                const rest = new discord.REST({ version: "10" }).setToken(discordConf.DISCORD_TOKEN);
+                await rest.put((Routes.channel(player.voiceChannel) + '/voice-status' as discord.RouteLike), {
+                    body: {"status": null}
+                })
+            }
+
             leaveVoiceChannelAsPlayer(player.guild);
-            self.saveSessionOnFile();
-            if ( !player.textChannel ) return false;
-            const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
-            (channel && channel.isSendable()) && channel.send('Queue has ended.');
+
+            // Notify queue ended to text channel
+            // if ( !player.textChannel ) return false;
+            // const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
+            // (channel && channel.isSendable()) && channel.send('Queue has ended.');
         });
 
         // Emitted whenever a node connects
@@ -68,6 +88,18 @@ export class LavalinkServer {
         // The error event, which you should handle otherwise your application will crash when an error is emitted
         this.manager.on("nodeError", (node: Node, error: Error) => {
             console.log(consolePrefix.lavalink + `Node "${node.options.identifier}" encountered an error: ${error.message}.`);
+        });
+
+        this.manager.on('playerCreate', async (player: Player) => {
+            console.log( consolePrefix.lavalink + `Player Created, playing ${player.queue.current?.title} for ${player.guild}` )
+        });
+
+        this.manager.on('chaptersLoaded', async (player: Player, track: UnresolvedTrack | Track) => {
+            console.log( consolePrefix.lavalink + `Player chaptersLoaded, Continue playing ${player.queue.current?.title} for ${player.guild}` )
+        });
+
+        this.manager.on('segmentsLoaded', async (player: Player, track: UnresolvedTrack | Track) => {
+            console.log( consolePrefix.lavalink + `Player segmentsLoaded, Continue playing ${player.queue.current?.title} for ${player.guild}` )
         });
     }
 }

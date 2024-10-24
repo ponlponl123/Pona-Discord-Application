@@ -2,12 +2,26 @@
   "name": "pona-discord-application",
   "version": "1.0.0",
   "description": "A useful discord bot",
-  "main": "main.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    "require": {
+      "types": "./dist/index.d.cts",
+      "default": "./dist/index.cjs"
+    },
+    "import": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "bin": "./dist/cli.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "build": "tsup src/index.ts --minify"
+    "type-check": "tsc --noEmit",
+    "start": "node -r ./tsconfig-paths.js dist/index.js",
+    "build": "npx tsc"
   },
   "repository": {
     "type": "git",
@@ -42,7 +56,8 @@
     "ffmpeg-static": "^5.2.0",
     "magmastream": "^2.6.0-beta.5",
     "socket.io": "^4.7.5",
-    "sodium-native": "^4.2.1"
+    "sodium-native": "^4.2.1",
+    "tsconfig-paths": "^4.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.7.0",
@@ -54,6 +69,7 @@
     "eslint-plugin-n": "^16.6.2",
     "eslint-plugin-promise": "^6.4.0",
     "globals": "^15.8.0",
+    "pkgroll": "^2.5.0",
     "tsup": "^8.3.0",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",

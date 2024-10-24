@@ -17,17 +17,17 @@ import {
     DiscordGatewayAdapterCreator,
     VoiceConnection
 } from '@discordjs/voice';
-import { config } from './config/discord';
-import slashCommand from './interfaces/command';
-import { lavaPlayer } from './interfaces/lavaPlayer';
-import { prefix as consolePrefix } from 'config/console'
-import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from './utils/isPonaInVoiceChannel';
-import { welcomeMessage } from './utils/getWelcomeMessage';
-import GuildSettings from './interfaces/guildSettings';
+import { config } from '@config/discord';
+import slashCommand from '@interfaces/command';
+import { lavaPlayer } from '@interfaces/lavaPlayer';
+import { prefix as consolePrefix } from '@config/console'
+import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from '@utils/isPonaInVoiceChannel';
+import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
+import { welcomeMessage } from '@utils/getWelcomeMessage';
+import GuildSettings from '@interfaces/guildSettings';
 import { lavalink } from "@/index";
 import { Manager, Node, Player, Track } from 'magmastream';
 import fs from 'fs';
-import setVoiceChannelStatus from './utils/setVoiceChannelStatus';
 
 export class Pona {
     public readonly prefix = 'pona!';

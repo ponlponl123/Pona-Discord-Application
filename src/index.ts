@@ -1,9 +1,9 @@
 import { Pona } from './client'
 import { LavalinkServer } from './lavalink'
-import { createHttpServer } from 'server/main'
+import { createHttpServer } from '@server/main'
 import { Client, IntentsBitField } from 'discord.js'
-import { config as discordConf } from 'config/discord'
-import { config as expressConf } from 'config/express'
+import { config as discordConf } from '@config/discord'
+import { config as expressConf } from '@config/express'
 
 export const config = discordConf;
 

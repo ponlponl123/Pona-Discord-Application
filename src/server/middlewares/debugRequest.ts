@@ -1,5 +1,5 @@
 import express from "express";
-import { prefix as consolePrefix } from 'config/console'
+import { prefix as consolePrefix } from '@config/console'
 
 export default function Debugger(app: express.Application) {
     app.use(( req: express.Request, res: express.Response, next: express.NextFunction) => {

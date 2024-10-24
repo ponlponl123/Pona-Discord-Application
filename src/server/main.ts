@@ -3,7 +3,7 @@ import { HttpStatusCode } from 'axios';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 
-import { prefix as consolePrefix } from 'config/console'
+import { prefix as consolePrefix } from '@config/console'
 
 // Middleware handlers
 import Middleware_errorHandler from './middlewares/errorHandle'

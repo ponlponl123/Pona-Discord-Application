@@ -1,8 +1,8 @@
 import { REST, Routes } from "discord.js";
-import { config } from "config/discord";
-import { commands } from "commands/index";
+import { config } from "@config/discord";
+import { commands } from "@commands/index";
 
-import { prefix as consolePrefix } from 'config/console'
+import { prefix as consolePrefix } from '@config/console'
 
 const commandsData = Object.values(commands).map((command) => command.data);
 

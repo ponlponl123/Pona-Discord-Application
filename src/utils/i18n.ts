@@ -9,7 +9,7 @@ var default_lang = process.env.LANG || 'en_US';
 export default interface language {
     code: string;
     label: string;
-    data: object; // json file data
+    data: object;
 }
 
 export const langs = [

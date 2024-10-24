@@ -74,7 +74,7 @@ export async function execute(interaction: CommandInteraction) {
 
     if ( !isLavalinkIsAvailable )
         return interaction.reply({
-            embeds: [errorEmbedBuilder('Service is not available right now :(, please try again later.')],
+            embeds: [errorEmbedBuilder('Service is not available right now :(')],
             ephemeral: true
         });
 

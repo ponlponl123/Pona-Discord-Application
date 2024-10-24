@@ -25,9 +25,9 @@ export default async function joinChannel(channel: TextBasedChannel, voiceChanne
         });
 
         player.bands = [
-            0.12, 0.32, 0.48, 0.36, 0.24, 0.12,
-            0, -0.1, -0.18, -0.16, 0.12, 0.15,
-            0.12, 0.26, 0.17
+            0.22, 0.32, 0.78, 0.66, 0.44, 0.22,
+            0, -0.1, -0.18, -0.16, 0.22, 0.15,
+            0.22, 0.56, 0.37
         ]
 
         return player;

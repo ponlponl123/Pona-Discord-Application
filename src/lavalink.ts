@@ -69,9 +69,5 @@ export class LavalinkServer {
         this.manager.on("nodeError", (node: Node, error: Error) => {
             console.log(consolePrefix.lavalink + `Node "${node.options.identifier}" encountered an error: ${error.message}.`);
         });
-
-        self.client.on(Events.ClientReady, (e) => {
-            this.manager.init(clientId);
-        })
     }
 }

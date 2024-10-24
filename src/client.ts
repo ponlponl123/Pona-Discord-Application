@@ -23,7 +23,9 @@ import { lavaPlayer } from './interfaces/lavaPlayer';
 import { prefix as consolePrefix } from 'config/console'
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from './utils/isPonaInVoiceChannel';
 import { welcomeMessage } from './utils/getWelcomeMessage';
+import GuildSettings from './interfaces/guildSettings';
 import { lavalink } from "@/index";
+import { Manager, Node } from 'magmastream';
 import fs from 'fs';
 
 export class Pona {
@@ -47,7 +49,10 @@ export class Pona {
             })
 
             this.registerSlashCommands();
-            this.loadSessionFromFile();
+            lavalink.manager.init(config.DISCORD_CLIENT_ID);
+            lavalink.manager.on('nodeConnect', async (node: Node) => {
+                await this.loadSessionFromFile(node.manager);
+            })
         });
     
         this.client.on(Events.GuildCreate, async (guild: Guild) => {
@@ -111,9 +116,59 @@ export class Pona {
             console.log(consolePrefix.discord + '\x1b[31mRegis Slash commands failed :(\x1b[0m');
     }
 
+    public saveGuildSettings(guild: Guild, settings: GuildSettings): boolean {
+        if ( !guild.id ) return false;
+        console.log( consolePrefix.discord + '\x1b[33mSaving guild setting: ' + guild.id + '\x1b[0m');
+        // find ponaState directory in root directory
+        const ponaStateDir = path.join(__dirname, "..", "ponaState");
+        const guildSettingDir = path.join(ponaStateDir, "guildSettings");
+
+        // create directory if not exists
+        if (!fs.existsSync(ponaStateDir) )
+            fs.mkdirSync(ponaStateDir);
+        if (!fs.existsSync(guildSettingDir) )
+            fs.mkdirSync(guildSettingDir);
+
+        const settingsFilePath = path.join(guildSettingDir, `${guild.id}.json`);
+        fs.writeFileSync(settingsFilePath, JSON.stringify(settings));
+
+        console.log( consolePrefix.discord + '\x1b[32bSaved guild setting: ' + guild.id + '\x1b[0m');
+
+        return true;
+    }
+
+    public loadGuildSettings(guild: Guild): GuildSettings | undefined {
+        if ( !guild.id ) return;
+        console.log( consolePrefix.discord + '\x1b[33mLoading guild setting: ' + guild.id + '\x1b[0m');
+        // find ponaState directory in root directory
+        const ponaStateDir = path.join(__dirname, "..", "ponaState");
+        const guildSettingDir = path.join(ponaStateDir, "guildSettings");
+
+        // check if directory exists
+        if ( !fs.existsSync(ponaStateDir) || !fs.existsSync(guildSettingDir) )
+        {
+            console.log( consolePrefix.discord + '\x1b[33bLoaded guild setting: ' + guild.id + ' Failed.\nRoot state directory not exist\x1b[0m');
+            return;
+        }
+
+        const settingsFilePath = path.join(guildSettingDir, `${guild.id}.json`);
+        if (!fs.existsSync(settingsFilePath) )
+        {
+            console.log( consolePrefix.discord + '\x1b[33bLoad guild setting: ' + guild.id + ' Failed.\nSettings file not exist\x1b[0m');
+            return;
+        }
+        
+        const settingsData = fs.readFileSync(settingsFilePath, "utf-8");
+        const settings: GuildSettings = JSON.parse(settingsData);
+
+        console.log( consolePrefix.discord + '\x1b[32bLoaded guild setting: ' + guild.id + '\x1b[0m');
+
+        return settings;
+    }
+
     public saveSessionOnFile() {
         // Implement saving session to file
-        console.log(consolePrefix.system + "\x1b[33mSaving session to file...\x1b[0m");
+        console.log(consolePrefix.discord + "\x1b[33mSaving session to file...\x1b[0m");
         try {
             // find ponaState directory in root directory
             const ponaStateDir = path.join(__dirname, "..", "ponaState");
@@ -127,6 +182,35 @@ export class Pona {
                 fs.mkdirSync(ponaPlayerStateDir);
             if (!fs.existsSync(ponaVoiceStateDir) )
                 fs.mkdirSync(ponaVoiceStateDir);
+
+            for ( let i = 0; i < 2; i++ ) {
+                switch ( i ) {
+                    case 1:
+                        if ( !fs.existsSync(ponaPlayerStateDir) )
+                            continue;
+                        const playerStates = readdirSync(ponaPlayerStateDir).filter((file) => file.endsWith(".json"));
+                        for (const state of playerStates) {
+                            const readSession = JSON.parse(fs.readFileSync(path.join(ponaPlayerStateDir, state), "utf8")) as lavaPlayer;
+                            if ( this.playerConnections.filter((e)=>e.guild.id === readSession.guild.id) ) continue;
+                            fs.unlinkSync(path.join(ponaPlayerStateDir, state));
+                            console.log(consolePrefix.discord + `\x1b[32mDrop inactive player: \x1b[0m\x1b[47m\x1b[30m ${readSession.guild.id} \x1b[0m`);
+                        }
+                        continue;
+                    case 2:
+                        if ( !fs.existsSync(ponaVoiceStateDir) )
+                            continue;
+                        const voiceStates = readdirSync(ponaVoiceStateDir).filter((file) => file.endsWith(".json"));
+                        for (const state of voiceStates) {
+                            const readSession = JSON.parse(fs.readFileSync(path.join(ponaVoiceStateDir, state), "utf8")) as VoiceConnection;
+                            if ( this.voiceConnections.filter((e)=>e.joinConfig.guildId === readSession.joinConfig.guildId) ) continue;
+                            fs.unlinkSync(path.join(ponaVoiceStateDir, state));
+                            console.log(consolePrefix.discord + `\x1b[32mDrop inactive player: \x1b[0m\x1b[47m\x1b[30m ${readSession.joinConfig.guildId} \x1b[0m`);
+                        }
+                        continue;
+                    default:
+                        continue;
+                }
+            }
             
             // save session data to a file
             this.playerConnections.map((e) => {
@@ -142,15 +226,15 @@ export class Pona {
                 fs.writeFileSync(path.join(ponaVoiceStateDir, `${e.joinConfig.guildId}.json`), JSON.stringify(e));
             })
                 
-            console.log(consolePrefix.system + "\x1b[32mSession saved successfully!\x1b[0m");
+            console.log(consolePrefix.discord + "\x1b[32mSession saved successfully!\x1b[0m");
         } catch (e) {
-            console.log(consolePrefix.system + "\x1b[32mSession saved failed :(\x1b[0m\n", e);
+            console.log(consolePrefix.discord + "\x1b[31mSession saved failed :(\x1b[0m\n", e);
         }
     }
 
-    private loadSessionFromFile() {
+    private async loadSessionFromFile(lavalink: Manager, restore?: string): Promise<void> {
         // Implement loading session from file
-        console.log(consolePrefix.system + "\x1b[33mLoading session from file...\x1b[0m");
+        console.log(consolePrefix.discord + "\x1b[33mLoading session from file...\x1b[0m");
         try {
             // find ponaState directory in root directory
             const ponaStateDir = path.join(__dirname, "..", "ponaState");
@@ -160,47 +244,86 @@ export class Pona {
             // check if directory exists
             if ( !fs.existsSync(ponaStateDir) )
                 return;
-            
-            for ( let i = 0; i < 2; i++ ) {
-                switch ( i ) {
-                    case 1:
-                        if ( !fs.existsSync(ponaPlayerStateDir) )
+
+            if ( restore ) {
+                const guild = await this.client.guilds.fetch(restore) as Guild;
+                if (!guild ) {
+                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for guild ${restore}!\nGuild not found\x1b[0m`)
+                    return;
+                }
+                const playerConnectionData = JSON.parse(fs.readFileSync(path.join(ponaPlayerStateDir, `${guild.id}.json`), "utf8"));
+                if ( !playerConnectionData.player ) {
+                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${guild.id}!\nPlayerId is not define in session file\x1b[0m`)
+                    return;
+                }
+                const fetchGuildData = await this.client.guilds.fetch(playerConnectionData.player) as Guild;
+                const player = lavalink.get(playerConnectionData.player);
+                if ( !player ) {
+                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}!\nPlayer is never in lavalink\x1b[0m`)
+                    return;
+                }
+                this.playerConnections.push({
+                    player: player,
+                    voiceChannel: fetchGuildData.channels.cache.get(playerConnectionData.voiceChannel.id) as VoiceBasedChannel,
+                    textChannel: fetchGuildData.channels.cache.get(playerConnectionData.textChannel.id) as TextBasedChannel,
+                    guild: fetchGuildData
+                });
+                console.log(consolePrefix.discord + `\x1b[32mReconnected to player: \x1b[0m\x1b[47m\x1b[30m ${playerConnectionData.player} \x1b[0m`);
+            } else {
+                for ( let i = 0; i < 2; i++ ) {
+                    switch ( i ) {
+                        case 1:
+                            if ( !fs.existsSync(ponaPlayerStateDir) )
+                                continue;
+                            const playerStates = readdirSync(ponaPlayerStateDir).filter((file) => file.endsWith(".json"));
+                            for (const state of playerStates) {
+                                const playerConnectionData = JSON.parse(fs.readFileSync(path.join(ponaPlayerStateDir, state), "utf8"));
+                                if ( !playerConnectionData.player ) {
+                                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}!\nPlayerId is not define in session file\x1b[0m`)
+                                    continue
+                                }
+                                const fetchGuildData = await this.client.guilds.fetch(playerConnectionData.player) as Guild;
+                                const player = lavalink.get(fetchGuildData.id);
+                                if ( !player ) {
+                                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}!\nPlayer is never in lavalink\x1b[0m`);
+                                    setTimeout(() => {
+                                        console.log(consolePrefix.discord + `\x1b[90mRetrying to restore session for ${playerConnectionData.player}!\nPlayer is never in lavalink\x1b[0m`);
+                                        setTimeout(() => {
+                                            this.loadSessionFromFile(lavalink, fetchGuildData.id)
+                                        }, 1000);
+                                    }, 320);
+                                    continue
+                                }
+                                this.playerConnections.push({
+                                    player: player,
+                                    voiceChannel: fetchGuildData.channels.cache.get(playerConnectionData.voiceChannel.id) as VoiceBasedChannel,
+                                    textChannel: fetchGuildData.channels.cache.get(playerConnectionData.textChannel.id) as TextBasedChannel,
+                                    guild: fetchGuildData
+                                });
+                                console.log(consolePrefix.discord + `\x1b[32mReconnected to player: \x1b[0m\x1b[47m\x1b[30m ${playerConnectionData.player} \x1b[0m`);
+                            }
                             continue;
-                        const playerStates = readdirSync(ponaPlayerStateDir).filter((file) => file.endsWith(".json"));
-                        for (const state of playerStates) {
-                            const playerConnectionData = JSON.parse(fs.readFileSync(path.join(ponaPlayerStateDir, state), "utf8")) as lavaPlayer;
-                            if ( !playerConnectionData.guild.id ) continue;
-                            const fetchGuildData = this.client.guilds.cache.get(playerConnectionData.guild.id) as Guild;
-                            const player = lavalink.manager.get(fetchGuildData.id);
-                            if ( !player ) continue;
-                            this.playerConnections.push({
-                                player: player,
-                                voiceChannel: fetchGuildData.channels.cache.get(playerConnectionData.voiceChannel.id) as VoiceBasedChannel,
-                                textChannel: fetchGuildData.channels.cache.get(playerConnectionData.textChannel.id) as TextBasedChannel,
-                                guild: fetchGuildData
-                            });
-                        }
-                        continue;
-                    case 2:
-                        if ( !fs.existsSync(ponaVoiceStateDir) )
+                        case 2:
+                            if ( !fs.existsSync(ponaVoiceStateDir) )
+                                continue;
+                            const voiceStates = readdirSync(ponaVoiceStateDir).filter((file) => file.endsWith(".json"));
+                            for (const state of voiceStates) {
+                                const voiceConnectionData = JSON.parse(fs.readFileSync(path.join(ponaVoiceStateDir, state), "utf8")) as VoiceConnection;
+                                if ( !voiceConnectionData.joinConfig.channelId ) continue;
+                                const fetchGuildData = await this.client.guilds.fetch(voiceConnectionData.joinConfig.guildId) as Guild;
+                                this.voiceConnections.push(new VoiceConnection(voiceConnectionData.joinConfig, { adapterCreator: fetchGuildData.voiceAdapterCreator as DiscordGatewayAdapterCreator }));
+                                console.log(consolePrefix.discord + `\x1b[32mReconnected to voice channel: \x1b[0m\x1b[47m\x1b[30m ${voiceConnectionData.joinConfig.channelId} \x1b[0m`);
+                            }
                             continue;
-                        const voiceStates = readdirSync(ponaVoiceStateDir).filter((file) => file.endsWith(".json"));
-                        for (const state of voiceStates) {
-                            const voiceConnectionData = JSON.parse(fs.readFileSync(path.join(ponaVoiceStateDir, state), "utf8")) as VoiceConnection;
-                            if ( !voiceConnectionData.joinConfig.channelId ) continue;
-                            const fetchGuildData = this.client.guilds.cache.get(voiceConnectionData.joinConfig.guildId) as Guild;
-                            this.voiceConnections.push(new VoiceConnection(voiceConnectionData.joinConfig, { adapterCreator: fetchGuildData.voiceAdapterCreator as DiscordGatewayAdapterCreator }));
-                            console.log(consolePrefix.system + `\x1b[32mReconnected to voice channel: \x1b[0m\x1b[47m\x1b[30m ${voiceConnectionData.joinConfig.channelId} \x1b[0m`);
-                        }
-                        continue;
-                    default:
-                        continue;
+                        default:
+                            continue;
+                    }
                 }
             }
 
-            console.log(consolePrefix.system + "\x1b[31mLoad session successfully!\x1b[0m");
+            console.log(consolePrefix.discord + "\x1b[32mLoad session successfully!\x1b[0m");
         } catch (e) {
-            console.log(consolePrefix.system + "\x1b[31mLoad session failed :(\x1b[0m\n", e);
+            console.log(consolePrefix.discord + "\x1b[31mLoad session failed :(\x1b[0m\n", e);
         }
     }
 }

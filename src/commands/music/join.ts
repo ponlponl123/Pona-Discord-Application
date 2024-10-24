@@ -36,7 +36,7 @@ export async function execute(interaction: CommandInteraction) {
       embeds: [embed]
     });
   }
-
+  
   if ( interaction.channel && interaction.guild?.id && member.voice.channel ) {
     const player = await joinVoiceChannel(
       interaction.channel,

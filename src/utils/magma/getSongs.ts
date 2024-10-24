@@ -1,13 +1,13 @@
 import { SearchResult, Track } from 'magmastream';
 import { lavalink } from '@/index'
-import { GuildMember } from 'discord.js';
+import { GuildMember, User } from 'discord.js';
 
-export default async function getSongs(search: string, author: GuildMember): Promise<string | Track> {
+export default async function getSongs(search: string, author: GuildMember): Promise<string | Track[]> {
     let res: SearchResult;
 
     try {
         // Search for tracks using a query or url, using a query searches youtube automatically and the track requester object
-        res = await lavalink.manager.search(search, author);
+        res = await lavalink.manager.search(search, (author.user as User));
         // Check the load type as this command is not that advanced for basics
         if (res.loadType === 'empty') throw res;
         if (res.loadType === 'playlist') {
@@ -21,5 +21,5 @@ export default async function getSongs(search: string, author: GuildMember): Pro
         return 'there was no tracks found with that query.';
     }
 
-    return res.tracks[0];
+    return res.tracks;
 }

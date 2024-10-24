@@ -1,4 +1,9 @@
-import { CommandInteraction, EmbedBuilder, GuildMember, SlashCommandBuilder } from "discord.js";
+import {
+    GuildMember,
+    CommandInteraction,
+    SlashCommandBuilder,
+    EmbedBuilder,
+} from "discord.js";
 import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
 import leaveVoiceChannelAsPlayer from "@/utils/magma/leaveVoiceChannelAsPlayer";
 import { lavaPlayer } from "@/interfaces/lavaPlayer";
@@ -8,7 +13,7 @@ export const data = new SlashCommandBuilder()
   .setDescription("Leave voice channel")
   .setDMPermission(false);
 
-export async function execute(interaction: CommandInteraction) {
+export default async function execute(interaction: CommandInteraction) {
     const member = interaction.member as GuildMember;
     const userVoiceChannel = member.voice.channel;
 

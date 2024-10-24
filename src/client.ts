@@ -145,10 +145,25 @@ export class Pona {
         const commandFiles = readdirSync(commandsDirectory).filter((file) => !file.endsWith(".map"));
       
         for (const file of commandFiles) {
-            if ( file.startsWith('index') || !file.endsWith('.ts') ) continue;
+            if ( file.startsWith('index') || (!file.endsWith('.ts') && !file.endsWith('.js')) ) continue;
 
-            const filePath = `file://${path.resolve(commandsDirectory, file)}`; // Convert to file URL
-            const command: slashCommand = await import(filePath);
+            const filePath_mjs = path.resolve(commandsDirectory, file);
+            const filePath_esm = 'file://' + filePath_mjs;
+            let filePath: string = filePath_esm;
+            let command: slashCommand;
+            try {
+                const test = await import(filePath_esm);
+                command = test;
+            } catch (err) {
+                console.warn('Failed to import ESM module, retrying with MJS');
+                try {
+                    const test = await import(filePath_mjs);
+                    command = test;
+                } catch (err) {
+                    console.error(`Failed to import command at ${filePath_mjs}:`, err);
+                    return;
+                }
+            }
 
             if ('data' in command && 'execute' in command) {
                 this.slashCommands.push(command.data.toJSON());
@@ -157,6 +172,7 @@ export class Pona {
             } else {
                 console.log(consolePrefix.discord + `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
             }
+
         }
         const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
       

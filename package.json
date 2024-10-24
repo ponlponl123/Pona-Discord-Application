@@ -20,8 +20,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/index.ts",
     "type-check": "tsc --noEmit",
-    "start": "node -r ./tsconfig-paths.js dist/index.js",
-    "build": "npx tsc"
+    "start": "node -r ./tsconfig-paths.js dist/index.js --production",
+    "build": "npx tsc --build"
   },
   "repository": {
     "type": "git",

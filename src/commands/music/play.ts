@@ -8,15 +8,17 @@ import {
     ButtonStyle,
     Interaction
 } from "discord.js";
-import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from "@/utils/isPonaInVoiceChannel";
-import joinVoiceChannel from "@/utils/magma/joinVoiceChannelAsPlayer";
-import { lavaPlayer } from "@/interfaces/lavaPlayer";
-import addToQueue from "@/utils/magma/addToQueue";
-import getSongs from "@/utils/magma/getSongs";
+import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from "@utils/isPonaInVoiceChannel";
+import joinVoiceChannel from "@utils/magma/joinVoiceChannelAsPlayer";
+import { lavaPlayer } from "@interfaces/lavaPlayer";
+import { prefix as consolePrefix } from "@config/console";
+import addToQueue from "@utils/magma/addToQueue";
+import getSongs from "@utils/magma/getSongs";
+import errorEmbedBuilder from "@utils/embeds/error";
 
 export const data = new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Command for debugging")
+    .setDescription("Add music to queue")
     .addStringOption(option => option
         .setRequired(true)
         .setName('input')
@@ -55,12 +57,8 @@ export default async function execute(interaction: CommandInteraction) {
         )
 
         if ( !player ) {
-            const embed = new EmbedBuilder()
-              .setDescription('<:X_:1298270493639446548> · **Error occurated, please try again later**!')
-              .setColor('DarkRed');
-            
             return interaction.reply({
-              embeds: [embed],
+              embeds: [errorEmbedBuilder('Cannot join voice channel.')],
               ephemeral: true
             });
         }
@@ -138,7 +136,7 @@ export default async function execute(interaction: CommandInteraction) {
                 await addToQueue(result[0], currentVoiceConnectionInGuild[0]);
                 const embed = new EmbedBuilder()
                     .setTitle(result[0].title)
-                    .setURL(`https://youtube.com/watch?v=${result[0].identifier}`)
+                    .setURL(result[0].identifier.startsWith('https://') ? result[0].identifier : `https://youtu.be/${result[0].identifier}`)
                     .setThumbnail(result[0].thumbnail)
                     .setAuthor({
                         iconURL: member.user.avatarURL() || undefined,
@@ -156,6 +154,7 @@ export default async function execute(interaction: CommandInteraction) {
             }
         } catch (e) {
             await interaction.editReply({ content: 'Confirmation not received within 1 minute, cancelling', embeds: [], components: [] });
+            console.log( consolePrefix.discord + 'Error when listening add queue confirmation:', e );
         }
 
         return response;

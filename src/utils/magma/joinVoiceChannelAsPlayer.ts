@@ -1,9 +1,10 @@
 import { discordClient as self, lavalink } from '@/index';
-import { prefix as consolePrefix } from '@/config/console';
 import { TextBasedChannel, Guild, VoiceBasedChannel } from 'discord.js';
 import { Player } from 'magmastream';
 
 export default async function joinChannel(channel: TextBasedChannel, voiceChannel: VoiceBasedChannel, guild: Guild): Promise<Player | undefined> {
+    if ( !voiceChannel.isVoiceBased() || !voiceChannel.joinable ) return undefined;
+    
     const player: Player = lavalink.manager.create({
         guild: guild.id,
         voiceChannel: voiceChannel.id,

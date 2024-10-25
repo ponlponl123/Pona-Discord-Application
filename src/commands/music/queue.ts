@@ -44,7 +44,7 @@ export default async function execute(interaction: CommandInteraction) {
             .setColor('#F9C5D5')
             .setTitle(playback[0].player.queue.current && playback[0].player.queue.current.title)
             .setURL(playback[0].player.queue.current?.uri || '')
-            .setThumbnail(playback[0].player.queue.current && playback[0].player.queue.current.thumbnail || '')
+            .setThumbnail(playback[0].player.queue.current && playback[0].player.queue.current.thumbnail || null)
             .setDescription(`โดย ${playback[0].player.queue.current?.author}\n‎ `)
             .setFooter({
                 text: `เพิ่มโดย ${playback[0].player.queue.current?.requester?.username}` || '',

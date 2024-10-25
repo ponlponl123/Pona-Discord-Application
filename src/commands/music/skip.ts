@@ -7,6 +7,7 @@ import warningEmbedBuilder from "@/utils/embeds/warning";
 import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@/utils/magma/isVoiceActionRequirement";
 import { lavaPlayer } from "@/interfaces/lavaPlayer";
+import { Track } from "magmastream";
   
 export const data = new SlashCommandBuilder()
     .setName('skip')
@@ -33,10 +34,11 @@ export default async function execute(interaction: CommandInteraction) {
   
     const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
 
-    if ( playback.length > 0 ) {
-        playback[0].player.stop(1);
+    if ( playback.length > 0 && playback[0].player.queue.current ) {
+        const currentTrack = playback[0].player.queue.current as Track;
+        playback[0].player.stop();
         return interaction.reply({
-            content: 'Skipped!'
+            content: `${currentTrack.title} was Skipped!`
         })
     }
 

@@ -11,7 +11,7 @@ Pona! can be streaming audio through twitch.tv, youtube videos, youtube music or
 - [x] Streaming Audio from Youtube, Youtube Music, Twitch.tv, SoundCloud, Spotify
 - [ ] Customize character for specific guild
 - [ ] Setting specific default language for guild
-</br>
+
 - [x] Open Source
 - [x] You can give me a coffee?
 

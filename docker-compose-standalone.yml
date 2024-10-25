@@ -1,0 +1,16 @@
+services:
+  pona:
+    build: .
+    container_name: pona
+    volumes:
+      - ./.env:/pona/.env
+      - ./ponaState/:/pona/ponaState/
+    environment:
+      # ... other environment variables
+      LAVALINK_SERVER: localhost
+      LAVALINK_PORT: 2333
+      LAVALINK_PASSWORD: youshallnotpass
+    expose:
+      - 3000
+    ports:
+      - "3000:3000"

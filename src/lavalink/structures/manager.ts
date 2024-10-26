@@ -4,8 +4,8 @@ import {
 	Structure,
 	TrackUtils
 } from "./utils";
-import { Player } from "./player";
 import { Node } from "./node";
+import { Player } from "./player";
 import managerCheck from "@utils/lavalink/managerCheck";
 import { blockedWords } from "@config/blockedWords";
 import { Collection } from "@discordjs/collection";

@@ -1,3 +1,4 @@
+import { Node } from '@lavalink/structures/node';
 import { NodeOptions } from "./node";
 import { Track, UnresolvedTrack } from "./player";
 import {

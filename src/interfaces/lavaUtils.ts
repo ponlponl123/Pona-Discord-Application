@@ -1,5 +1,6 @@
 import { Player } from '@lavalink/structures/player';
 import { Queue } from '@lavalink/structures/queue'
+import { Node } from '@lavalink/structures/node';
 import { NodeStats } from "./node";
 
 export type LoadType = "track" | "playlist" | "search" | "empty" | "error";

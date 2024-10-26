@@ -5,10 +5,10 @@ import {
     EmbedBuilder,
 } from "discord.js";
 import { discordClient as self } from "@/index";
-import warningEmbedBuilder from "@/utils/embeds/warning";
-import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
-import isVoiceActionRequirement from "@/utils/magma/isVoiceActionRequirement";
-import { lavaPlayer } from "@/interfaces/lavaPlayer";
+import warningEmbedBuilder from "@utils/embeds/warning";
+import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
+import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
+import { lavaPlayer } from "@interfaces/player";
   
 export const data = new SlashCommandBuilder()
     .setName('queue')

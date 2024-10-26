@@ -1,5 +1,5 @@
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from "../isPonaInVoiceChannel";
-import { lavaPlayer } from "@/interfaces/lavaPlayer";
+import { lavaPlayer } from "@interfaces/player";
 import { VoiceConnection } from "@discordjs/voice";
 import { discordClient as self } from "@/index";
 import setVoiceChannelStatus from "../setVoiceChannelStatus";

@@ -1,7 +1,7 @@
 import { CacheType, CommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, GuildMember, CommandInteractionOption } from "discord.js";
-import { lavaPlayer } from "@/interfaces/lavaPlayer";
-import isAvailable from "@/utils/magma/isAvailable";
-import errorEmbedBuilder from "@/utils/embeds/error";
+import { lavaPlayer } from "@interfaces/player";
+import isAvailable from "@utils/player/isAvailable";
+import errorEmbedBuilder from "@utils/embeds/error";
 
 import playSubsystem from './music/play';
 import stopSubsystem from './music/leave';

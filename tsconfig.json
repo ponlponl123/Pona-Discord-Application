@@ -17,6 +17,7 @@
       "@app/*": ["./src/app/*"],
       "@config/*": ["./src/config/*"],
       "@server/*": ["./src/server/*"],
+      "@lavalink/*": ["./src/lavalink/*"],
       "@commands/*": ["./src/commands/*"],
       "@interfaces/*": ["./src/interfaces/*"],
       "@utils/*": ["./src/utils/*"],

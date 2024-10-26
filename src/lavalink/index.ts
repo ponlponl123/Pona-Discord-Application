@@ -1,17 +1,15 @@
-import {
-    Manager,
-    Node,
-    NodeOptions,
-    Player,
-    Track,
-    UnresolvedTrack
-} from "magmastream";
-import { prefix as consolePrefix } from "./config/console";
+import { Manager } from "./structures/manager";
+import { Player } from "./structures/player";
+import { Node } from "./structures/node";
+
+import { NodeOptions } from "@interfaces/node";
+import { Track, UnresolvedTrack } from "@interfaces/player";
 import { discordClient as self } from "@/index";
-import { config as discordConf } from "./config/discord";
-import { config } from "./config/lavalink";
-import discord, { Routes, VoiceBasedChannel } from "discord.js";
-import leaveVoiceChannelAsPlayer from "./utils/magma/leaveVoiceChannelAsPlayer";
+import { prefix as consolePrefix } from "@config/console";
+import { config as discordConf } from "@config/discord";
+import { config } from "@config/lavalink";
+import discord, { Routes } from "discord.js";
+import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
 
 export class LavalinkServer {
     public manager: Manager;
@@ -82,12 +80,12 @@ export class LavalinkServer {
 
         // Emitted whenever a node connects
         this.manager.on('nodeConnect', (node: Node) => {
-            console.log(consolePrefix.lavalink + `Node "${node.options.identifier}" connected.`);
+            console.log( consolePrefix.lavalink + `Node "${node.options.identifier}" connected.` );
         });
 
         // The error event, which you should handle otherwise your application will crash when an error is emitted
         this.manager.on("nodeError", (node: Node, error: Error) => {
-            console.log(consolePrefix.lavalink + `Node "${node.options.identifier}" encountered an error: ${error.message}.`);
+            console.log( consolePrefix.lavalink + `Node "${node.options.identifier}" encountered an error: ${error.message}.` );
         });
 
         this.manager.on('playerCreate', async (player: Player) => {
@@ -103,3 +101,9 @@ export class LavalinkServer {
         });
     }
 }
+
+export * from "./structures/manager";
+export * from "./structures/player";
+export * from "./structures/queue";
+export * from "./structures/utils";
+export * from "./structures/node";

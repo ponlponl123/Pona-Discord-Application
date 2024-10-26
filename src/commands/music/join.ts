@@ -4,9 +4,9 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
 } from "discord.js";
-import isUserInVoiceChannel from "@/utils/isUserIsInVoiceChannel";
-import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
-import joinVoiceChannel from "@/utils/magma/joinVoiceChannelAsPlayer";
+import isUserInVoiceChannel from "@utils/isUserIsInVoiceChannel";
+import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
+import joinVoiceChannel from "@utils/player/joinVoiceChannelAsPlayer";
 
 export const data = new SlashCommandBuilder()
   .setName('join')

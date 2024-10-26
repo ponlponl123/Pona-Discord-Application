@@ -1,7 +1,7 @@
 import { GuildMember } from "discord.js";
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from "../isPonaInVoiceChannel";
-import voiceActionRequirement from "@/interfaces/voiceActionRequirement";
-import { lavaPlayer } from "@/interfaces/lavaPlayer";
+import voiceActionRequirement from "@interfaces/voiceActionRequirement";
+import { lavaPlayer } from "@interfaces/player";
 import { VoiceConnection } from "@discordjs/voice";
 
 export default function isVoiceActionRequirement(member: GuildMember): voiceActionRequirement {

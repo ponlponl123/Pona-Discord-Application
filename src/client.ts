@@ -9,10 +9,8 @@ import {
     Collection,
     Events,
     ActivityType,
-    User,
     VoiceBasedChannel,
-    TextBasedChannel,
-    GuildMemberEditOptions
+    TextBasedChannel
 } from 'discord.js'
 import {
     DiscordGatewayAdapterCreator,
@@ -20,18 +18,20 @@ import {
 } from '@discordjs/voice';
 import { config } from '@config/discord';
 import slashCommand from '@interfaces/command';
-import { lavaPlayer } from '@interfaces/lavaPlayer';
+import { lavaPlayer } from '@/interfaces/player';
 import { prefix as consolePrefix } from '@config/console'
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from '@utils/isPonaInVoiceChannel';
 import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
-import { welcomeMessage } from '@utils/getWelcomeMessage';
+import { getWelcomeMessage } from '@utils/getWelcomeMessage';
 import GuildSettings from '@interfaces/guildSettings';
 import { lavalink } from "@/index";
-import { Manager, Node, Player, Track, VoiceState } from 'magmastream';
+import { Manager, Node, Player } from '@/lavalink';
 import fs from 'fs';
+import { setInterval } from 'timers';
 
 export class Pona {
     public readonly prefix = 'pona!';
+    private readonly heartbeatInterval = setInterval(() => this.heartbeatEvent(this.client), 60 * 1000);
     public slashCommands = new Array<ApplicationCommandDataResolvable>();
     public slashCommandsMap = new Collection<string, slashCommand>();
     public voiceConnections = new Array<VoiceConnection>();
@@ -44,10 +44,7 @@ export class Pona {
         this.client.once(Events.ClientReady, async (event) => {
             this.client.user?.setStatus('idle');
             console.log(consolePrefix.system + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
-            
-            // Welcome message
-            this.intervalEvent(this.client);
-            setInterval(() => this.intervalEvent(this.client), 60 * 1000);
+            this.heartbeatEvent(this.client);
 
             this.registerSlashCommands();
             lavalink.manager.on('nodeConnect', async (node: Node) => {
@@ -206,10 +203,11 @@ export class Pona {
             console.log(consolePrefix.discord + '\x1b[31mRegis Slash commands failed :(\x1b[0m');
     }
 
-    private async intervalEvent(client: Client): Promise<void> {
+    private async heartbeatEvent(client: Client): Promise<void> {
         if ( !client?.user ) return;
+        console.log( consolePrefix.discord + 'Heartbeat interval event received from client' );
         client.user.setActivity({
-            name: welcomeMessage,
+            name: getWelcomeMessage(),
             type: ActivityType.Custom,
             url: 'https://pona.ponlponl123.com/'
         })

@@ -1,6 +1,5 @@
 import { CacheType, CommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, GuildMember, CommandInteractionOption } from "discord.js";
-import errorEmbedBuilder from "@/utils/embeds/error";
-
+import errorEmbedBuilder from "@utils/embeds/error";
 import { langs } from '@utils/i18n';
 
 export const data = new SlashCommandBuilder()

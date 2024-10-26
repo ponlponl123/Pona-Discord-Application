@@ -1,6 +1,6 @@
 import { discordClient as self } from '@/index';
 import { VoiceConnection } from '@discordjs/voice';
-import { lavaPlayer } from '@/interfaces/lavaPlayer';
+import { lavaPlayer } from '@/interfaces/player';
 
 export interface IsPonaInVoiceChannel {
     0: VoiceConnection | lavaPlayer

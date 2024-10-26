@@ -4,9 +4,9 @@ import {
     SlashCommandBuilder,
     EmbedBuilder,
 } from "discord.js";
-import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
-import leaveVoiceChannelAsPlayer from "@/utils/magma/leaveVoiceChannelAsPlayer";
-import { lavaPlayer } from "@/interfaces/lavaPlayer";
+import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
+import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
+import { lavaPlayer } from "@interfaces/player";
 
 export const data = new SlashCommandBuilder()
   .setName("leave")

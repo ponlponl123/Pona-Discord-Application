@@ -3,12 +3,11 @@ import {
     CommandInteraction,
     SlashCommandBuilder,
 } from "discord.js";
-import warningEmbedBuilder from "@/utils/embeds/warning";
-import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
-import isVoiceActionRequirement from "@/utils/magma/isVoiceActionRequirement";
-import { lavaPlayer } from "@/interfaces/lavaPlayer";
-import { Track } from "magmastream";
-  
+import warningEmbedBuilder from "@utils/embeds/warning";
+import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
+import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
+import { lavaPlayer, Track } from "@interfaces/player";
+
 export const data = new SlashCommandBuilder()
     .setName('skip')
     .setDescription('Skip current track')

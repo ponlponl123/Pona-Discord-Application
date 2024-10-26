@@ -60,10 +60,6 @@ i have created a docker compose file to get more easier setting up a whole appli
 
 - the last one is the `lavalink/docker-compose.yml` this is a standalone lavalink server on docker, if u want it.
 
-### Library
-
-This project using a [**Magmastream**](https://github.com/Blackfort-Hosting/magmastream) to stream audio from music/video streaming platfrom to discord rpc.
-
 </br>
 
 #### If u like this project, u can [buy me a coffee](https://buymeacoffee.com/ponlponl123)!

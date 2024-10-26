@@ -9,12 +9,12 @@ import {
     Interaction
 } from "discord.js";
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from "@utils/isPonaInVoiceChannel";
-import joinVoiceChannel from "@utils/magma/joinVoiceChannelAsPlayer";
-import { lavaPlayer } from "@interfaces/lavaPlayer";
+import joinVoiceChannel from "@utils/player/joinVoiceChannelAsPlayer";
 import { prefix as consolePrefix } from "@config/console";
-import addToQueue from "@utils/magma/addToQueue";
-import getSongs from "@utils/magma/getSongs";
 import errorEmbedBuilder from "@utils/embeds/error";
+import addToQueue from "@utils/player/addToQueue";
+import { lavaPlayer } from "@interfaces/player";
+import getSongs from "@utils/player/getSongs";
 
 export const data = new SlashCommandBuilder()
     .setName("play")

@@ -1,6 +1,6 @@
 import { discordClient as self, lavalink } from '@/index';
 import { TextBasedChannel, Guild, VoiceBasedChannel } from 'discord.js';
-import { Player } from 'magmastream';
+import { Player } from '@/lavalink';
 
 export default async function joinChannel(channel: TextBasedChannel, voiceChannel: VoiceBasedChannel, guild: Guild): Promise<Player | undefined> {
     if ( !voiceChannel.isVoiceBased() || !voiceChannel.joinable ) return undefined;

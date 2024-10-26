@@ -1,6 +1,7 @@
-import { SearchResult, Track } from 'magmastream';
 import { lavalink } from '@/index'
 import { GuildMember, User } from 'discord.js';
+import { SearchResult } from '@interfaces/manager';
+import { Track } from '@interfaces/player';
 
 export default async function getSongs(search: string, author: GuildMember): Promise<string | Track[]> {
     let res: SearchResult;

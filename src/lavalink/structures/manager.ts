@@ -135,8 +135,7 @@ export class Manager extends EventEmitter {
 
 				this.create(playerOptions);
 
-				const player = this.get(state.options.guild);
-				if ( !player ) continue;
+				const player = this.get(state.options.guild) as Player;
 				if (!lavaPlayer.state.connected) {
 					try {
 						player.connect();

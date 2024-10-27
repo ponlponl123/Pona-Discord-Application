@@ -334,30 +334,19 @@ export class Node {
 
 	protected async trackEnd(player: Player, track: Track, payload: TrackEndEvent): Promise<void> {
 		const { reason } = payload;
-
 		const oldPlayer = player;
 
-		// If the track failed to load or was cleaned up
-		if (["loadFailed", "cleanup"].includes(reason)) {
+		if (["loadFailed", "cleanup"].includes(reason))
 			this.handleFailedTrack(player, track, payload);
-		}
-		// If the track was forcibly replaced
 		else if (reason === "replaced") {
 			this.manager.emit("trackEnd", player, track, payload);
 			player.queue.previous = player.queue.current;
 		}
-		// If the track ended and it's set to repeat (track or queue)
-		else if (track && (player.trackRepeat || player.queueRepeat)) {
+		else if (track && (player.trackRepeat || player.queueRepeat)) 
 			this.handleRepeatedTrack(player, track, payload);
-		}
-		// If there's another track in the queue
-		else if (player.queue.length) {
+		else if (player.queue.length) 
 			this.playNextTrack(player, track, payload);
-		}
-		// If there are no more tracks in the queue
-		else {
-			await this.queueEnd(player, track, payload);
-		}
+		else await this.queueEnd(player, track, payload);
 		this.manager.emit("playerStateUpdate", oldPlayer, player, "trackChange");
 	}
 
@@ -462,13 +451,13 @@ export class Node {
 	private handleRepeatedTrack(player: Player, track: Track, payload: TrackEndEvent): void {
 		const { queue, trackRepeat, queueRepeat } = player;
 		const { autoPlay } = this.manager.options;
-
+		
 		if ( !queue.current ) return;
 		if (trackRepeat) queue.unshift(queue.current);
 		else if (queueRepeat) queue.add(queue.current);
 
 		queue.previous = queue.current;
-		queue.current = queue.shift() as Track | UnresolvedTrack;
+		if (!queueRepeat) queue.current = queue.shift() as Track | UnresolvedTrack;
 		this.manager.emit("trackEnd", player, track, payload);
 		if (payload.reason === "stopped" && !(queue.current = queue.shift() as Track | UnresolvedTrack)) {
 			this.queueEnd(player, track, payload);

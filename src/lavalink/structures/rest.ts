@@ -37,14 +37,14 @@ export class Rest {
 	}
 
 	private async request(method: string, endpoint: string, body?: unknown): Promise<unknown> {
-		const config: RawAxiosRequestConfig<AxiosRequestConfig<any>> = {
+		const config = {
 			method,
 			url: this.url + endpoint,
 			headers: {
 				"Content-Type": "application/json",
 				Authorization: this.password,
 			},
-			data: body || undefined,
+			data: body,
 		}
 		try {
 			const response = await axios(config);

@@ -1,7 +1,7 @@
 export interface playOptions {
 	guildId: string;
 	data: {
-		encodedTrack?: string;
+		encodedTrack?: string | null;
 		identifier?: string;
 		startTime?: number;
 		endTime?: number;

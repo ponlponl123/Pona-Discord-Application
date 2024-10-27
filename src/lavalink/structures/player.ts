@@ -373,7 +373,7 @@ export class Player {
 		this.node.rest.updatePlayer({
 			guildId: this.guild,
 			data: {
-				encodedTrack: undefined,
+				encodedTrack: null,
 			},
 		});
 		this.manager.emit("playerStateUpdate", oldPlayer, this, "trackChange");

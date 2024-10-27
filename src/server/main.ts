@@ -1,7 +1,7 @@
 import express from 'express'
-import { HttpStatusCode } from 'axios/';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
+import { HttpStatusCode } from 'axios';
 
 import { prefix as consolePrefix } from '@config/console'
 

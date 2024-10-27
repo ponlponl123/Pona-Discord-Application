@@ -1,7 +1,6 @@
 import { Node } from "./node";
 import { playOptions } from "@interfaces/rest";
-import { AxiosRequestConfig } from "axios/";
-import axios from "axios";
+import axios, { AxiosRequestConfig, RawAxiosRequestConfig } from "axios";
 
 export class Rest {
 	private node: Node;
@@ -38,7 +37,7 @@ export class Rest {
 	}
 
 	private async request(method: string, endpoint: string, body?: unknown): Promise<unknown> {
-		const config: Axios.AxiosXHRConfig<AxiosRequestConfig<any>> = {
+		const config: RawAxiosRequestConfig<AxiosRequestConfig<any>> = {
 			method,
 			url: this.url + endpoint,
 			headers: {

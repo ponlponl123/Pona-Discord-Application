@@ -1,5 +1,5 @@
 import express from 'express'
-import { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from 'axios/index';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 

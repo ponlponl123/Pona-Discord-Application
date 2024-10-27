@@ -2,11 +2,14 @@ import {
     GuildMember,
     CommandInteraction,
     SlashCommandBuilder,
+    EmbedBuilder,
 } from "discord.js";
 import warningEmbedBuilder from "@utils/embeds/warning";
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
 import { lavaPlayer } from "@interfaces/player";
+import { getGuildLanguage } from "@/utils/i18n";
+import color from "@/config/embedColor";
   
 export const data = new SlashCommandBuilder()
     .setName('pause')
@@ -15,18 +18,19 @@ export const data = new SlashCommandBuilder()
   
 export default async function execute(interaction: CommandInteraction, value: boolean = true) {
     const member = interaction.member as GuildMember;
+    const lang = getGuildLanguage(member.guild.id);
     const voiceActionRequirement = isVoiceActionRequirement(member);
   
     if ( !voiceActionRequirement.isPonaInVoiceChannel ) {
         return interaction.reply({
-            embeds: [warningEmbedBuilder('Pona is not in voice channel.')],
+            embeds: [warningEmbedBuilder(lang.data.music.errors.pona_not_in_voice_channel)],
             ephemeral: true
         });
     }
   
     if ( !voiceActionRequirement.isUserInVoiceChannel || !voiceActionRequirement.isUserInSameVoiceChannel ) {
         return interaction.reply({
-            embeds: [warningEmbedBuilder('Please enter a same voice channel.')],
+            embeds: [warningEmbedBuilder(lang.data.music.errors.not_same_voice_channel)],
             ephemeral: true
         });
     }
@@ -35,13 +39,16 @@ export default async function execute(interaction: CommandInteraction, value: bo
 
     if ( playback.length > 0 ) {
         playback[0].player.pause(value);
+        const repeatStateEmbed = new EmbedBuilder()
+            .setTitle(`<:Revertarrow:1299947479571107942> · ${value ? lang.data.music.state.paused.true : lang.data.music.state.paused.false}`)
+            .setColor(color('focus'));
         return interaction.reply({
-            content: value ? 'Playback paused.' : 'Playback resume.'
-        });
+            embeds: [repeatStateEmbed]
+        })
     }
 
     return interaction.reply({
-        embeds: [warningEmbedBuilder('No playback is currently active.')],
+        embeds: [warningEmbedBuilder(lang.data.music.errors.no_player_active)],
         ephemeral: true
     });
 }

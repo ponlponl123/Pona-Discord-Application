@@ -1,6 +1,6 @@
 import { Pona } from './client'
 import { LavalinkServer } from './lavalink'
-import { createHttpServer } from '@server/main'
+import { apiServer as createAPIServer } from '@server/main'
 import { Client, IntentsBitField } from 'discord.js'
 import { config as discordConf } from '@config/discord'
 import { config as expressConf } from '@config/express'
@@ -13,6 +13,7 @@ const client = new Client({
         "GuildMessages",
         "DirectMessages",
         "MessageContent",
+        "GuildMessagePolls",
         "GuildMessageReactions",
         IntentsBitField.Flags.GuildVoiceStates
     ],
@@ -20,4 +21,4 @@ const client = new Client({
 
 export const discordClient = new Pona(client);
 export const lavalink = new LavalinkServer(discordClient.client.user?.id || config.DISCORD_CLIENT_ID);
-export const apiServer = createHttpServer(expressConf.EXPRESS_PORT);
+export const apiServer = new createAPIServer(expressConf.EXPRESS_PORT);

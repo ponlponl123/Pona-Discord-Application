@@ -102,6 +102,8 @@ export abstract class TrackUtils {
 		try {
 			const track: Track = {
 				track: data.encoded,
+				timestamp: data.info.timestamp,
+				uniqueId: data.info.uniqueId,
 				title: data.info.title,
 				identifier: data.info.identifier,
 				author: data.info.author,

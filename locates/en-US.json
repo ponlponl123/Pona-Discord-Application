@@ -1,8 +1,99 @@
 {
     "welcomeMessage": {
         "morning": "☀️ Good morning!",
-        "afternoon": "🌤️ Good afternoon!",
-        "evening": "🌙 Good evening!",
+        "afternoon": "🌤️ It's already afternoon!",
+        "evening": "🌙 It's getting late. Don't forget to eat!",
         "night": "🛏️ Good night!"
+    },
+    "music": {
+        "state": {
+            "repeat": {
+                "title": "Repeat state",
+                "track": "Only this track",
+                "queue": "This queue",
+                "off": "Off"
+            },
+            "paused": {
+                "true": "Playback paused.",
+                "false": "Playback resume."
+            },
+            "voiceChannel": {
+                "status": "Listening "
+            }
+        },
+        "play": {
+            "success": "Now playing [title] by [author].",
+            "leaved": "Leaved!",
+            "skipped": "Skipped!",
+            "confirmation": {
+                "title": "Is this the song? ( ͡~ ͜ʖ ͡°)",
+                "confirm": "yes!, that one.",
+                "abort": "ahh.. nah"
+            },
+            "requester": "by",
+            "author": "By"
+        },
+        "queue": {
+            "title": "Pona! Music Queue",
+            "added_by": "Added by",
+            "remove_by": "Removed by",
+            "remove": {
+                "selector": "What track do you want to remove?",
+                "selector_placeholder": "Track to remove",
+                "requirement": "Queue must be more than 1 tracks.",
+                "poll": "Do you want to remove [track_name]? (Required [min_votes] votes)",
+                "approved": "Remove!",
+                "denied": "Nope"
+            },
+            "skip": {
+                "selector": "What song would you like to skip to?",
+                "selector_placeholder": "Track you want to play",
+                "requirement": "Queue must be more than 1 tracks.",
+                "poll": "Do you want to skip this track? (Required [min_votes] votes)",
+                "poll_bulk": "Do you want to skip [index] tracks? (Required [min_votes] votes)",
+                "approved": "Skip!",
+                "denied": "Wait a moment!"
+            },
+            "removed_track": "Track has been removed!",
+            "added": "Added to queue",
+            "added_playlist": "Added playlist to queue",
+            "add_playlist": "Do you want to add this playlist to queue?"
+        },
+        "errors": {
+            "not_in_voice_channel": "Please enter a voice channel.",
+            "not_same_voice_channel": "Please enter a voice channel.",
+            "cannot_join_voice_channel": "Cannot join voice channel.",
+            "pona_not_in_voice_channel": "Pona is not in voice channel.",
+            "no_player_active": "No player is currently active.",
+            "not_found": "No searching result"
+        }
+    },
+    "components": {
+        "poll": {
+            "called_by": "Vote called by"
+        },
+        "string_selector": {
+            "error": {
+                "invalid": "Invalid track selected."
+            }
+        },
+        "errors": {
+            "not_valid": "Input cannot be void",
+            "timeout": "Confirmation not received within 1 minute, cancelling"
+        }
+    },
+    "settings": {
+        "language": {
+            "access_denied": "It looks like this setting requires the \"Manage Server\" permission!",
+            "complete": "The server's primary language has been changed to [value]!"
+        }
+    },
+    "errors": {
+        "error_occurred": "Error occurated, please try again later",
+        "invalid_subcommand": "Invalid subcommand"
+    },
+    "reasons": {
+        "permission_denied": "Permission denied.",
+        "invalid_voice_channel": "Invalid voice channel."
     }
 }

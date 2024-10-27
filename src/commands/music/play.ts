@@ -13,8 +13,10 @@ import joinVoiceChannel from "@utils/player/joinVoiceChannelAsPlayer";
 import { prefix as consolePrefix } from "@config/console";
 import errorEmbedBuilder from "@utils/embeds/error";
 import addToQueue from "@utils/player/addToQueue";
-import { lavaPlayer } from "@interfaces/player";
-import getSongs from "@utils/player/getSongs";
+import { lavaPlayer, Track } from "@interfaces/player";
+import getSongs, { trackResult } from "@utils/player/getSongs";
+
+import { getGuildLanguage } from "@utils/i18n";
 
 export const data = new SlashCommandBuilder()
     .setName("play")
@@ -28,18 +30,12 @@ export const data = new SlashCommandBuilder()
 
 export default async function execute(interaction: CommandInteraction) {
     const member = interaction.member as GuildMember;
+    const lang = getGuildLanguage(member.guild.id);
     const input = interaction.options.get("input")?.value as string;
 
     if ( !member.voice.channel || !interaction.channel ) {
-        const embed = new EmbedBuilder()
-            .setDescription('<:X_:1298270493639446548> · **Invalid voice channel**!')
-            .setFooter({
-                text: 'Please enter a voice channel.'
-            })
-            .setColor('#F2789F');
-        
         return interaction.reply({
-            embeds: [embed],
+            embeds: [errorEmbedBuilder(member.guild.id, lang.data.reasons.invalid_voice_channel, lang.data.music.errors.not_in_voice_channel)],
             ephemeral: true
         });
     }
@@ -58,7 +54,7 @@ export default async function execute(interaction: CommandInteraction) {
 
         if ( !player ) {
             return interaction.reply({
-              embeds: [errorEmbedBuilder('Cannot join voice channel.')],
+              embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.cannot_join_voice_channel)],
               ephemeral: true
             });
         }
@@ -70,26 +66,15 @@ export default async function execute(interaction: CommandInteraction) {
         currentVoiceConnectionInGuild[0].voiceChannel.id !== member.voice.channel.id
     )
     {
-        const embed = new EmbedBuilder()
-            .setDescription('<:X_:1298270493639446548> · **Invalid voice channel**!')
-            .setFooter({
-                text: 'Not a same voice channel'
-            })
-            .setColor('#F2789F');
-        
         return interaction.reply({
-            embeds: [embed],
+            embeds: [errorEmbedBuilder(member.guild.id, lang.data.reasons.invalid_voice_channel, lang.data.music.errors.not_same_voice_channel)],
             ephemeral: true
         });
     }
 
     if ( !input ) {
-        const embed = new EmbedBuilder()
-          .setDescription('<:X_:1298270493639446548> · **Input cannot be void**!')
-          .setColor('DarkRed');
-        
         return interaction.reply({
-          embeds: [embed],
+          embeds: [errorEmbedBuilder(member.guild.id, lang.data.components.errors.not_valid)],
           ephemeral: true
         });
     }
@@ -97,32 +82,51 @@ export default async function execute(interaction: CommandInteraction) {
     const result = await getSongs(input, member);
     
     if (
-        typeof result === 'object' &&
-        result.length > 0
+        typeof result !== 'string' &&
+        result.tracks.length > 0
     ) {
-        const embed = new EmbedBuilder()
-            .setTitle(result[0].title)
-            .setThumbnail(result[0].thumbnail)
-            .setFooter({
-                iconURL: result[0].pluginInfo.artistArtworkUrl,
-                text: `โดย ${result[0].author}`
-            })
-            .setColor('#F9C5D5');
+        let embed: EmbedBuilder;
+        if ( result.type === 'track' ) {
+            embed = new EmbedBuilder()
+                .setTitle(result.tracks[0].title)
+                .setThumbnail(result.tracks[0].thumbnail)
+                .setFooter({
+                    iconURL: result.tracks[0].pluginInfo.artistArtworkUrl,
+                    text: `${lang.data.music.play.requester} ${result.tracks[0].author}`
+                })
+                .setColor('#F9C5D5');
+        } else if ( result.type === 'playlist' ) {
+            embed = new EmbedBuilder()
+                .setTitle(lang.data.music.queue.add_playlist)
+                .setThumbnail(result.tracks[0].thumbnail)
+                .setFields(
+                    result.tracks.map((track: Track, index: number) => ({
+                        name: `${index + 1}. ${track.title}`,
+                        value: `${lang.data.music.play.author} ${track.author}\n‎`
+                    }))
+                )
+                .setColor('#F9C5D5');
+        } else {
+            return interaction.reply({
+                embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)],
+                ephemeral: true
+            });
+        }
 
         const row = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(
                 new ButtonBuilder()
-                    .setLabel('ahh.. nah')
+                    .setLabel(lang.data.music.play.confirmation.abort)
                     .setStyle(ButtonStyle.Danger)
                     .setCustomId('abort'),
                 new ButtonBuilder()
-                    .setLabel('yes!, that one.')
+                    .setLabel(lang.data.music.play.confirmation.confirm)
                     .setStyle(ButtonStyle.Success)
                     .setCustomId('addtoqueue')
             );
         
         const response = await interaction.reply({
-            content: 'ใช่เพลงนี้หรือปล่าวคะ? ( ͡~ ͜ʖ ͡°)',
+            content: `<:Question:1298270472428978217> · ${lang.data.music.play.confirmation.title}`,
             embeds: [embed],
             components: [row],
             ephemeral: true
@@ -133,27 +137,53 @@ export default async function execute(interaction: CommandInteraction) {
             const confirmation = await response.awaitMessageComponent({ filter: collectorFilter, time: 60_000 });
 
             if (confirmation.customId === 'addtoqueue') {
-                await addToQueue(result[0], currentVoiceConnectionInGuild[0]);
-                const embed = new EmbedBuilder()
-                    .setTitle(result[0].title)
-                    .setURL(result[0].identifier.startsWith('https://') ? result[0].identifier : `https://youtu.be/${result[0].identifier}`)
-                    .setThumbnail(result[0].thumbnail)
-                    .setAuthor({
-                        iconURL: member.user.avatarURL() || undefined,
-                        name: `เพิ่มโดย ${member.user.username}`
-                    })
-                    .setFooter({
-                        iconURL: result[0].pluginInfo.artistArtworkUrl,
-                        text: `โดย ${result[0].author}`
-                    })
-                    .setColor('#F9C5D5');
                 await response.delete();
-                await confirmation.reply({ content: `**Added to queue**`, embeds: [embed] });
+                let embed: EmbedBuilder;
+                if ( result.type === 'track' ) {
+                    await addToQueue(result.tracks[0], currentVoiceConnectionInGuild[0]);
+                    embed = new EmbedBuilder()
+                        .setTitle(result.tracks[0].title)
+                        .setURL(result.tracks[0].identifier.startsWith('https://') ? result.tracks[0].identifier : `https://youtu.be/${result.tracks[0].identifier}`)
+                        .setThumbnail(result.tracks[0].thumbnail)
+                        .setAuthor({
+                            iconURL: member.user.avatarURL() || undefined,
+                            name: `${lang.data.music.queue.added_by} ${member.user.username}`
+                        })
+                        .setFooter({
+                            iconURL: result.tracks[0].pluginInfo.artistArtworkUrl,
+                            text: `${lang.data.music.play.author} ${result.tracks[0].author}`
+                        })
+                        .setColor('#F9C5D5');
+                } else if ( result.type === 'playlist' ) {
+                    await addToQueue(result.tracks, currentVoiceConnectionInGuild[0]);
+                    embed = new EmbedBuilder()
+                        .setTitle(lang.data.music.queue.added_playlist)
+                        .setThumbnail(result.tracks[0].thumbnail)
+                        .setAuthor({
+                            iconURL: member.user.avatarURL() || undefined,
+                            name: `${lang.data.music.queue.added_by} ${member.user.username}`
+                        })
+                        .setFields(
+                            result.tracks.map((track: Track, index: number) => {
+                                return {
+                                    name: `${index + 1}. ${track.title}`,
+                                    value: `${lang.data.music.play.author} ${track.author}\n‎`
+                                }
+                            })
+                        )
+                        .setColor('#F9C5D5');
+                } else {
+                    return confirmation.reply({
+                        embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)],
+                        ephemeral: true
+                    });
+                }
+                await confirmation.reply({ content: `<:Check:1298270444150980619> · **${lang.data.music.queue.added}**`, embeds: [embed] });
             } else if (confirmation.customId === 'abort') {
                 await response.delete();
             }
         } catch (e) {
-            await interaction.editReply({ content: 'Confirmation not received within 1 minute, cancelling', embeds: [], components: [] });
+            await interaction.editReply({ content: lang.data.components.errors.timeout, embeds: [], components: [] });
             console.log( consolePrefix.discord + 'Error when listening add queue confirmation:', e );
         }
 
@@ -161,7 +191,7 @@ export default async function execute(interaction: CommandInteraction) {
     }
 
     const embed = new EmbedBuilder()
-      .setDescription('<:Check:1298270444150980619> · **No searching result** :(')
+      .setDescription(`<:Check:1298270444150980619> · **${lang.data.music.errors.not_found}** :(`)
       .setColor('#F9C5D5');
     
     return interaction.reply({

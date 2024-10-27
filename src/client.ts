@@ -28,6 +28,7 @@ import { lavalink } from "@/index";
 import { Manager, Node, Player } from '@/lavalink';
 import fs from 'fs';
 import { setInterval } from 'timers';
+import { getGuildLanguage } from './utils/i18n';
 
 export class Pona {
     public readonly prefix = 'pona!';
@@ -84,6 +85,10 @@ export class Pona {
             })
         });
 
+        this.client.on(Events.MessagePollVoteAdd, (answer, userId) => {
+            console.log(consolePrefix.discord + `\x1b[32mPoll Vote: \x1b[0m\x1b[47m\x1b[30m${answer.poll.message.guildId}\x1b[0m - \x1b[36m${answer.poll.question}\x1b[0m - \x1b[33m${userId}\x1b[0m - \x1b[31m${answer.voteCount}\x1b[0m`);
+        });
+
         this.client.on(Events.Warn, (info) => console.log(consolePrefix.discord + info));
         this.client.on(Events.Error, console.error);
 
@@ -114,9 +119,10 @@ export class Pona {
                         const getCurrentVoiceChannel = await this.client.channels.fetch(newState.channelId) as VoiceBasedChannel;
                         await setVoiceChannelStatus(getPreviousVoiceChannel);
                         if ( this.playerConnections[playerConnection].player.queue.current ){
+                            const lang = getGuildLanguage(oldState.guild.id);
                             await setVoiceChannelStatus(
                                 getCurrentVoiceChannel,
-                                `กำลังฟัง ${this.playerConnections[playerConnection].player.queue.current.title} โดย ${this.playerConnections[playerConnection].player.queue.current.author}`
+                                `${lang.data.music.state.voiceChannel.status} ${this.playerConnections[playerConnection].player.queue.current.title} โดย ${this.playerConnections[playerConnection].player.queue.current.author}`
                             );
                         }
                         this.playerConnections[playerConnection].player.setVoiceChannel(getCurrentVoiceChannel.id);
@@ -213,6 +219,18 @@ export class Pona {
         })
     }
 
+    public async defaultGuildLanguageChangedEvent(guildId: string): Promise<void> {
+        if ( !lavalink ) return;
+        const checkPlayerConnectionExist = this.playerConnections.filter((connection) => connection.guild.id === guildId);
+        if ( checkPlayerConnectionExist.length > 0 ) {
+            const lang = getGuildLanguage(guildId);
+            await setVoiceChannelStatus(
+                checkPlayerConnectionExist[0].voiceChannel,
+                `${lang.data.music.state.voiceChannel.status} ${checkPlayerConnectionExist[0].player.queue.current?.title} โดย ${checkPlayerConnectionExist[0].player.queue.current?.author}`
+            );
+        }
+    }
+
     public saveGuildSettings(guild: Guild, settings: GuildSettings): boolean {
         if ( !guild.id ) return false;
         console.log( consolePrefix.discord + '\x1b[33mSaving guild setting: ' + guild.id + '\x1b[0m');
@@ -227,7 +245,13 @@ export class Pona {
             fs.mkdirSync(guildSettingDir);
 
         const settingsFilePath = path.join(guildSettingDir, `${guild.id}.json`);
-        fs.writeFileSync(settingsFilePath, JSON.stringify(settings));
+        let defaultSetting = {};
+        if ( fs.existsSync(settingsFilePath) )
+            defaultSetting = JSON.parse(fs.readFileSync(settingsFilePath, "utf-8"));
+
+        fs.writeFileSync(settingsFilePath, JSON.stringify({ ...defaultSetting, ...settings }));
+        
+        if ( settings.language !== undefined && settings.language ) this.defaultGuildLanguageChangedEvent(guild.id);
 
         console.log( consolePrefix.discord + '\x1b[32bSaved guild setting: ' + guild.id + '\x1b[0m');
 

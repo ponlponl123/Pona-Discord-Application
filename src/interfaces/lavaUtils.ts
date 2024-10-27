@@ -39,6 +39,8 @@ export interface TrackDataInfo {
 	identifier: string;
 	isSeekable: boolean;
 	author: string;
+	timestamp: number;
+	uniqueId: string;
 	length: number;
 	isrc?: string;
 	isStream: boolean;

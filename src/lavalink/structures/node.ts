@@ -454,10 +454,10 @@ export class Node {
 		
 		if ( !queue.current ) return;
 		if (trackRepeat) queue.unshift(queue.current);
-		else if (queueRepeat) queue.add(queue.current);
+		if (queueRepeat) queue.add(queue.current);
 
 		queue.previous = queue.current;
-		if (!queueRepeat) queue.current = queue.shift() as Track | UnresolvedTrack;
+		queue.current = queue.shift() as Track | UnresolvedTrack;
 		this.manager.emit("trackEnd", player, track, payload);
 		if (payload.reason === "stopped" && !(queue.current = queue.shift() as Track | UnresolvedTrack)) {
 			this.queueEnd(player, track, payload);

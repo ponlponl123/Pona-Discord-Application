@@ -380,6 +380,19 @@ export class Player {
 		return this;
 	}
 
+	public skipto(index: number): this {
+		const oldPlayer = { ...this };
+		if (index > this.queue.length) throw new RangeError("Cannot skip more than the queue length.");
+		if (!this.queue.current) throw new ReferenceError("Cannot get current track.");
+		const spliceQueue = this.queue.splice(0, index);
+		spliceQueue.map(track => {
+			this.queue.add(track);
+		})
+		this.seek(this.queue.current.duration as number);
+		this.manager.emit("playerStateUpdate", oldPlayer, this, "trackChange");
+		return this;
+	}
+
 	public pause(pause: boolean): this {
 		if (typeof pause !== "boolean") throw new RangeError('Pause can only be "true" or "false".');
 		if (this.paused === pause || !this.queue.totalSize) return this;

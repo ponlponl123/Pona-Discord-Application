@@ -10,6 +10,7 @@ import { config as discordConf } from "@config/discord";
 import { config } from "@config/lavalink";
 import discord, { Routes } from "discord.js";
 import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
+import { getGuildLanguage } from "@/utils/i18n";
 
 export class LavalinkServer {
     public manager: Manager;
@@ -34,7 +35,7 @@ export class LavalinkServer {
             nodes: this.lavanodes,
             clientName: 'Pona Discord Application',
             clientId: discordConf.DISCORD_CLIENT_ID,
-            defaultSearchPlatform: 'youtube music',
+            defaultSearchPlatform: 'youtube',
             send: (id, payload) => {
                 const guild = self.client.guilds.cache.get(id);
                 // NOTE: FOR ERIS YOU NEED JSON.stringify() THE PAYLOAD
@@ -49,9 +50,10 @@ export class LavalinkServer {
             self.saveSessionOnFile();
             // set voice channel status to current playing track
             if ( !player.voiceChannel ) return false;
+            const lang = getGuildLanguage(player.guild);
             const rest = new discord.REST({ version: "10" }).setToken(discordConf.DISCORD_TOKEN);
             await rest.put((Routes.channel(player.voiceChannel) + '/voice-status' as discord.RouteLike), {
-                body: {"status": `กำลังฟัง ${track.title} โดย ${track.author}`}
+                body: {"status": `${lang.data.music.state.voiceChannel.status} ${track.title} โดย ${track.author}`}
             })
 
             // Notify currently playing to text channel

@@ -2,7 +2,7 @@ import { CommandInteraction, SlashCommandBuilder } from "discord.js";
 
 export const data = new SlashCommandBuilder()
   .setName("ping")
-  .setDescription("Replies with Pong!")
+  .setDescription("Replies with 🏓 Pong!")
   .setNameLocalizations({
       th: 'ปิง',
   })

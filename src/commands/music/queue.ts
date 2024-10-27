@@ -9,6 +9,7 @@ import warningEmbedBuilder from "@utils/embeds/warning";
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
 import { lavaPlayer } from "@interfaces/player";
+import { getGuildLanguage } from "@/utils/i18n";
   
 export const data = new SlashCommandBuilder()
     .setName('queue')
@@ -17,18 +18,19 @@ export const data = new SlashCommandBuilder()
   
 export default async function execute(interaction: CommandInteraction) {
     const member = interaction.member as GuildMember;
+    const lang = getGuildLanguage(member.guild.id);
     const voiceActionRequirement = isVoiceActionRequirement(member);
   
     if ( !voiceActionRequirement.isPonaInVoiceChannel ) {
         return interaction.reply({
-            embeds: [warningEmbedBuilder('Pona is not in voice channel.')],
+            embeds: [warningEmbedBuilder(lang.data.music.errors.pona_not_in_voice_channel)],
             ephemeral: true
         });
     }
   
     if ( !voiceActionRequirement.isUserInVoiceChannel || !voiceActionRequirement.isUserInSameVoiceChannel ) {
         return interaction.reply({
-            embeds: [warningEmbedBuilder('Please enter a same voice channel.')],
+            embeds: [warningEmbedBuilder(lang.data.music.errors.not_same_voice_channel)],
             ephemeral: true
         });
     }
@@ -38,22 +40,23 @@ export default async function execute(interaction: CommandInteraction) {
     if ( playback.length > 0 ) {
         const queueEmbed = new EmbedBuilder()
             .setAuthor({
-                name: '🎼 Pona! Music Queue',
-                url: `https://pona.ponlponl123.com/g/${member.guild.id}/queue`
+                name: lang.data.music.queue.title,
+                url: `https://pona.ponlponl123.com/g/${member.guild.id}/queue`,
+                iconURL: 'https://cdn.discordapp.com/emojis/1299943220301529118.webp?size=32&quality=lossless'
             })
             .setColor('#F9C5D5')
             .setTitle(playback[0].player.queue.current && playback[0].player.queue.current.title)
-            .setURL(playback[0].player.queue.current?.uri || '')
+            .setURL(playback[0].player.queue.current?.uri || null)
             .setThumbnail(playback[0].player.queue.current && playback[0].player.queue.current.thumbnail || null)
-            .setDescription(`โดย ${playback[0].player.queue.current?.author}\n‎ `)
+            .setDescription(`${lang.data.music.play.author} ${playback[0].player.queue.current?.author}\n‎ `)
             .setFooter({
-                text: `เพิ่มโดย ${playback[0].player.queue.current?.requester?.username}` || '',
-                iconURL: playback[0].player.queue.current?.requester && (await self.client.users.fetch(playback[0].player.queue.current.requester.id)).avatarURL() || ''
+                text: `${lang.data.music.queue.added_by} ${playback[0].player.queue.current?.requester?.username}` || '',
+                iconURL: playback[0].player.queue.current?.requester && (await self.client.users.fetch(playback[0].player.queue.current.requester.id)).avatarURL() || undefined
             })
             .setFields(
                 playback[0].player.queue.map((track, index) => ({
                     name: `${index+1}. ${track.title}`,
-                    value: `เพิ่มโดย <@${track.requester?.id}>\n‎ `,
+                    value: `${lang.data.music.queue.added_by} <@${track.requester?.id}>\n‎ `,
                     inline: false
                 }))
             )
@@ -65,7 +68,7 @@ export default async function execute(interaction: CommandInteraction) {
     }
 
     return interaction.reply({
-        embeds: [warningEmbedBuilder('No playback is currently active.')],
+        embeds: [warningEmbedBuilder(lang.data.music.errors.no_player_active)],
         ephemeral: true
     });
 }

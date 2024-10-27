@@ -35,6 +35,7 @@ import {
 	SearchQuery,
 	SearchResult
 } from "@/interfaces/manager";
+import randomString from "@/utils/randomString";
 
 interface LavaPlayer {
 	guildId: string;
@@ -97,9 +98,11 @@ export class Manager extends EventEmitter {
 
 		const playerFiles = fs.readdirSync(playerStatesDir);
 
-		const createTrackData = (song: any): TrackData => ({
+		const createTrackData = ( song: any ): TrackData => ({
 			encoded: song.track,
 			info: {
+				timestamp: song.timestamp,
+				uniqueId: song.uniqueId,
 				identifier: song.identifier,
 				isSeekable: song.isSeekable,
 				author: song.author,
@@ -111,7 +114,7 @@ export class Manager extends EventEmitter {
 				artworkUrl: song.artworkUrl,
 				sourceName: song.sourceName,
 			},
-			pluginInfo: song.pluginInfo,
+   			pluginInfo: (song.pluginInfo as Record<string, string>),
 		});
 
 		for (const file of playerFiles) {
@@ -178,16 +181,25 @@ export class Manager extends EventEmitter {
 					}
 				} else {
 					const currentTrack = state.queue.current;
-					tracks.push(TrackUtils.build(createTrackData(currentTrack), currentTrack.requester));
-
-					for (const key in state.queue) {
-						if (!isNaN(Number(key)) && key !== "current" && key !== "previous" && key !== "manager") {
-							const song = state.queue[key];
-							tracks.push(TrackUtils.build(createTrackData(song), song.requester));
-						}
+					if ( !currentTrack ) {
+						// console.log( consolePrefix.lavalink + '---------- WARNING Cannot restore track ----------')
+						// console.log( consolePrefix.lavalink + 'debug state: ',state)
+						// console.log( consolePrefix.lavalink + 'debug queue: ',state.queue)
+						// console.log( consolePrefix.lavalink + 'debug currentTrack: ',currentTrack)
+						// console.log( consolePrefix.lavalink + '---------- WARNING Cannot restore track ----------')
 					}
-					if (player.state !== "CONNECTED") player.connect();
-					player.queue.add(tracks);
+					if ( currentTrack ) {
+						tracks.push(TrackUtils.build(createTrackData(currentTrack), currentTrack.requester));
+
+						for (const key in state.queue) {
+							if (!isNaN(Number(key)) && key !== "current" && key !== "previous" && key !== "manager") {
+								const song = state.queue[key];
+								tracks.push(TrackUtils.build(createTrackData(song), song.requester));
+							}
+						}
+						if (player.state !== "CONNECTED") player.connect();
+						player.queue.add(tracks);
+					}
 				}
 
 				if (state.paused) player.pause(true);
@@ -457,12 +469,20 @@ export class Manager extends EventEmitter {
 					break;
 			}
 
-			const tracks = searchData.map((track) => TrackUtils.build(track, requester));
+			const tracks = searchData.map((track: TrackData) => {
+				track.info.timestamp = new Date().getTime();
+				track.info.uniqueId = randomString(32);
+				return TrackUtils.build(track, requester)
+			});
 			let playlist = null;
 			if (res.loadType === "playlist") {
 				playlist = {
 					name: playlistData!.info.name,
-					tracks: playlistData!.tracks.map((track) => TrackUtils.build(track, requester)),
+					tracks: playlistData!.tracks.map((track) => {
+						track.info.timestamp = new Date().getTime();
+						track.info.uniqueId = randomString(32);
+						return TrackUtils.build(track, requester)
+					}),
 					duration: playlistData!.tracks.reduce((acc, cur) => acc + (cur.info.length || 0), 0),
 				};
 			}

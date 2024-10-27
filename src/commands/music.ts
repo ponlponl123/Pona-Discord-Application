@@ -1,4 +1,4 @@
-import { CacheType, CommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, GuildMember, CommandInteractionOption } from "discord.js";
+import { CacheType, CommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, GuildMember, CommandInteractionOption, EmbedBuilder } from "discord.js";
 import { lavaPlayer } from "@interfaces/player";
 import isAvailable from "@utils/player/isAvailable";
 import errorEmbedBuilder from "@utils/embeds/error";
@@ -6,12 +6,17 @@ import errorEmbedBuilder from "@utils/embeds/error";
 import playSubsystem from './music/play';
 import stopSubsystem from './music/leave';
 import skipSubsystem from './music/skip';
+import skiptoSubsystem from './music/skipto';
 import pauseSubsystem from './music/pause';
 import queueSubsystem from './music/queue';
+import removeSubsystem from './music/remove';
 import loopSubsystem from './music/loop';
 import loopQueueSubsystem from './music/loop_queue';
 
 import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
+import color from "@/config/embedColor";
+
+import { getGuildLanguage } from "@/utils/i18n";
 
 export const data = new SlashCommandBuilder()
     .setName("music")
@@ -78,6 +83,16 @@ export const data = new SlashCommandBuilder()
         .setDescription('Skip current track')
     )
     .addSubcommand(subcommand => subcommand
+        .setName('skipto')
+        .setNameLocalizations({
+            th: 'ข้ามไปที่คิว',
+        })
+        .setDescriptionLocalizations({
+            th: 'ข้ามทั้งหมดก่อนหน้าและไปยังคิวที่เลือก',
+        })
+        .setDescription('Skip all previous and go to selected queue.')
+    )
+    .addSubcommand(subcommand => subcommand
         .setName('queue')
         .setNameLocalizations({
             th: 'คิว',
@@ -86,6 +101,16 @@ export const data = new SlashCommandBuilder()
             th: 'แสดงคิวเพลงทั้งหมด',
         })
         .setDescription('Display queue information')
+    )
+    .addSubcommand(subcommand => subcommand
+        .setName('remove')
+        .setNameLocalizations({
+            th: 'ลบ',
+        })
+        .setDescriptionLocalizations({
+            th: 'ลบเพลงออกจากคิว',
+        })
+        .setDescription('Remove selected track from queue.')
     )
     .addSubcommand(subcommand => subcommand
         .setName('loop')
@@ -123,8 +148,10 @@ export const data = new SlashCommandBuilder()
             .setRequired(true)
         )
     )
+    .setDMPermission(false)
 
 export async function execute(interaction: CommandInteraction) {
+    const lang = getGuildLanguage(interaction.guildId as string);
     const member = interaction.member as GuildMember;
     const subCommand = (interaction.options as CommandInteractionOptionResolver<CacheType>).getSubcommand();
     const isLavalinkIsAvailable = await isAvailable();
@@ -142,6 +169,8 @@ export async function execute(interaction: CommandInteraction) {
             return stopSubsystem(interaction);
         case 'skip':
             return skipSubsystem(interaction);
+        case 'skipto':
+            return skiptoSubsystem(interaction);
         case 'pause':
         case 'resume':
             {
@@ -150,6 +179,8 @@ export async function execute(interaction: CommandInteraction) {
             }
         case 'queue':
             return queueSubsystem(interaction);
+        case 'remove':
+            return removeSubsystem(interaction);
         case 'loop':
             {
                 const state = interaction.options.get('state') as CommandInteractionOption<CacheType>;
@@ -160,9 +191,14 @@ export async function execute(interaction: CommandInteraction) {
                                 await loopSubsystem(interaction, true, false) === true &&
                                 interaction.isRepliable()
                             )
+                            {
+                                const repeatStateEmbed = new EmbedBuilder()
+                                    .setTitle(`<:Revertarrow:1299947479571107942> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.track}`)
+                                    .setColor(color('focus'));
                                 return interaction.reply({
-                                    content: 'Repeat state: Only this track'
+                                    embeds: [repeatStateEmbed]
                                 })
+                            }
                             else
                                 return;
                         }
@@ -172,9 +208,14 @@ export async function execute(interaction: CommandInteraction) {
                                 await loopQueueSubsystem(interaction, true, false) === true &&
                                 interaction.isRepliable()
                             )
+                            {
+                                const repeatStateEmbed = new EmbedBuilder()
+                                    .setTitle(`<:MusicNote:1299943220301529118> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.queue}`)
+                                    .setColor(color('focus'));
                                 return interaction.reply({
-                                    content: 'Repeat state: This queue'
+                                    embeds: [repeatStateEmbed]
                                 })
+                            }
                             else
                                 return;
                         }
@@ -188,9 +229,14 @@ export async function execute(interaction: CommandInteraction) {
                                     await loopQueueSubsystem(interaction, false, false) === true &&
                                     interaction.isRepliable()
                                 )
+                                {
+                                    const repeatStateEmbed = new EmbedBuilder()
+                                        .setTitle(`<:Revertarrowwithslash:1299947493756243989> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.off}`)
+                                        .setColor(color('light'));
                                     return interaction.reply({
-                                        content: 'Repeat state: Off'
+                                        embeds: [repeatStateEmbed]
                                     })
+                                }
                                 else
                                     return;
                             else
@@ -201,7 +247,7 @@ export async function execute(interaction: CommandInteraction) {
             }
         default:
             return interaction.reply({
-                embeds: [errorEmbedBuilder('Invalid subcommand.')]
+                embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.invalid_subcommand)]
             });
     }
 }

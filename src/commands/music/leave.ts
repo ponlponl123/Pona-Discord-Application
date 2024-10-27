@@ -7,6 +7,7 @@ import {
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
 import { lavaPlayer } from "@interfaces/player";
+import { getGuildLanguage } from "@/utils/i18n";
 
 export const data = new SlashCommandBuilder()
   .setName("leave")
@@ -15,13 +16,14 @@ export const data = new SlashCommandBuilder()
 
 export default async function execute(interaction: CommandInteraction) {
     const member = interaction.member as GuildMember;
+    const lang = getGuildLanguage(member.guild.id);
     const userVoiceChannel = member.voice.channel;
 
     if( !userVoiceChannel ) {
         const embed = new EmbedBuilder()
-            .setDescription('<:X_:1298270493639446548> · **Invalid voice channel**!')
+            .setDescription(`<:X_:1298270493639446548> · **${lang.data.reasons.invalid_voice_channel}**!`)
             .setFooter({
-                text: 'Please enter a voice channel.'
+                text: lang.data.music.errors.not_in_voice_channel
             })
             .setColor('#F2789F');
         
@@ -36,9 +38,9 @@ export default async function execute(interaction: CommandInteraction) {
     if ( currentConnectionInGuild.length > 0 ) {
         if ( currentConnectionInGuild[0].voiceChannel.id !== userVoiceChannel.id ) {
             const embed = new EmbedBuilder()
-                .setDescription('<:X_:1298270493639446548> · **Invalid voice channel**!')
+                .setDescription(`<:X_:1298270493639446548> · **${lang.data.reasons.invalid_voice_channel}**!`)
                 .setFooter({
-                    text: 'Not a same voice channel'
+                    text: lang.data.music.errors.not_same_voice_channel
                 })
                 .setColor('#F2789F');
             
@@ -51,7 +53,7 @@ export default async function execute(interaction: CommandInteraction) {
         if ( await leaveVoiceChannelAsPlayer(currentConnectionInGuild[0].guild.id) )
         {
             const embed = new EmbedBuilder()
-              .setDescription('<:Check:1298270444150980619> · **Leaved**!')
+              .setDescription(`<:Check:1298270444150980619> · **${lang.data.music.play.leaved}**!`)
               .setColor('#F9C5D5');
             
             return interaction.reply({
@@ -61,7 +63,7 @@ export default async function execute(interaction: CommandInteraction) {
     }
 
     const embed = new EmbedBuilder()
-      .setDescription('<:X_:1298270493639446548> · **Pona is not already in voice channel**!')
+      .setDescription(`<:X_:1298270493639446548> · **${lang.data.music.errors.pona_not_in_voice_channel}**!`)
       .setColor('#F2789F');
     
     return interaction.reply({

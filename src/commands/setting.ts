@@ -1,6 +1,8 @@
 import { CacheType, CommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, GuildMember, CommandInteractionOption } from "discord.js";
 import errorEmbedBuilder from "@utils/embeds/error";
-import { langs } from '@utils/i18n';
+import { getGuildLanguage, langs, languageCode } from '@utils/i18n';
+
+import languageSubsystem from './setting/language';
 
 export const data = new SlashCommandBuilder()
     .setName("setting")
@@ -32,16 +34,22 @@ export const data = new SlashCommandBuilder()
             .setRequired(true)
         )
     )
+    .setDMPermission(false)
 
 export async function execute(interaction: CommandInteraction) {
+    const lang = getGuildLanguage(interaction.guildId as string);
     const member = interaction.member as GuildMember;
     const subCommand = (interaction.options as CommandInteractionOptionResolver<CacheType>).getSubcommand();
 
     switch ( subCommand ) {
         case 'language':
+            {
+                const lang = interaction.options.get('lang') as CommandInteractionOption<CacheType>;
+                return languageSubsystem(interaction, lang.value as languageCode);
+            }
         default:
             return interaction.reply({
-                embeds: [errorEmbedBuilder('Invalid subcommand.')]
+                embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.invalid_subcommand)]
             });
     }
 }

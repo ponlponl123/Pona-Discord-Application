@@ -21,6 +21,8 @@ export interface PlayerOptions {
 
 export interface Track {
 	readonly track: string;
+	readonly timestamp: number;
+	readonly uniqueId: string;
 	readonly artworkUrl: string;
 	readonly sourceName: TrackSourceName;
 	title: string;

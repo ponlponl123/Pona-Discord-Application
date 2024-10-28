@@ -181,7 +181,7 @@ export class Pona {
                 const test = await import(filePath_esm);
                 command = test;
             } catch (err) {
-                console.warn(consolePrefix.discord + 'Failed to import ESM module, retrying with MJS: ', err);
+                console.warn(consolePrefix.discord + 'Failed to import ESM module, retrying with MJS');
                 try {
                     const test = await import(filePath_mjs);
                     command = test;

@@ -10,7 +10,7 @@ export function GET_PRIVATE(request: express.Request, response: express.Response
     {
         return response.status(HttpStatusCode.BadRequest).json({ error: 'Missing playlistId' });
     }
-    response.status(200).json({
+    response.status(HttpStatusCode.ServiceUnavailable).json({
         message: 'ServiceUnavailable',
     });
 }

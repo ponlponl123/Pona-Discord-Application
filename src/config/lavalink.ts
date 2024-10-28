@@ -11,7 +11,7 @@ var host: string = LAVALINK_DEV_SERVER || 'localhost';
 var port: number = Number(LAVALINK_DEV_PORT) || 2333;
 var password: string = LAVALINK_DEV_PASSWORD || 'youshallnotpass';
 
-if ( process.argv.includes('production') ) {
+if ( process.argv.includes('--production') ) {
   host = LAVALINK_SERVER || '';
   port = Number(LAVALINK_PORT) || 0;
   password = LAVALINK_PASSWORD || '';

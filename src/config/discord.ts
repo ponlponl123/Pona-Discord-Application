@@ -15,7 +15,7 @@ let token: string = DISCORD_TESTBASE_TOKEN || '';
 let clientId: string = DISCORD_TESTBASE_CLIENT_ID || '';
 let guildId: string = DISCORD_TESTBASE_GUILD_ID || '';
 
-if ( process.argv.includes('production') ) {
+if ( process.argv.includes('--production') ) {
   token = DISCORD_TOKEN || '';
   clientId = DISCORD_CLIENT_ID || '';
   guildId = DISCORD_GUILD_ID || '';

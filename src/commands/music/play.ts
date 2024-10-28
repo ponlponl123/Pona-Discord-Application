@@ -14,9 +14,10 @@ import { prefix as consolePrefix } from "@config/console";
 import errorEmbedBuilder from "@utils/embeds/error";
 import addToQueue from "@utils/player/addToQueue";
 import { lavaPlayer, Track } from "@interfaces/player";
-import getSongs, { trackResult } from "@utils/player/getSongs";
+import getSongs from "@utils/player/getSongs";
 
 import { getGuildLanguage } from "@utils/i18n";
+import { SearchPlatform, SearchPlatforms } from "@/interfaces/manager";
 
 export const data = new SlashCommandBuilder()
     .setName("play")
@@ -26,12 +27,27 @@ export const data = new SlashCommandBuilder()
         .setName('input')
         .setDescription('Search for video title')
     )
+    .addStringOption(option => option
+        .setName('search_engine')
+        .setDescription('Search Engine')
+        .setChoices(
+            SearchPlatforms.map((platform) => ({
+                name: platform.replace(
+                    /\w\S*/g,
+                    text => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
+                ),
+                value: platform
+            }))
+        )
+        .setRequired(false)
+    )
     .setDMPermission(false);
 
 export default async function execute(interaction: CommandInteraction) {
     const member = interaction.member as GuildMember;
     const lang = getGuildLanguage(member.guild.id);
     const input = interaction.options.get("input")?.value as string;
+    const searchEngine = (String(interaction.options.get("search_engine")?.value) || 'youtube') as SearchPlatform;
 
     if ( !member.voice.channel || !interaction.channel ) {
         return interaction.reply({
@@ -79,7 +95,31 @@ export default async function execute(interaction: CommandInteraction) {
         });
     }
 
-    const result = await getSongs(input, member);
+    const result = await getSongs(input, searchEngine, member);
+
+    if ( typeof result === 'string' && result.startsWith('Pona!Share') ) {
+        const reason = result.replace('Pona!Share ','');
+        if ( reason === 'not_found' )
+            return interaction.reply({
+                embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_not_found)],
+                ephemeral: true
+            });
+        else if ( reason === 'unauthorized' )
+            return interaction.reply({
+                embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_unauthorized)],
+                ephemeral: true
+            });
+        else if ( reason === 'no_tracks' )
+            return interaction.reply({
+                embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_no_tracks)],
+                ephemeral: true
+            });
+        else
+            return interaction.reply({
+                embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_service_unavailable)],
+                ephemeral: true
+            });
+    }
     
     if (
         typeof result !== 'string' &&
@@ -183,8 +223,8 @@ export default async function execute(interaction: CommandInteraction) {
                 await response.delete();
             }
         } catch (e) {
-            await interaction.editReply({ content: lang.data.components.errors.timeout, embeds: [], components: [] });
-            console.log( consolePrefix.discord + 'Error when listening add queue confirmation:', e );
+            await response.edit({ content: lang.data.components.errors.timeout, embeds: [], components: [] });
+            // console.log( consolePrefix.discord + 'Error when listening add queue confirmation:', e );
         }
 
         return response;

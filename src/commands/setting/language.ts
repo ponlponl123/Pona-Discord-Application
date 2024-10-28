@@ -23,8 +23,9 @@ export default async function execute(interaction: CommandInteraction, value: la
         self.saveGuildSettings(interaction.guild as Guild, {
             language: value
         })
+        const lang = getGuildLanguage(member.guild.id);
         return await interaction.reply({
-            embeds: [successEmbedBuilder(lang.data.settings.language.complete.replace("[value]", value))],
+            embeds: [successEmbedBuilder(lang.data.settings.language.complete.replace("[value]", lang.label))],
             ephemeral: true
         })
     }

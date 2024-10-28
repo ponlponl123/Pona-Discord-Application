@@ -20,6 +20,10 @@ export class Rest {
 		return this.sessionId;
 	}
 
+	public async getPlayer(guildId: string): Promise<unknown> {
+		return await this.get(`/v4/sessions/${this.sessionId}/players/${guildId}`);
+	}
+
 	public async getAllPlayers(): Promise<unknown> {
 		return await this.get(`/v4/sessions/${this.sessionId}/players`);
 	}

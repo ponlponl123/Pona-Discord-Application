@@ -81,7 +81,7 @@ export default async function execute(interaction: CommandInteraction) {
             if ( collected.user.id !== member.id ) return;
             if ( selected.length > 0 ) {
                 interaction.deleteReply();
-                if ( voiceChannelMembersSize_NotABot && voiceChannelMembersSize_NotABot.size as number > 0 ) {
+                if ( voiceChannelMembersSize_NotABot && voiceChannelMembersSize_NotABot.size as number > 4 ) {
                     let minVotes = Math.floor(voiceChannelMembersSize_NotABot.size / 2) + 1;
                     const response = await interaction.followUp({
                         poll: {

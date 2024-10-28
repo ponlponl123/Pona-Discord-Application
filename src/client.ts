@@ -44,7 +44,7 @@ export class Pona {
     
         this.client.once(Events.ClientReady, async (event) => {
             this.client.user?.setStatus('idle');
-            console.log(consolePrefix.system + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
+            console.log(consolePrefix.discord + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
             this.heartbeatEvent(this.client);
 
             this.registerSlashCommands();
@@ -122,7 +122,7 @@ export class Pona {
                             const lang = getGuildLanguage(oldState.guild.id);
                             await setVoiceChannelStatus(
                                 getCurrentVoiceChannel,
-                                `${lang.data.music.state.voiceChannel.status} ${this.playerConnections[playerConnection].player.queue.current.title} โดย ${this.playerConnections[playerConnection].player.queue.current.author}`
+                                `${lang.data.music.state.voiceChannel.status} ${this.playerConnections[playerConnection].player.queue.current.title} ${lang.data.music.play.author} ${this.playerConnections[playerConnection].player.queue.current.author}`
                             );
                         }
                         this.playerConnections[playerConnection].player.setVoiceChannel(getCurrentVoiceChannel.id);
@@ -143,6 +143,7 @@ export class Pona {
                     const voiceConnection = this.voiceConnections.filter((connection) => connection.joinConfig.guildId === oldState.guild.id);
                     if (playerConnection.length > 0) {
                         playerConnection[0].player.destroy();
+                        playerConnection[0].player.disconnect();
                         this.playerConnections = this.playerConnections.filter((connection) => connection.guild.id !== oldState.guild.id);
                         await setVoiceChannelStatus(oldState.channel);
                     } else if (voiceConnection.length > 0) {
@@ -180,13 +181,13 @@ export class Pona {
                 const test = await import(filePath_esm);
                 command = test;
             } catch (err) {
-                console.warn('Failed to import ESM module, retrying with MJS');
+                console.warn(consolePrefix.discord + 'Failed to import ESM module, retrying with MJS: ', err);
                 try {
                     const test = await import(filePath_mjs);
                     command = test;
                 } catch (err) {
-                    console.error(`Failed to import command at ${filePath_mjs}:`, err);
-                    return;
+                    console.error(consolePrefix.discord + `Failed to import command at ${filePath_mjs}:`, err);
+                    continue;
                 }
             }
 
@@ -211,7 +212,8 @@ export class Pona {
 
     private async heartbeatEvent(client: Client): Promise<void> {
         if ( !client?.user ) return;
-        console.log( consolePrefix.discord + 'Heartbeat interval event received from client' );
+        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));;
+        console.log( consolePrefix.discord + `${date.toLocaleString()} Heartbeat interval event received from client` );
         client.user.setActivity({
             name: getWelcomeMessage(),
             type: ActivityType.Custom,
@@ -226,7 +228,7 @@ export class Pona {
             const lang = getGuildLanguage(guildId);
             await setVoiceChannelStatus(
                 checkPlayerConnectionExist[0].voiceChannel,
-                `${lang.data.music.state.voiceChannel.status} ${checkPlayerConnectionExist[0].player.queue.current?.title} โดย ${checkPlayerConnectionExist[0].player.queue.current?.author}`
+                `${lang.data.music.state.voiceChannel.status} ${checkPlayerConnectionExist[0].player.queue.current?.title} ${lang.data.music.play.author} ${checkPlayerConnectionExist[0].player.queue.current?.author}`
             );
         }
     }
@@ -378,6 +380,10 @@ export class Pona {
                     console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${guild.id}!\nPlayerId is not define in session file\x1b[0m`)
                     return;
                 }
+                if ( !this.client.guilds.cache.get(playerConnectionData.player) ) {
+                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}! (Guild not found)\x1b[0m`);
+                    return;
+                }
                 const fetchGuildData = await this.client.guilds.fetch(playerConnectionData.player) as Guild;
                 const player = lavalink.get(playerConnectionData.player);
                 if ( !player ) {
@@ -407,6 +413,10 @@ export class Pona {
                                 const playerConnectionData = JSON.parse(fs.readFileSync(path.join(ponaPlayerStateDir, state), "utf8"));
                                 if ( !playerConnectionData.player ) {
                                     console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}! (PlayerId is not define in session file) \x1b[0m`)
+                                    continue
+                                }
+                                if ( !this.client.guilds.cache.get(playerConnectionData.player) ) {
+                                    console.log(consolePrefix.discord + `\x1b[31mFailed to restore session for ${playerConnectionData.player}! (Guild not found)\x1b[0m`);
                                     continue
                                 }
                                 const fetchGuildData = await this.client.guilds.fetch(playerConnectionData.player) as Guild;

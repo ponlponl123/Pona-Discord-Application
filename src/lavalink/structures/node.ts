@@ -518,6 +518,7 @@ export class Node {
 	private sponsorBlockChapterStarted(player: Player, track: Track, payload: SponsorBlockChapterStarted) {
 		return this.manager.emit("chapterStarted", player, track, payload);
 	}
+	
 	public async fetchInfo() {
 		return (await (this.rest as Rest).get(`/v4/info`)) as LavalinkInfo;
 	}

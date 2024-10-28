@@ -16,6 +16,7 @@ import loopQueueSubsystem from './music/loop_queue';
 import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
 import color from "@/config/embedColor";
 
+import { SearchPlatforms } from "@/interfaces/manager";
 import { getGuildLanguage } from "@/utils/i18n";
 
 export const data = new SlashCommandBuilder()
@@ -38,8 +39,28 @@ export const data = new SlashCommandBuilder()
         })
         .addStringOption(option => option
             .setName('input')
-            .setDescription('Youtube video title')
+            .setDescription('Searching for')
+            .setDescriptionLocalizations({
+                th: 'กำลังค้นหาเพลงอะไรหรอ?'
+            })
             .setRequired(true)
+        )
+        .addStringOption(option => option
+            .setName('search_engine')
+            .setDescription('Search Engine')
+            .setDescriptionLocalizations({
+                th: 'เครื่องมือค้นหา'
+            })
+            .setChoices(
+                SearchPlatforms.map((platform) => ({
+                    name: platform.replace(
+                        /\w\S*/g,
+                        text => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
+                    ),
+                    value: platform
+                }))
+            )
+            .setRequired(false)
         )
     )
     .addSubcommand(subcommand => subcommand
@@ -148,7 +169,7 @@ export const data = new SlashCommandBuilder()
             .setRequired(true)
         )
     )
-    .setDMPermission(false)
+    .setDMPermission(false);
 
 export async function execute(interaction: CommandInteraction) {
     const lang = getGuildLanguage(interaction.guildId as string);

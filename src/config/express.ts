@@ -10,6 +10,7 @@ if (!EXPRESS_PORT || !toPort) {
   throw new Error("Missing environment variables");
 }
 
+
 export const config = {
   EXPRESS_PORT: toPort,
   EXPRESS_SECRET_API_KEY

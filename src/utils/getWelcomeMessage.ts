@@ -16,7 +16,7 @@ export const getWelcomeMessage = (): string => {
     else
         message = lang.data.welcomeMessage.night;
     
-    console.log(consolePrefix.system + `[Welcome Message] Current Time: ${date.toLocaleString()} - Message: ${message}`);
+    // console.log(consolePrefix.system + `[Welcome Message] Current Time: ${date.toLocaleString()} - Message: ${message}`);
     return message
 };
 

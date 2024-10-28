@@ -17,6 +17,17 @@ import {
 import { Player } from "@lavalink/structures/player";
 
 export type SearchPlatform = "deezer" | "soundcloud" | "youtube music" | "youtube" | "spotify" | "jiosaavn" | "tidal" | "applemusic" | "bandcamp";
+export const SearchPlatforms = [
+	"deezer",
+	"soundcloud",
+	"youtube music",
+	"youtube",
+	"spotify",
+	"jiosaavn",
+	"tidal",
+	"applemusic",
+	"bandcamp"
+];
 export type PlayerStateEventType =
 	| "connectionChange"
 	| "playerCreate"

@@ -57,7 +57,11 @@
             "removed_track": "Track has been removed!",
             "added": "Added to queue",
             "added_playlist": "Added playlist to queue",
-            "add_playlist": "Do you want to add this playlist to queue?"
+            "add_playlist": "Do you want to add this playlist to queue?",
+            "too_long": {
+                "title": "Queue is too long to be displayed.",
+                "value": "Show all queue in pona! app"
+            }
         },
         "errors": {
             "not_in_voice_channel": "Please enter a voice channel.",
@@ -85,12 +89,16 @@
     "settings": {
         "language": {
             "access_denied": "It looks like this setting requires the \"Manage Server\" permission!",
-            "complete": "The server's primary language has been changed to [value]!"
+            "complete": "The server primary language has been changed to [value]"
         }
     },
     "errors": {
         "error_occurred": "Error occurated, please try again later",
-        "invalid_subcommand": "Invalid subcommand"
+        "invalid_subcommand": "Invalid subcommand",
+        "pona_share_not_found": "Playlist not found",
+        "pona_share_no_tracks": "No tracks in playlist",
+        "pona_share_unauthorized": "Playlist not found",
+        "pona_share_service_unavailable": "Pona! API service unavailable"
     },
     "reasons": {
         "permission_denied": "Permission denied.",

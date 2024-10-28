@@ -53,7 +53,7 @@ export class LavalinkServer {
             const lang = getGuildLanguage(player.guild);
             const rest = new discord.REST({ version: "10" }).setToken(discordConf.DISCORD_TOKEN);
             await rest.put((Routes.channel(player.voiceChannel) + '/voice-status' as discord.RouteLike), {
-                body: {"status": `${lang.data.music.state.voiceChannel.status} ${track.title} โดย ${track.author}`}
+                body: {"status": `${lang.data.music.state.voiceChannel.status} ${track.title} ${lang.data.music.play.author} ${track.author}`}
             })
 
             // Notify currently playing to text channel

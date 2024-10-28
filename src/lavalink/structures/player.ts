@@ -26,6 +26,7 @@ export class Player {
 	public queueRepeat = false;
 	public dynamicRepeat = false;
 	public position = 0;
+	public length = 0;
 	public playing = false;
 	public paused = false;
 	public volume: number = 100;

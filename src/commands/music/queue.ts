@@ -3,6 +3,7 @@ import {
     CommandInteraction,
     SlashCommandBuilder,
     EmbedBuilder,
+    APIEmbedField,
 } from "discord.js";
 import { discordClient as self } from "@/index";
 import warningEmbedBuilder from "@utils/embeds/warning";
@@ -38,6 +39,7 @@ export default async function execute(interaction: CommandInteraction) {
     const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
 
     if ( playback.length > 0 ) {
+        const queueInLength = playback[0].player.queue.slice(0, 7);
         const queueEmbed = new EmbedBuilder()
             .setAuthor({
                 name: lang.data.music.queue.title,
@@ -54,11 +56,20 @@ export default async function execute(interaction: CommandInteraction) {
                 iconURL: playback[0].player.queue.current?.requester && (await self.client.users.fetch(playback[0].player.queue.current.requester.id)).avatarURL() || undefined
             })
             .setFields(
-                playback[0].player.queue.map((track, index) => ({
-                    name: `${index+1}. ${track.title}`,
-                    value: `${lang.data.music.queue.added_by} <@${track.requester?.id}>\n‎ `,
-                    inline: false
-                }))
+                queueInLength.map((track, index) => {
+                    if ( index === queueInLength.length - 1 ) {
+                        return {
+                            name: `${lang.data.music.queue.too_long.title}`,
+                            value: `[${lang.data.music.queue.too_long.value}](https://pona.ponlponl123.com/app/g/${member.guild.id}/queue)\n‎ `,
+                            inline: false
+                        }
+                    }
+                    return {
+                        name: `${index+1}. ${track.title}`,
+                        value: `${lang.data.music.queue.added_by} <@${track.requester?.id}>\n‎ `,
+                        inline: false
+                    }
+                })
             )
         return await interaction.reply({
             content: '',

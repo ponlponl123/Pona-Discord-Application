@@ -20,6 +20,7 @@ COPY --from=builder /pona-builder/package.json ./package.json
 COPY --from=builder /pona-builder/node_modules ./node_modules
 COPY --from=builder /pona-builder/locates ./locates
 COPY --from=builder /pona-builder/public ./public
+COPY --from=builder /pona-builder/.env.production ./.env.production
 
 EXPOSE 3000
 

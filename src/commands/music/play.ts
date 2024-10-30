@@ -180,7 +180,6 @@ export default async function execute(interaction: CommandInteraction) {
                 await response.delete();
                 let embed: EmbedBuilder;
                 if ( result.type === 'track' ) {
-                    await addToQueue(result.tracks[0], currentVoiceConnectionInGuild[0]);
                     embed = new EmbedBuilder()
                         .setTitle(result.tracks[0].title)
                         .setURL(result.tracks[0].identifier.startsWith('https://') ? result.tracks[0].identifier : `https://youtu.be/${result.tracks[0].identifier}`)
@@ -194,8 +193,8 @@ export default async function execute(interaction: CommandInteraction) {
                             text: `${lang.data.music.play.author} ${result.tracks[0].author}`
                         })
                         .setColor('#F9C5D5');
+                    await addToQueue(result.tracks[0], currentVoiceConnectionInGuild[0]);
                 } else if ( result.type === 'playlist' ) {
-                    await addToQueue(result.tracks, currentVoiceConnectionInGuild[0]);
                     embed = new EmbedBuilder()
                         .setTitle(lang.data.music.queue.added_playlist)
                         .setThumbnail(result.tracks[0].thumbnail)
@@ -212,6 +211,7 @@ export default async function execute(interaction: CommandInteraction) {
                             })
                         )
                         .setColor('#F9C5D5');
+                    await addToQueue(result.tracks, currentVoiceConnectionInGuild[0]);
                 } else {
                     return confirmation.reply({
                         embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)],

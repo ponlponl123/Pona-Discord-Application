@@ -51,7 +51,7 @@ export default async function execute(interaction: CommandInteraction) {
 
     if ( !member.voice.channel || !interaction.channel ) {
         return interaction.reply({
-            embeds: [errorEmbedBuilder(member.guild.id, lang.data.reasons.invalid_voice_channel, lang.data.music.errors.not_in_voice_channel)],
+            embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_in_voice_channel)],
             ephemeral: true
         });
     }
@@ -83,7 +83,7 @@ export default async function execute(interaction: CommandInteraction) {
     )
     {
         return interaction.reply({
-            embeds: [errorEmbedBuilder(member.guild.id, lang.data.reasons.invalid_voice_channel, lang.data.music.errors.not_same_voice_channel)],
+            embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_same_voice_channel)],
             ephemeral: true
         });
     }

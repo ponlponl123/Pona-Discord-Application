@@ -34,7 +34,7 @@ export default async function setVoiceChannelStatus(voiceChannelRef: VoiceBasedC
             body: {"status": text}
         })
         if ( req )
-            console.error( consolePrefix.discord + `\x1b[32mEdit voice status for ${ voiceChannel.id }(${ voiceChannel.guildId }) seccessfully!\x1b[0m` );
+            console.error( consolePrefix.discord + `\x1b[32mEdit voice status for ${ voiceChannel.id }(${ voiceChannel.guildId }) successfully!\x1b[0m` );
     
         return req;
     } catch (err) {

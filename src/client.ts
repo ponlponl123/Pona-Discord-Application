@@ -102,8 +102,9 @@ export class Pona {
                 if ( oldState.channelId && !newState.channelId ) {
                     const getCurrentVoiceChannel = isPonaInVoiceChannel( oldState.guild.id, false ) as IsPonaInVoiceChannel[];
                     if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'player' ) {
+                        const getPreviousVoiceChannel = await this.client.channels.fetch(oldState.channelId) as VoiceBasedChannel;
                         this.playerConnections = this.playerConnections.filter((connection) => connection.guild.id !== oldState.guild.id);
-                        await setVoiceChannelStatus((getCurrentVoiceChannel[0][0] as lavaPlayer).voiceChannel);
+                        await setVoiceChannelStatus(getPreviousVoiceChannel);
                     } else if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'voice' ) {
                         this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== oldState.guild.id);
                     }

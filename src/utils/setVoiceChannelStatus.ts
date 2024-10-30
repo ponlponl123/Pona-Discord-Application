@@ -1,12 +1,33 @@
+import { discordClient as self } from "..";
 import { config } from "@/config/discord";
 import { prefix as consolePrefix } from "@/config/console";
 import discord, { VoiceBasedChannel, Routes } from "discord.js";
 
-export default async function setVoiceChannelStatus(voiceChannel: VoiceBasedChannel, text: string = ''): Promise<unknown> {
+export default async function setVoiceChannelStatus(voiceChannelRef: VoiceBasedChannel | string, text: string = ''): Promise<unknown> {
+    let voiceChannel: VoiceBasedChannel;
+
+    if ( typeof voiceChannelRef === 'string' )
+        if ( voiceChannelRef.startsWith('guild-') )
+        {
+            const getPlayer = self.playerConnections.filter(player => player.player.guild === voiceChannelRef.replace('guild-',''));
+            if ( getPlayer.length > 0 )
+            {
+                voiceChannel = await self.client.channels.fetch(getPlayer[0].voiceChannel.id) as VoiceBasedChannel;
+            }
+            else
+            {
+                console.error( consolePrefix.discord + `\x1b[31mCannot find player for voice channel status. ${ voiceChannelRef }\x1b[0m`);
+                return false;
+            }
+        }
+        else voiceChannel = await self.client.channels.fetch(voiceChannelRef) as VoiceBasedChannel;
+    else voiceChannel = voiceChannelRef as VoiceBasedChannel;
+
     if ( !voiceChannel.isVoiceBased() || !voiceChannel.manageable ) {
         console.error( consolePrefix.discord + `\x1b[31mCannot set voice channel status, voice channel is not voice-based or manageable. ${ voiceChannel.id }(${ voiceChannel.guildId })\x1b[0m`);
         return false
     }
+
     const rest = new discord.REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
     try {
         const req = await rest.put((Routes.channel(voiceChannel.id) + '/voice-status' as discord.RouteLike), {

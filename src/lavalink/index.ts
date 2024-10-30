@@ -38,7 +38,6 @@ export class LavalinkServer {
             defaultSearchPlatform: 'youtube',
             send: (id, payload) => {
                 const guild = self.client.guilds.cache.get(id);
-                // NOTE: FOR ERIS YOU NEED JSON.stringify() THE PAYLOAD
                 if (guild) guild.shard.send(payload);
                 console.log(consolePrefix.lavalink + "Manager send: " + JSON.stringify(payload));
             }

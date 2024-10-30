@@ -16,6 +16,7 @@ import {
 } from '@interfaces/manager';
 import { State, VoiceState } from '@interfaces/lavaUtils';
 
+import setVoiceChannelStatus from "@utils/setVoiceChannelStatus";
 import playerCheck from "@utils/lavalink/playerCheck";
 import { ClientUser, Message, User } from "discord.js";
 
@@ -118,6 +119,7 @@ export class Player {
 				self_deaf: false,
 			},
 		});
+		setVoiceChannelStatus(this.voiceChannel);
 		this.voiceChannel = null;
 		this.state = "DISCONNECTED";
 		this.manager.emit("playerStateUpdate", oldPlayer, this, "connectionChange");

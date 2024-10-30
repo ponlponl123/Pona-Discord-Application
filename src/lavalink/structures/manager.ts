@@ -14,6 +14,7 @@ import { EventEmitter } from "events";
 import fs from "fs";
 import path from "path";
 
+import setVoiceChannelStatus from "@utils/setVoiceChannelStatus";
 import { prefix as consolePrefix } from "@/config/console";
 
 import { PlayerOptions, Track } from "@interfaces/player";
@@ -353,6 +354,7 @@ export class Manager extends EventEmitter {
 		if (event === "playerDestroy") {
 			this.lastSaveTimes.delete(player.guild);
 			this.players.delete(player.guild);
+			setVoiceChannelStatus(`guild-${player.guild}`);
 			this.cleanupInactivePlayers();
 		} else if (event === "playerStateUpdate") {
 			this.latestPlayerStates.set(player.guild, player);
@@ -601,6 +603,7 @@ export class Manager extends EventEmitter {
 
 	public destroy(guild: string): void {
 		this.players.delete(guild);
+		setVoiceChannelStatus(`guild-${guild}`);
 		this.cleanupInactivePlayers();
 	}
 

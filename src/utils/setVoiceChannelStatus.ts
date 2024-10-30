@@ -8,11 +8,16 @@ export default async function setVoiceChannelStatus(voiceChannel: VoiceBasedChan
         return false
     }
     const rest = new discord.REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
-    const req = await rest.put((Routes.channel(voiceChannel.id) + '/voice-status' as discord.RouteLike), {
-        body: {"status": text}
-    })
-    if ( req )
-        console.error( consolePrefix.discord + `\x1b[32mEdit voice status for ${ voiceChannel.id }(${ voiceChannel.guildId }) seccessfully!\x1b[0m` );
-
-    return req;
+    try {
+        const req = await rest.put((Routes.channel(voiceChannel.id) + '/voice-status' as discord.RouteLike), {
+            body: {"status": text}
+        })
+        if ( req )
+            console.error( consolePrefix.discord + `\x1b[32mEdit voice status for ${ voiceChannel.id }(${ voiceChannel.guildId }) seccessfully!\x1b[0m` );
+    
+        return req;
+    } catch (err) {
+        console.error( consolePrefix.discord + `\x1b[31mError on setting voice status. ${ voiceChannel.id }(${ voiceChannel.guildId })\x1b[0m`);
+        return false;
+    }
 }

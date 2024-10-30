@@ -27,20 +27,20 @@ export default async function joinChannel(channel: TextBasedChannel, voiceChanne
         });
 
         const defaultBand: Band[] = [
-            { band: 0, gain: 0.038 },
-            { band: 1, gain: 0.042 },
-            { band: 2, gain: 0.049 },
-            { band: 3, gain: 0.017 },
-            { band: 4, gain: 0.012 },
-            { band: 5, gain: 0.007 },
-            { band: 6, gain: -0.031 },
-            { band: 7, gain: -0.061 },
-            { band: 8, gain: -0.037 },
-            { band: 9, gain: -0.008 },
-            { band: 10, gain: 0.006 },
-            { band: 11, gain: 0.01 },
-            { band: 12, gain: 0.03 },
-            { band: 13, gain: 0.019 },
+            { band: 0, gain: 0.034 },
+            { band: 1, gain: 0.038 },
+            { band: 2, gain: 0.045 },
+            { band: 3, gain: 0.013 },
+            { band: 4, gain: 0.008 },
+            { band: 5, gain: 0.003 },
+            { band: 6, gain: -0.027 },
+            { band: 7, gain: -0.057 },
+            { band: 8, gain: -0.033 },
+            { band: 9, gain: -0.004 },
+            { band: 10, gain: 0.002 },
+            { band: 11, gain: 0.006 },
+            { band: 12, gain: 0.026 },
+            { band: 13, gain: 0.015 },
         ]
         player.filters.setEqualizer(defaultBand)
         player.setVolume(96);

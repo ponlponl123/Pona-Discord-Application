@@ -18,6 +18,7 @@ import { initialize as initializeSocket } from './api/ws/socket'
 import { Router as PonaRouter, PRIVATE_HTTPMethod, httpMethod, HTTPMethod, HTTPMethods } from '@interfaces/router'
 
 export class apiServer {
+    private portUsing: number = 3000;
     public readonly app: express.Application;
     public readonly socket: socketio.Server;
 
@@ -54,8 +55,9 @@ export class apiServer {
         this.socket = socket.server;
 
         this.router();
-        app.listen(port);
-        console.log(consolePrefix.express + `\x1b[32mAPI Server running at ${port}! 📡\x1b[0m`);
+        this.portUsing = port;
+        this.app.listen(this.portUsing);
+        console.log(consolePrefix.express + `\x1b[32mAPI Server running at ${this.portUsing}! 📡\x1b[0m`);
     }
 
     private async router() {

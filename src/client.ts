@@ -23,7 +23,7 @@ import { prefix as consolePrefix } from '@config/console'
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from '@utils/isPonaInVoiceChannel';
 import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
 import { getWelcomeMessage } from '@utils/getWelcomeMessage';
-import { ClusterClient } from "discord-hybrid-sharding";
+import { BaseMessage, ClusterClient, messageType } from "discord-hybrid-sharding";
 import GuildSettings from '@interfaces/guildSettings';
 import { lavalink } from "@/index";
 import { Manager, Node, Player } from '@/lavalink';
@@ -32,7 +32,7 @@ import { setInterval } from 'timers';
 import { getGuildLanguage } from './utils/i18n';
 
 interface ClientWithCluster extends Client {
-    cluster?: ClusterClient<ClientWithCluster>;
+    cluster?: ClusterClient;
 }
 
 export class Pona {
@@ -47,6 +47,24 @@ export class Pona {
         if (needCluster) this.client.cluster = new ClusterClient(client);
         this.client.login(config.DISCORD_TOKEN);
         console.log(consolePrefix.system + "\x1b[33mLogging in discord application...\x1b[0m");
+
+        if (this.client.cluster) {
+            if (this.client.cluster.maintenance) console.log(`Bot on maintenance mode with ${this.client.cluster.maintenance}`);
+    
+            this.client.cluster.on('ready', (client) => {
+                console.log(consolePrefix.shard + consolePrefix.discord + `Cluster is ready ${client.id}`)
+            });
+
+            this.client.cluster.on('message', message => {
+                console.log(consolePrefix.shard + message);
+                if ((message as BaseMessage)._type !== messageType.CUSTOM_REQUEST) return; // Check if the message needs a reply
+                if ((message as BaseMessage).alive) (message as BaseMessage).reply({ content: 'Yes I am!' });
+            });
+
+            setInterval(() => {
+                if (this.client.cluster) this.client.cluster.send({ content: 'I am alive as well!' });
+            }, 5000);
+        }
     
         this.client.once(Events.ClientReady, async (event) => {
             this.client.user?.setStatus('idle');

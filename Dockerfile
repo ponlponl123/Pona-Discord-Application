@@ -25,4 +25,4 @@ EXPOSE 3000
 
 ENV PORT=3000
 
-CMD ["node", "-r", "./tsconfig-paths.js", "dist/index.js", "--production"]
+CMD ["npm run start-shard"]

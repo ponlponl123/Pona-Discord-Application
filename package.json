@@ -18,9 +18,10 @@
   "bin": "./dist/cli.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx watch src/index.ts",
+    "dev": "dotenvx run -f .env.development -- cross-env CLUSTER=false tsx watch src/index.ts",
     "type-check": "npx tsc --noEmit",
-    "start": "node -r ./tsconfig-paths.js dist/index.js --production",
+    "start-shard": "dotenvx run -f .env.production -- cross-env CLUSTER=true node -r ./tsconfig-paths.js dist/shard.js",
+    "start": "dotenvx run -f .env.production -- cross-env CLUSTER=false node -r ./tsconfig-paths.js dist/index.js",
     "build": "npx tsc --build"
   },
   "repository": {
@@ -46,12 +47,14 @@
   "dependencies": {
     "@discordjs/opus": "^0.9.0",
     "@discordjs/voice": "^0.17.0",
+    "@dotenvx/dotenvx": "^1.21.0",
     "@types/cookie-parser": "^1.4.7",
     "@types/lodash": "^4.17.12",
     "axios": "^1.7.7",
     "body-parser": "^1.20.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "discord-hybrid-sharding": "^2.2.3",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
@@ -65,6 +68,7 @@
     "@eslint/js": "^9.7.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.7.8",
+    "cross-env": "^7.0.3",
     "eslint": "^8.57.0",
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-import": "^2.29.1",

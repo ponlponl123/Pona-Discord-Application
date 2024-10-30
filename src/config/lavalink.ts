@@ -1,24 +1,18 @@
-import dotenv from 'dotenv'
-
-dotenv.config();
+import { env, argv } from "process";
 
 const {
-  LAVALINK_SERVER, LAVALINK_PORT, LAVALINK_PASSWORD,
-  LAVALINK_DEV_SERVER, LAVALINK_DEV_PORT, LAVALINK_DEV_PASSWORD
-} = process.env;
+  LAVALINK_SERVER, LAVALINK_PORT, LAVALINK_PASSWORD
+} = env;
 
-var host: string = LAVALINK_DEV_SERVER || 'localhost';
-var port: number = Number(LAVALINK_DEV_PORT) || 2333;
-var password: string = LAVALINK_DEV_PASSWORD || 'youshallnotpass';
+var host: string = LAVALINK_SERVER || 'localhost';
+var port: number = Number(LAVALINK_PORT) || 2333;
+var password: string = LAVALINK_PASSWORD || 'youshallnotpass';
 
-if ( process.argv.includes('--production') ) {
-  host = LAVALINK_SERVER || '';
-  port = Number(LAVALINK_PORT) || 0;
-  password = LAVALINK_PASSWORD || '';
-
+if ( argv.includes('--production') || argv.includes('-launch') || env.NODE_ENV === 'production' ) {
   if (!host ||!port ||!password) {
     throw new Error("---------------------- Critical missing break!!\n\nMissing lavalink environment variables for production\n\n----------------------");
   }
+  console.log( " ---------------------- Connecting lavalink with production environment. ---------------------- " )
 } else {
   console.log( " ---------------------- Connecting lavalink with development environment. ---------------------- " )
 }

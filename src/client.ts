@@ -23,12 +23,17 @@ import { prefix as consolePrefix } from '@config/console'
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from '@utils/isPonaInVoiceChannel';
 import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
 import { getWelcomeMessage } from '@utils/getWelcomeMessage';
+import { ClusterClient } from "discord-hybrid-sharding";
 import GuildSettings from '@interfaces/guildSettings';
 import { lavalink } from "@/index";
 import { Manager, Node, Player } from '@/lavalink';
 import fs from 'fs';
 import { setInterval } from 'timers';
 import { getGuildLanguage } from './utils/i18n';
+
+interface ClientWithCluster extends Client {
+    cluster?: ClusterClient<ClientWithCluster>;
+}
 
 export class Pona {
     public readonly prefix = 'pona!';
@@ -38,7 +43,8 @@ export class Pona {
     public voiceConnections = new Array<VoiceConnection>();
     public playerConnections = new Array<lavaPlayer>();
 
-    public constructor( public readonly client: Client ) {
+    public constructor( public readonly client: ClientWithCluster, public readonly needCluster: Boolean ) {
+        if (needCluster) this.client.cluster = new ClusterClient(client);
         this.client.login(config.DISCORD_TOKEN);
         console.log(consolePrefix.system + "\x1b[33mLogging in discord application...\x1b[0m");
     

@@ -105,7 +105,7 @@ export class Player {
 		return this;
 	}
 
-	public disconnect(): this {
+	public async disconnect(): Promise<this> {
 		if (this.voiceChannel === null) return this;
 		this.state = "DISCONNECTING";
 		const oldPlayer = { ...this };
@@ -119,7 +119,7 @@ export class Player {
 				self_deaf: false,
 			},
 		});
-		setVoiceChannelStatus(this.voiceChannel);
+		await setVoiceChannelStatus(this.voiceChannel);
 		this.voiceChannel = null;
 		this.state = "DISCONNECTED";
 		this.manager.emit("playerStateUpdate", oldPlayer, this, "connectionChange");

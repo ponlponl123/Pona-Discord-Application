@@ -350,11 +350,11 @@ export class Manager extends EventEmitter {
 		}
 	}
 
-	private collectPlayerStateEvent(event: keyof ManagerEvents, player: Player): void {
+	private async collectPlayerStateEvent(event: keyof ManagerEvents, player: Player): Promise<void> {
 		if (event === "playerDestroy") {
 			this.lastSaveTimes.delete(player.guild);
 			this.players.delete(player.guild);
-			setVoiceChannelStatus(`guild-${player.guild}`);
+			await setVoiceChannelStatus(`guild-${player.guild}`);
 			this.cleanupInactivePlayers();
 		} else if (event === "playerStateUpdate") {
 			this.latestPlayerStates.set(player.guild, player);
@@ -601,9 +601,9 @@ export class Manager extends EventEmitter {
 		return this.players.get(guild);
 	}
 
-	public destroy(guild: string): void {
+	public async destroy(guild: string): Promise<void> {
+		await setVoiceChannelStatus(`guild-${guild}`);
 		this.players.delete(guild);
-		setVoiceChannelStatus(`guild-${guild}`);
 		this.cleanupInactivePlayers();
 	}
 

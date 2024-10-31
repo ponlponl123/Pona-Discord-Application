@@ -28,3 +28,8 @@ networks:
   # create a lavalink network you can add other containers to, to give them access to Lavalink
   lavalink:
     name: lavalink
+    # For stack deploy or allow other connect to lavalink server with lavalink network
+    # need to set lavalink network from local to bridge
+    # 
+    # driver: bridge
+    # 

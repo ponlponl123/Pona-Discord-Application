@@ -2,6 +2,11 @@ services:
   pona:
     build: .
     container_name: pona
+    # Stack deploy need to build image first
+    # and build, container_name contexts will be not work in stack deploy.
+    # 
+    # image: pona-discord-application:latest
+    # 
     volumes:
       - ./.env:/pona/.env.production
       - ./ponaState/:/pona/ponaState/
@@ -14,3 +19,11 @@ services:
       - 3000
     ports:
       - "3000:3000"
+
+# For who have already lavalink network
+#     networks:
+#       - lavalink
+
+# networks:
+#   lavalink:
+#     external: true

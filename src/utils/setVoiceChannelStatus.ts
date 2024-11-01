@@ -23,8 +23,8 @@ export default async function setVoiceChannelStatus(voiceChannelRef: VoiceBasedC
         else voiceChannel = await self.client.channels.fetch(voiceChannelRef) as VoiceBasedChannel;
     else voiceChannel = voiceChannelRef as VoiceBasedChannel;
 
-    if ( !voiceChannel.isVoiceBased() || !voiceChannel.manageable ) {
-        console.error( consolePrefix.discord + `\x1b[31mCannot set voice channel status, voice channel is not voice-based or manageable. ${ voiceChannel.id }(${ voiceChannel.guildId })\x1b[0m`);
+    if ( !voiceChannel.isVoiceBased() ) {
+        console.error( consolePrefix.discord + `\x1b[31mCannot set voice channel status, voice channel is not voice-based or manageable. ${ voiceChannel })\x1b[0m`);
         return false
     }
 

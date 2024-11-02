@@ -3,7 +3,7 @@ import { LavalinkServer } from './lavalink'
 import { apiServer as createAPIServer } from '@server/main'
 import { config as discordConf } from '@config/discord'
 import { config as expressConf } from '@config/express'
-import { Client, IntentsBitField } from 'discord.js'
+import { Client, GatewayIntentBits, Partials } from 'discord.js'
 import { getInfo } from 'discord-hybrid-sharding'
 
 export const config = discordConf;
@@ -13,14 +13,18 @@ const client = new Client({
     shards: needCluster ? getInfo().SHARD_LIST : undefined,
     shardCount: needCluster ? getInfo().TOTAL_SHARDS : 1,
     intents: [
-        IntentsBitField.Flags.Guilds,
-        IntentsBitField.Flags.GuildMessages,
-        IntentsBitField.Flags.DirectMessages,
-        IntentsBitField.Flags.MessageContent,
-        IntentsBitField.Flags.GuildVoiceStates,
-        IntentsBitField.Flags.GuildMessagePolls,
-        IntentsBitField.Flags.GuildMessageReactions
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessagePolls,
+        GatewayIntentBits.GuildMessageReactions
     ],
+    partials: [
+        Partials.GuildMember
+    ]
 });
 
 export const discordClient = new Pona(client, needCluster);

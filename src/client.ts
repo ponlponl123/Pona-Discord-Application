@@ -10,7 +10,8 @@ import {
     Events,
     ActivityType,
     VoiceBasedChannel,
-    TextBasedChannel
+    TextBasedChannel,
+    VoiceState
 } from 'discord.js'
 import {
     DiscordGatewayAdapterCreator,
@@ -21,29 +22,51 @@ import slashCommand from '@interfaces/command';
 import { lavaPlayer } from '@/interfaces/player';
 import { prefix as consolePrefix } from '@config/console'
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from '@utils/isPonaInVoiceChannel';
+import { BaseMessage, ClusterClient, messageType } from "discord-hybrid-sharding";
 import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
 import { getWelcomeMessage } from '@utils/getWelcomeMessage';
-import { BaseMessage, ClusterClient, messageType } from "discord-hybrid-sharding";
 import GuildSettings from '@interfaces/guildSettings';
-import { lavalink } from "@/index";
 import { Manager, Node, Player } from '@/lavalink';
-import fs from 'fs';
-import { setInterval } from 'timers';
 import { getGuildLanguage } from './utils/i18n';
+import { lavalink, database } from "@/index";
+import { setInterval } from 'timers';
+import { EventEmitter } from 'events';
+import fs from 'fs';
+
+export type voiceStateChange = 'clientJoined' | 'clientLeaved' | 'clientSwitched' | 'memberJoined' | 'memberLeaved' | 'memberSwitched';
+
+export interface PonaEvents {
+    'heartbeat': (client: Client) => void;
+    'voiceStateUpdate': (type: voiceStateChange, oldState: VoiceState, newState: VoiceState) => void;
+    'clientReady': (client: Client) => void;
+}
+
+declare interface Pona {
+    on<U extends keyof PonaEvents>(
+      event: U, listener: PonaEvents[U]
+    ): this;
+  
+    emit<U extends keyof PonaEvents>(
+      event: U, ...args: Parameters<PonaEvents[U]>
+    ): boolean;
+}
 
 interface ClientWithCluster extends Client {
     cluster?: ClusterClient;
 }
 
-export class Pona {
+class Pona extends EventEmitter {
     public readonly prefix = 'pona!';
     private readonly heartbeatInterval = setInterval(() => this.heartbeatEvent(this.client), 60 * 1000);
     public slashCommands = new Array<ApplicationCommandDataResolvable>();
     public slashCommandsMap = new Collection<string, slashCommand>();
     public voiceConnections = new Array<VoiceConnection>();
     public playerConnections = new Array<lavaPlayer>();
+    public ponaId: string;
 
     public constructor( public readonly client: ClientWithCluster, public readonly needCluster: Boolean ) {
+        super();
+        this.ponaId = String(new Date().getTime());
         if (needCluster) this.client.cluster = new ClusterClient(client);
         this.client.login(config.DISCORD_TOKEN);
         console.log(consolePrefix.system + "\x1b[33mLogging in discord application...\x1b[0m");
@@ -70,6 +93,7 @@ export class Pona {
             this.client.user?.setStatus('idle');
             console.log(consolePrefix.discord + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
             this.heartbeatEvent(this.client);
+            this.emit('clientReady', client);
 
             this.registerSlashCommands();
             lavalink.manager.on('nodeConnect', async (node: Node) => {
@@ -133,6 +157,7 @@ export class Pona {
                         this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== oldState.guild.id);
                     }
                     this.saveSessionOnFile();
+                    this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
                 } else if (
                     (oldState.channelId && newState.channelId) &&
                     oldState.channelId !== newState.channelId
@@ -154,6 +179,7 @@ export class Pona {
                         this.playerConnections[playerConnection].player.manager.savePlayerState(newState.guild.id);
                         this.playerConnections[playerConnection].voiceChannel = getCurrentVoiceChannel;
                         this.saveSessionOnFile();
+                        this.emit('voiceStateUpdate', 'clientSwitched', oldState, newState);
                     }
                 }
             }
@@ -175,6 +201,7 @@ export class Pona {
                         voiceConnection[0].destroy();
                         this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== oldState.guild.id);
                     }
+                    this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
                 }
             }
         });
@@ -237,13 +264,14 @@ export class Pona {
 
     private async heartbeatEvent(client: Client): Promise<void> {
         if ( !client?.user ) return;
-        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));;
+        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
         console.log( consolePrefix.discord + `${date.toLocaleString()} Heartbeat interval event received from client` );
         client.user.setActivity({
             name: getWelcomeMessage(),
             type: ActivityType.Custom,
             url: 'https://pona.ponlponl123.com/'
         })
+        this.emit('heartbeat', client);
     }
 
     public async defaultGuildLanguageChangedEvent(guildId: string): Promise<void> {
@@ -494,3 +522,5 @@ export class Pona {
         }
     }
 }
+
+export default Pona;

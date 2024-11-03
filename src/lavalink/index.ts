@@ -11,12 +11,29 @@ import { config } from "@config/lavalink";
 import discord, { Routes } from "discord.js";
 import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
 import { getGuildLanguage } from "@/utils/i18n";
+import { EventEmitter } from "events";
 
-export class LavalinkServer {
+interface PlayerEvents {
+    'trackStart': (player: Player, track: Track) => void;
+    'queueEnded': (player: Player) => void;
+}
+
+declare interface LavalinkServer {
+    on<U extends keyof PlayerEvents>(
+      event: U, listener: PlayerEvents[U]
+    ): this;
+  
+    emit<U extends keyof PlayerEvents>(
+      event: U, ...args: Parameters<PlayerEvents[U]>
+    ): boolean;
+}
+
+class LavalinkServer extends EventEmitter {
     public manager: Manager;
     public lavanodes = new Array<NodeOptions>();
 
     public constructor(public readonly clientId: string) {
+        super();
         console.log(consolePrefix.system + `\x1b[33mLogging in lavalink server with ${clientId}...\x1b[0m`);
 
         this.lavanodes.push({
@@ -55,6 +72,8 @@ export class LavalinkServer {
                 body: {"status": `${lang.data.music.state.voiceChannel.status} ${track.title} ${lang.data.music.play.author} ${track.author}`}
             })
 
+            this.emit('trackStart', player, track);
+
             // Notify currently playing to text channel
             // if ( !player.textChannel ) return false;
             // const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
@@ -72,6 +91,7 @@ export class LavalinkServer {
             }
 
             leaveVoiceChannelAsPlayer(player.guild);
+            this.emit('queueEnded', player);
 
             // Notify queue ended to text channel
             // if ( !player.textChannel ) return false;
@@ -108,3 +128,5 @@ export * from "./structures/player";
 export * from "./structures/queue";
 export * from "./structures/utils";
 export * from "./structures/node";
+
+export default LavalinkServer;

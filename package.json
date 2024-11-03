@@ -60,9 +60,11 @@
     "express": "^4.21.1",
     "ffmpeg-static": "^5.2.0",
     "lodash": "^4.17.21",
+    "mysql2": "^3.11.3",
     "socket.io": "^4.7.5",
     "sodium-native": "^4.2.1",
-    "tsconfig-paths": "^4.2.0"
+    "tsconfig-paths": "^4.2.0",
+    "xmlhttprequest-ts": "^1.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.7.0",

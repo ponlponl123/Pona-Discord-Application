@@ -20,7 +20,7 @@ export default class eventManager {
     pona.on('voiceStateUpdate', this.pona_voiceStateUpdate)
 
     lavalink.on('trackStart', this.player_trackStart)
-    lavalink.on('queueEnded', this.player_queueEnded)
+    lavalink.on('playerDestroy', this.player_playerDestroy)
   }
 
   private async pona_heartbeat (client: Client) {
@@ -74,7 +74,7 @@ export default class eventManager {
       ]
     )
   }
-  private async player_queueEnded (player: Player) {
+  private async player_playerDestroy (player: Player) {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
     await database.connection?.query(
         `INSERT INTO pona_flipflop_state (time, guildid, active)

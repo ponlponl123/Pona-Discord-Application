@@ -16,6 +16,7 @@ import { EventEmitter } from "events";
 interface PlayerEvents {
     'trackStart': (player: Player, track: Track) => void;
     'queueEnded': (player: Player) => void;
+    'playerDestroy': (player: Player) => void;
 }
 
 declare interface LavalinkServer {
@@ -98,6 +99,10 @@ class LavalinkServer extends EventEmitter {
             // const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
             // (channel && channel.isSendable()) && channel.send('Queue has ended.');
         });
+
+        this.manager.on('playerDestroy', (player: Player) => {
+            this.emit('playerDestroy', player);
+        })
 
         // Emitted whenever a node connects
         this.manager.on('nodeConnect', (node: Node) => {

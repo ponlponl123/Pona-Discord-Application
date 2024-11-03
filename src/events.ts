@@ -61,7 +61,7 @@ export default class eventManager {
       date,
       player.voiceChannel,
       player.guild,
-      track
+      JSON.stringify(track)
       ]
     )
     await database.connection?.query(

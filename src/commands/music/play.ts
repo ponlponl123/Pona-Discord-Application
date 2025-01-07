@@ -136,14 +136,20 @@ export default async function execute(interaction: CommandInteraction) {
                 })
                 .setColor('#F9C5D5');
         } else if ( result.type === 'playlist' ) {
+            const fields = result.tracks.slice(0, 24);
             embed = new EmbedBuilder()
                 .setTitle(lang.data.music.queue.add_playlist)
                 .setThumbnail(result.tracks[0].thumbnail)
                 .setFields(
-                    result.tracks.map((track: Track, index: number) => ({
-                        name: `${index + 1}. ${track.title}`,
-                        value: `${lang.data.music.play.author} ${track.author}\n‎`
-                    }))
+                    fields.map((track: Track, index: number) => (
+                        (result.tracks.length > 24 && index === 23) ? {
+                            name: `${lang.data.music.queue.too_long.title}`,
+                            value: `${lang.data.music.queue.too_long.value}`
+                        } : {
+                            name: `${index + 1}. ${track.title}`,
+                            value: `${lang.data.music.play.author} ${track.author}\n‎`
+                        }
+                    ))
                 )
                 .setColor('#F9C5D5');
         } else {
@@ -195,6 +201,7 @@ export default async function execute(interaction: CommandInteraction) {
                         .setColor('#F9C5D5');
                     await addToQueue(result.tracks[0], currentVoiceConnectionInGuild[0]);
                 } else if ( result.type === 'playlist' ) {
+                    const fields = result.tracks.slice(0, 24);
                     embed = new EmbedBuilder()
                         .setTitle(lang.data.music.queue.added_playlist)
                         .setThumbnail(result.tracks[0].thumbnail)
@@ -204,7 +211,10 @@ export default async function execute(interaction: CommandInteraction) {
                         })
                         .setFields(
                             result.tracks.map((track: Track, index: number) => {
-                                return {
+                                return (result.tracks.length > 24 && index === 23) ? {
+                                    name: `${lang.data.music.queue.too_long.title}`,
+                                    value: `${lang.data.music.queue.too_long.value}`
+                                } : {
                                     name: `${index + 1}. ${track.title}`,
                                     value: `${lang.data.music.play.author} ${track.author}\n‎`
                                 }

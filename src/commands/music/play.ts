@@ -171,12 +171,18 @@ export default async function execute(interaction: CommandInteraction) {
                     .setCustomId('addtoqueue')
             );
         
-        const response = await interaction.reply({
+        const response = interaction.isRepliable() ? await interaction.reply({
             content: `<:Question:1298270472428978217> · ${lang.data.music.play.confirmation.title}`,
             embeds: [embed],
             components: [row],
             ephemeral: true
-        });
+        }) : false;
+
+        if ( !response )
+            return interaction.followUp({
+                content: `${lang.data.components.errors.timeout}`,
+                ephemeral: true
+            })
 
         const collectorFilter = (i: Interaction) => i.user.id === interaction.user.id;
         try {
@@ -210,7 +216,7 @@ export default async function execute(interaction: CommandInteraction) {
                             name: `${lang.data.music.queue.added_by} ${member.user.username}`
                         })
                         .setFields(
-                            result.tracks.map((track: Track, index: number) => {
+                            fields.map((track: Track, index: number) => {
                                 return (result.tracks.length > 24 && index === 23) ? {
                                     name: `${lang.data.music.queue.too_long.title}`,
                                     value: `${lang.data.music.queue.too_long.value}`
@@ -233,8 +239,10 @@ export default async function execute(interaction: CommandInteraction) {
                 await response.delete();
             }
         } catch (e) {
-            await response.edit({ content: lang.data.components.errors.timeout, embeds: [], components: [] });
-            // console.log( consolePrefix.discord + 'Error when listening add queue confirmation:', e );
+            await response.edit({ content: lang.data.components.errors.timeout, embeds: [], components: [] }).catch(() => {
+                interaction.followUp({ content: lang.data.components.errors.timeout, ephemeral: true });
+            });
+            console.log( consolePrefix.discord + 'Error when listening add queue confirmation:', e );
         }
 
         return response;

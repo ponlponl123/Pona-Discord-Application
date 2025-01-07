@@ -12,6 +12,7 @@ import discord, { Routes } from "discord.js";
 import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
 import { getGuildLanguage } from "@/utils/i18n";
 import { EventEmitter } from "events";
+import setVoiceChannelStatus from "@/utils/setVoiceChannelStatus";
 
 interface PlayerEvents {
     'trackStart': (player: Player, track: Track) => void;
@@ -68,10 +69,7 @@ class LavalinkServer extends EventEmitter {
             // set voice channel status to current playing track
             if ( !player.voiceChannel ) return false;
             const lang = getGuildLanguage(player.guild);
-            const rest = new discord.REST({ version: "10" }).setToken(discordConf.DISCORD_TOKEN);
-            await rest.put((Routes.channel(player.voiceChannel) + '/voice-status' as discord.RouteLike), {
-                body: {"status": `${lang.data.music.state.voiceChannel.status} ${track.title} ${lang.data.music.play.author} ${track.author}`}
-            })
+            await setVoiceChannelStatus(player.voiceChannel, `${lang.data.music.state.voiceChannel.status} ${track.title} ${lang.data.music.play.author} ${track.author}`)
 
             this.emit('trackStart', player, track);
 

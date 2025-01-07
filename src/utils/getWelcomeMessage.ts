@@ -1,5 +1,5 @@
 import { lang } from './i18n'
-import { prefix as consolePrefix } from '@/config/console';
+// import { prefix as consolePrefix } from '@/config/console';
 
 export const getWelcomeMessage = (): string => {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));;

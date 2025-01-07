@@ -57,7 +57,7 @@ export default async function execute(interaction: CommandInteraction) {
         const actionRows: ActionRowBuilder<StringSelectMenuBuilder>[] = [];
         const total_pages = Math.ceil(playback[0].player.queue.length / 24);
 
-        for (let i = 0; i < Math.ceil(playback[0].player.queue.length / 24); i++) {
+        for (let i = 0; i < total_pages; i++) {
             const selector = new StringSelectMenuBuilder()
                 .setCustomId(`skipto_track_${i}`)
                 .setPlaceholder(`${lang.data.music.queue.skip.selector_placeholder}${total_pages > 1 && `(${lang.data.music.queue.skip.page_num} #${i+1})`}`)

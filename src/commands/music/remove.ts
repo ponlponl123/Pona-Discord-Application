@@ -54,16 +54,6 @@ export default async function execute(interaction: CommandInteraction) {
             });
         }
         const currentTrack = playback[0].player.queue.current as Track;
-        const selector = new StringSelectMenuBuilder()
-            .setCustomId('remove_track')
-            .setPlaceholder(lang.data.music.queue.remove.selector_placeholder)
-            .addOptions(
-                playback[0].player.queue.filter(track=>track.uniqueId!==currentTrack.uniqueId).map((track, index)=>{
-                    return new StringSelectMenuOptionBuilder()
-                    .setValue(track.uniqueId as string)
-                    .setLabel(`${index + 1}. ${track.title}`.slice(0, 100))
-                })
-            );
 
         const actionRows: ActionRowBuilder<StringSelectMenuBuilder>[] = [];
         const total_pages = Math.ceil(playback[0].player.queue.length / 24);

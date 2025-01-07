@@ -217,10 +217,14 @@ export default async function execute(interaction: CommandInteraction) {
                         })
                         .setFields(
                             fields.map((track: Track, index: number) => {
-                                return (result.tracks.length > 24 && index === 23) ? {
-                                    name: `${lang.data.music.queue.too_long.title}`,
-                                    value: `${lang.data.music.queue.too_long.value}`
-                                } : {
+                                if ( index === fields.length - 1 ) {
+                                    return {
+                                        name: `${lang.data.music.queue.too_long.title}`,
+                                        value: `[${lang.data.music.queue.too_long.value}](https://pona.ponlponl123.com/app/g/${member.guild.id}/queue)\n‎ `,
+                                        inline: false
+                                    }
+                                }
+                                return {
                                     name: `${index + 1}. ${track.title}`,
                                     value: `${lang.data.music.play.author} ${track.author}\n‎`
                                 }

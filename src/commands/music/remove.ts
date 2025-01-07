@@ -64,12 +64,30 @@ export default async function execute(interaction: CommandInteraction) {
                     .setLabel(`${index + 1}. ${track.title}`.slice(0, 100))
                 })
             );
-        const actionRow = new ActionRowBuilder<StringSelectMenuBuilder>()
-            .addComponents(selector);
+
+        const actionRows: ActionRowBuilder<StringSelectMenuBuilder>[] = [];
+        const total_pages = Math.ceil(playback[0].player.queue.length / 24);
+
+        for (let i = 0; i < total_pages; i++) {
+            const selector = new StringSelectMenuBuilder()
+                .setCustomId(`remove_track_${i}`)
+                .setPlaceholder(`${lang.data.music.queue.remove.selector_placeholder}${total_pages > 1 && `(${lang.data.music.queue.remove.page_num} #${i+1})`}`)
+                .addOptions(
+                    playback[0].player.queue.slice(i * 24, (i + 1) * 24).filter(track => track.uniqueId !== currentTrack.uniqueId).map((track, index) => {
+                        return new StringSelectMenuOptionBuilder()
+                            .setValue(String(index + i * 24))
+                            .setLabel(`${(index + i * 24) + 1}. ${track.title}`.slice(0, 100));
+                    })
+                );
+
+            const actionRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selector);
+            actionRows.push(actionRow);
+        }
+
         if ( !interaction.isRepliable() ) return;
         const response = await interaction.reply({
             content: lang.data.music.queue.remove.selector,
-            components: [actionRow],
+            components: actionRows,
             ephemeral: true
         });
         const collector = response.createMessageComponentCollector({ filter: (i) => i.user.id === interaction.user.id, time: 60_000 });

@@ -54,22 +54,29 @@ export default async function execute(interaction: CommandInteraction) {
             });
         }
         const currentTrack = playback[0].player.queue.current as Track;
-        const selector = new StringSelectMenuBuilder()
-            .setCustomId('skipto_track')
-            .setPlaceholder(lang.data.music.queue.skip.selector_placeholder)
-            .addOptions(
-                playback[0].player.queue.filter(track=>track.uniqueId!==currentTrack.uniqueId).map((track, index)=>{
-                    return new StringSelectMenuOptionBuilder()
-                    .setValue(String(index))
-                    .setLabel(`${index + 1}. ${track.title}`.slice(0, 100))
-                })
-            );
-        const actionRow = new ActionRowBuilder<StringSelectMenuBuilder>()
-            .addComponents(selector);
+        const actionRows: ActionRowBuilder<StringSelectMenuBuilder>[] = [];
+        const total_pages = Math.ceil(playback[0].player.queue.length / 24);
+
+        for (let i = 0; i < Math.ceil(playback[0].player.queue.length / 24); i++) {
+            const selector = new StringSelectMenuBuilder()
+                .setCustomId(`skipto_track_${i}`)
+                .setPlaceholder(`${lang.data.music.queue.skip.selector_placeholder}${total_pages > 1 && `(${lang.data.music.queue.skip.page_num} #${i+1})`}`)
+                .addOptions(
+                    playback[0].player.queue.slice(i * 24, (i + 1) * 24).filter(track => track.uniqueId !== currentTrack.uniqueId).map((track, index) => {
+                        return new StringSelectMenuOptionBuilder()
+                            .setValue(String(index + i * 24))
+                            .setLabel(`${(index + i * 24) + 1}. ${track.title}`.slice(0, 100));
+                    })
+                );
+
+            const actionRow = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selector);
+            actionRows.push(actionRow);
+        }
+
         if ( !interaction.isRepliable() ) return;
         const response = await interaction.reply({
             content: lang.data.music.queue.skip.selector,
-            components: [actionRow],
+            components: actionRows,
             ephemeral: true
         });
         const voiceChannelMembersSize_NotABot = member.voice.channel?.members.filter(member=>!member.user.bot);

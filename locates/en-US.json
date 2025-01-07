@@ -40,6 +40,7 @@
             "remove": {
                 "selector": "What track do you want to remove?",
                 "selector_placeholder": "Track to remove",
+                "page_num": "Page",
                 "requirement": "Queue must be more than 1 tracks.",
                 "poll": "Do you want to remove [track_name]? (Required [min_votes] votes)",
                 "approved": "Remove!",
@@ -48,6 +49,7 @@
             "skip": {
                 "selector": "What song would you like to skip to?",
                 "selector_placeholder": "Track you want to play",
+                "page_num": "Page",
                 "requirement": "Queue must be more than 1 tracks.",
                 "poll": "Do you want to skip this track? (Required [min_votes] votes)",
                 "poll_bulk": "Do you want to skip [index] tracks? (Required [min_votes] votes)",

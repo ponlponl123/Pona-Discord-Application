@@ -1,8 +1,8 @@
-const { EXPRESS_PORT, EXPRESS_SECRET_API_KEY } = process.env;
+const { HTTP_PORT, EXPRESS_SECRET_API_KEY } = process.env;
 
-const toPort = Number(EXPRESS_PORT);
+const toPort = Number(HTTP_PORT);
 
-if (!EXPRESS_PORT || !toPort) {
+if (!HTTP_PORT || !toPort) {
   throw new Error("Missing environment variables");
 }
 

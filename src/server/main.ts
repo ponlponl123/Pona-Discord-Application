@@ -1,4 +1,5 @@
 import express, { IRouter, IRouterMatcher, Router } from 'express'
+import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
 import socketio from 'socket.io'
 import cors from 'cors'
 import path from 'path'
@@ -20,11 +21,13 @@ import { Router as PonaRouter, PRIVATE_HTTPMethod, httpMethod, HTTPMethod, HTTPM
 export class apiServer {
     private portUsing: number = 3000;
     public readonly app: express.Application;
+    public readonly http: Server<typeof IncomingMessage, typeof ServerResponse>;
     public readonly socket: socketio.Server;
 
     constructor(port: number) {
         const app = express();
-        const socket = new initializeSocket();
+        const httpServer = createServer(app);
+        const socket = new initializeSocket(httpServer);
     
         app.disable('x-powered-by');
         app.use(cors({
@@ -38,9 +41,9 @@ export class apiServer {
             const start = Date.now();
             next();
             res.on('finish', () => {
-              const status = res.statusCode;
-              const duration = Date.now() - start;
-              console.log(consolePrefix.express + `\x1b[2m${new Date}\x1b[0m | \x1b[${status >= 200 && status < 400 ? "32m" : status >= 500 ? "31m" : "33m"}${status}\x1b[0m [ ${req.method} ${req.protocol} ] ${req.originalUrl} (${duration}ms)`);
+                const status = res.statusCode;
+                const duration = Date.now() - start;
+                console.log(consolePrefix.express + `\x1b[2m${new Date}\x1b[0m | \x1b[${status >= 200 && status < 400 ? "32m" : status >= 500 ? "31m" : "33m"}${status}\x1b[0m [ ${req.method} ${req.protocol} ] ${req.originalUrl} (${duration}ms)`);
             });
         })
     
@@ -52,11 +55,15 @@ export class apiServer {
         })
     
         this.app = app;
+        this.http = httpServer;
         this.socket = socket.server;
 
         this.router();
         this.portUsing = port;
-        this.app.listen(this.portUsing);
+
+        // this.app.listen(this.portUsing);
+        httpServer.listen(this.portUsing);
+        
         console.log(consolePrefix.express + `\x1b[32mAPI Server running at ${this.portUsing}! 📡\x1b[0m`);
     }
 

@@ -22,7 +22,7 @@ export class apiServer {
     private portUsing: number = 3000;
     public readonly app: express.Application;
     public readonly http: Server<typeof IncomingMessage, typeof ServerResponse>;
-    public readonly socket: socketio.Server;
+    public readonly io: socketio.Server;
 
     constructor(port: number) {
         const app = express();
@@ -56,7 +56,7 @@ export class apiServer {
     
         this.app = app;
         this.http = httpServer;
-        this.socket = socket.server;
+        this.io = socket.server;
 
         this.router();
         this.portUsing = port;
@@ -81,35 +81,41 @@ export class apiServer {
             if (fs.lstatSync(routePath).isDirectory()) {
                 fs.readdirSync(routePath).forEach(async file => {
                     const filePath = path.resolve(routePath, file);
-                    if (fs.lstatSync(filePath).isFile() && (file.endsWith('.ts') || file.endsWith('.js'))) {
-                        const name = path.basename(filePath).split('.')[0];
-                        const filePath_esm = 'file://' + filePath;
+                    const _route_register = async (fpath: string, className?: string) => {
+                        const name = path.basename(fpath).split('.')[0];
+                        const fpath_esm = 'file://' + fpath;
                         let controller: PonaRouter;
                         try {
-                            const test = await import(filePath_esm);
+                            const test = await import(fpath_esm);
                             controller = test;
                         } catch (err) {
                             console.warn('Failed to import ESM module, retrying with MJS');
                             try {
-                                const test = await import(filePath);
+                                const test = await import(fpath);
                                 controller = test;
                             } catch (err) {
-                                console.error(consolePrefix.express, `\x1b[31mFailed to import controller: ${filePath}\x1b[0m`);
+                                console.error(consolePrefix.express, `\x1b[31mFailed to import controller: ${fpath}\x1b[0m`);
                                 return;
                             }
                         }
 
-                        this.route(name, dir, controller);
+                        this.route(name, dir, controller, className);
                     }
+                    if (fs.lstatSync(filePath).isFile() && (file.endsWith('.ts') || file.endsWith('.js'))) await _route_register(filePath);
+                    else if (fs.lstatSync(filePath).isDirectory())
+                        fs.readdirSync(filePath).forEach(async file_d => {
+                            const filePath_d = path.resolve(filePath, file_d);
+                            if (fs.lstatSync(filePath_d).isFile() && (file_d.endsWith('.ts') || file_d.endsWith('.js'))) await _route_register(filePath_d, file);
+                        });
                 });
             }
         });
     }
 
-    private route(name: string, version: string, controller: PonaRouter) {
+    private route(name: string, version: string, controller: PonaRouter, className?: string) {
         const router = express.Router();
         const endpoint = name + (controller.path ?? '');
-        const endpointPath = `/${endpoint}`;
+        const endpointPath = className ? `/${className}/${endpoint}` : `/${endpoint}`;
         for ( const method of HTTPMethods ) {
             const handler = controller[method as HTTPMethod];
             const privateHandler = controller[method+"_PRIVATE" as PRIVATE_HTTPMethod];

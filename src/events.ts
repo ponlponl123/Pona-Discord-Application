@@ -38,8 +38,8 @@ export default class eventManager {
     const guildId = oldState.guild.id || newState.guild.id;
     const stateType = type.toString();
     await database.connection?.query(
-        `INSERT INTO pona_voicestate_history (guildid, beforestate, afterstate, date, type)
-        VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO pona_voicestate_history (guildid, beforestate, afterstate, date, type)
+      VALUES (?, ?, ?, ?, ?)`
     , [
         guildId,
         JSON.stringify(oldState),
@@ -47,7 +47,9 @@ export default class eventManager {
         date,
         stateType
       ]
-    )
+    );
+    if ( (oldState && !newState) && oldState.member?.id === pona.client.user?.id )
+      apiServer.io.to(guildId).emit('voiceStateUpdate', false);
   }
 
   private async player_trackStart (player: Player, track: Track) {
@@ -73,6 +75,8 @@ export default class eventManager {
       1
       ]
     )
+    apiServer.io.to(player.guild).emit('trackStarted', track);
+    apiServer.io.to(player.guild).emit('queueUpdated', player.queue);
   }
   private async player_playerDestroy (player: Player) {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -85,5 +89,6 @@ export default class eventManager {
       0
       ]
     )
+    apiServer.io.to(player.guild).emit('playerDestroyed');
   }
 }

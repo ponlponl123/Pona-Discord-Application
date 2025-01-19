@@ -4,10 +4,8 @@ import {
   database,
   apiServer
 } from './index'
-import Pona, { voiceStateChange } from './client'
-import { apiServer as APIServ } from './server/main'
-import LavalinkServer, { Player } from './lavalink'
-import { Database } from './database'
+import { voiceStateChange } from './client'
+import { Player } from './lavalink'
 
 import ping from './utils/ping'
 import { Client, VoiceState } from 'discord.js'
@@ -36,18 +34,29 @@ export default class eventManager {
   private async pona_voiceStateUpdate (type: voiceStateChange, oldState: VoiceState, newState: VoiceState) {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
     const guildId = oldState.guild.id || newState.guild.id;
+    const memberid = oldState.member?.id || newState.member?.id;
+    const channelid = oldState.channel?.id || newState.channel?.id;
     const stateType = type.toString();
-    await database.connection?.query(
-      `INSERT INTO pona_voicestate_history (guildid, beforestate, afterstate, date, type)
-      VALUES (?, ?, ?, ?, ?)`
-    , [
-        guildId,
-        JSON.stringify(oldState),
-        JSON.stringify(newState),
-        date,
-        stateType
-      ]
-    );
+    // const oldchannelid = oldState.channel?.id;
+    // const newchannelid = newState.channel?.id;
+    switch (type) {
+      default : {
+        await database.connection?.query(
+          `INSERT INTO pona_voicestate_history (guildid, memberid, channelid, beforestate, afterstate, date, type)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`
+        , [
+            guildId,
+            memberid,
+            channelid,
+            JSON.stringify(oldState),
+            JSON.stringify(newState),
+            date,
+            stateType
+          ]
+        );
+        break;
+      }
+    }
     if ( (oldState && !newState) && oldState.member?.id === pona.client.user?.id )
       apiServer.io.to(guildId).emit('voiceStateUpdate', false);
   }

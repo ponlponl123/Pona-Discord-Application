@@ -43,11 +43,11 @@ export interface PonaEvents {
 
 declare interface Pona {
     on<U extends keyof PonaEvents>(
-      event: U, listener: PonaEvents[U]
+        event: U, listener: PonaEvents[U]
     ): this;
-  
+
     emit<U extends keyof PonaEvents>(
-      event: U, ...args: Parameters<PonaEvents[U]>
+        event: U, ...args: Parameters<PonaEvents[U]>
     ): boolean;
 }
 
@@ -147,6 +147,8 @@ class Pona extends EventEmitter {
             ) return;
             if ( oldState.member.user.id === this.client.user.id )
             {
+                if ( !oldState.channelId && newState.channelId ) 
+                    this.emit('voiceStateUpdate', 'clientJoined', oldState, newState);
                 if ( oldState.channelId && !newState.channelId ) {
                     const getCurrentVoiceChannel = isPonaInVoiceChannel( oldState.guild.id, false ) as IsPonaInVoiceChannel[];
                     if ( getCurrentVoiceChannel.length > 0 && getCurrentVoiceChannel[0][1] === 'player' ) {
@@ -185,6 +187,12 @@ class Pona extends EventEmitter {
             }
             else
             {
+                if ( !oldState.channelId && newState.channelId ) 
+                    this.emit('voiceStateUpdate', 'memberJoined', oldState, newState);
+                if ( oldState.channelId && !newState.channelId ) 
+                    this.emit('voiceStateUpdate', 'memberLeaved', oldState, newState);
+                if ( oldState.channelId && newState.channelId ) 
+                    this.emit('voiceStateUpdate', 'memberSwitched', oldState, newState);
                 if (
                     (oldState.channelId && !newState.channelId) &&
                     oldState.channel &&

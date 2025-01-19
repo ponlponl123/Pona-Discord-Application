@@ -208,11 +208,12 @@ class Pona extends EventEmitter {
                         playerConnection[0].player.disconnect();
                         this.playerConnections = this.playerConnections.filter((connection) => connection.guild.id !== oldState.guild.id);
                         await setVoiceChannelStatus(oldState.channel);
+                        this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
                     } else if (voiceConnection.length > 0) {
                         voiceConnection[0].destroy();
                         this.voiceConnections = this.voiceConnections.filter((connection) => connection.joinConfig.guildId !== oldState.guild.id);
+                        this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
                     }
-                    this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
                 }
             }
         });

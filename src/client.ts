@@ -191,7 +191,10 @@ class Pona extends EventEmitter {
                     this.emit('voiceStateUpdate', 'memberJoined', oldState, newState);
                 if ( oldState.channelId && !newState.channelId ) 
                     this.emit('voiceStateUpdate', 'memberLeaved', oldState, newState);
-                if ( oldState.channelId && newState.channelId ) 
+                if (
+                    (oldState.channelId && newState.channelId) &&
+                    oldState.channelId !== newState.channelId
+                ) 
                     this.emit('voiceStateUpdate', 'memberSwitched', oldState, newState);
                 if (
                     (oldState.channelId && !newState.channelId) &&

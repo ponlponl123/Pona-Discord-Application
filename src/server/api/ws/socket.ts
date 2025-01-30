@@ -2,6 +2,7 @@ import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
 import { prefix as consolePrefix } from "@/config/console";
 import register from "./register";
+import dynamicGuildNamespace from "./of/guilds";
 
 export class initialize {
     public readonly server: Server;
@@ -14,6 +15,8 @@ export class initialize {
             }
         });
         this.server = socketServer;
+
+        dynamicGuildNamespace(this.server);
 
         // Websocket Handshake
         this.server.on("connection", (socket) => {

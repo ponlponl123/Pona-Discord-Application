@@ -128,9 +128,10 @@ class Pona extends EventEmitter {
         });
     
         this.client.on(Events.GuildCreate, async (guild: Guild) => {
-            guild.systemChannel?.send({
-                content: "<:PonaHello:1298343379561877656> Ohalo!"
-            })
+            if (guild.systemChannel?.isSendable())
+                guild.systemChannel.send({
+                    content: "<:PonaHello:1298343379561877656> Ohalo!"
+                })
         });
 
         this.client.on(Events.MessagePollVoteAdd, (answer, userId) => {

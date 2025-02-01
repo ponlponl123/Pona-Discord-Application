@@ -13,12 +13,29 @@ import { Track } from './interfaces/player'
 import os from 'os';
 
 export default class eventManager {
-  constructor () {
-    pona.on('heartbeat', this.pona_heartbeat);
-    pona.on('voiceStateUpdate', this.pona_voiceStateUpdate)
+  private customHandlers: { [key: string]: Function[] } = {};
 
-    lavalink.on('trackStart', this.player_trackStart)
-    lavalink.on('playerDestroy', this.player_playerDestroy)
+  constructor () {
+    pona.on('heartbeat', this.pona_heartbeat.bind(this));
+    pona.on('voiceStateUpdate', this.pona_voiceStateUpdate.bind(this));
+
+    lavalink.on('trackStart', this.player_trackStart.bind(this));
+    lavalink.on('playerDestroy', this.player_playerDestroy.bind(this));
+  }
+
+  public registerHandler(event: string, handler: Function) {
+    if (!this.customHandlers[event]) {
+      this.customHandlers[event] = [];
+    }
+    this.customHandlers[event].push(handler);
+  }
+
+  private async invokeHandlers(event: string, ...args: any[]) {
+    if (this.customHandlers[event]) {
+      for (const handler of this.customHandlers[event]) {
+        await handler(...args);
+      }
+    }
   }
 
   private async pona_heartbeat (client: Client) {
@@ -29,6 +46,7 @@ export default class eventManager {
     ping('https://discord.com/api/gateway', 443, async (ping) => {
       await database.connection?.query(`INSERT INTO pona_heartbeat_interval (time, clusterid, shardid, pingtomaster) VALUES (?, ?, ?, ?)`, [date, clusterId, shardId, ping]);
     });
+    await this.invokeHandlers('heartbeat', client);
   }
   
   private async pona_voiceStateUpdate (type: voiceStateChange, oldState: VoiceState, newState: VoiceState) {
@@ -59,6 +77,7 @@ export default class eventManager {
     }
     if ( (oldState && !newState) && oldState.member?.id === pona.client.user?.id )
       apiServer.io.to(guildId).emit('voiceStateUpdate', false);
+    await this.invokeHandlers('voiceStateUpdate', type, oldState, newState);
   }
 
   private async player_trackStart (player: Player, track: Track) {
@@ -86,6 +105,7 @@ export default class eventManager {
     )
     apiServer.io.to(player.guild).emit('trackStarted', track);
     apiServer.io.to(player.guild).emit('queueUpdated', player.queue);
+    await this.invokeHandlers('trackStart', player, track);
   }
   private async player_playerDestroy (player: Player) {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -99,5 +119,6 @@ export default class eventManager {
       ]
     )
     apiServer.io.to(player.guild).emit('playerDestroyed');
+    await this.invokeHandlers('playerDestroy', player);
   }
 }

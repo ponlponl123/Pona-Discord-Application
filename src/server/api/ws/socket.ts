@@ -1,8 +1,8 @@
-import { Server } from "socket.io";
+import { Server, Socket } from "socket.io";
 import { Server as HttpServer } from "http";
-import { prefix as consolePrefix } from "@/config/console";
 import register from "./register";
 import dynamicGuildNamespace from "./of/guilds";
+import trafficDebugger from "@/server/middlewares/socket/trafficDebuger";
 
 export class initialize {
     public readonly server: Server;
@@ -21,13 +21,9 @@ export class initialize {
         // Websocket Handshake
         this.server.on("connection", (socket) => {
             socket.emit("hello", "socket " + socket.id);
-            console.log(consolePrefix.socket + `🟢 connected with transport ${socket.conn.transport.name} (${socket.id}) from ${socket.handshake.address}`);
 
             register(socket);
-
-            socket.on("disconnect", (reason) => {
-                console.log(consolePrefix.socket + `⚫ Good bye ${socket.conn.transport.name} (${socket.id}) from ${socket.handshake.address}\n             ↳`, reason);
-            });
+            trafficDebugger(socket);
         });
     }
 }

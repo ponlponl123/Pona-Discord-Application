@@ -351,6 +351,7 @@ export class Manager extends EventEmitter {
 	}
 
 	private async collectPlayerStateEvent(event: keyof ManagerEvents, player: Player): Promise<void> {
+		if (!player) return; // Ensure player is defined
 		if (event === "playerDestroy") {
 			this.lastSaveTimes.delete(player.guild);
 			this.players.delete(player.guild);

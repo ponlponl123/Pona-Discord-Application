@@ -13,20 +13,21 @@ import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
 import { getGuildLanguage } from "@/utils/i18n";
 import { EventEmitter } from "events";
 import setVoiceChannelStatus from "@/utils/setVoiceChannelStatus";
+import { PlayerStateEventType } from "@/interfaces/manager";
 
-interface PlayerEvents {
+export interface PlayerEvents {
     'trackStart': (player: Player, track: Track) => void;
+    'playerStateUpdate': (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) => void;
     'queueEnded': (player: Player) => void;
     'playerDestroy': (player: Player) => void;
 }
 
 declare interface LavalinkServer {
     on<U extends keyof PlayerEvents>(
-      event: U, listener: PlayerEvents[U]
+        event: U, listener: PlayerEvents[U]
     ): this;
-  
     emit<U extends keyof PlayerEvents>(
-      event: U, ...args: Parameters<PlayerEvents[U]>
+        event: U, ...args: Parameters<PlayerEvents[U]>
     ): boolean;
 }
 
@@ -63,6 +64,10 @@ class LavalinkServer extends EventEmitter {
         });
         
         self.client.on('raw', (d) => this.manager.updateVoiceState(d));
+
+        this.manager.on('playerStateUpdate', async (oldPlayer, newPlayer, changeType) => {
+            this.emit('playerStateUpdate', oldPlayer, newPlayer, changeType);
+        })
 
         this.manager.on('trackStart', async (player, track) => {
             self.saveSessionOnFile();

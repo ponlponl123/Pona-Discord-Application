@@ -1,52 +1,108 @@
-import trafficDebugger from "@/server/middlewares/socket/trafficDebuger";
 import { Server } from "socket.io";
-import { discordClient as self } from '@/index';
 import eventManager from '@/events';
-import { FetchUserByOAuth } from "@/utils/oauth";
-import { HttpStatusCode } from "axios";
+import { discordClient as self } from '@/index';
+import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
+import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
+
+export type GuildEvents =
+  'player_created'      |
+  'player_destroyed'    |
+  'pause_updated'       |
+  'volume_updated'      |
+  'autoplay_updated'    |
+  'repeat_updated'      |
+  'track_started'       |
+  'track_updated'       |
+  'channel_updated'     |
+  'connection_updated'  |
+  'queue_updated'       |
+  'queue_ended'         ;
 
 export default async function dynamicGuildNamespace(io: Server) {
-  const io_guild = io.of(/^\/guilds\/\d+$/);
+  const io_guild = io.of(/^\/guild\/\d+$/);
+  const events = new eventManager();
 
-  io_guild.on("connection", async (socket) => {
+  events.registerHandler("trackStart", (player, track) => {
+    const guildId = player.guild;
+    const namespace_io = io.of(`/guild/${guildId}`);
+    namespace_io.to("pona! music").emit('track_started' as GuildEvents);
+  });
+
+  events.registerHandler("playerStateUpdate", (oldPlayer, newPlayer, changeType) => {
+    const guildId = oldPlayer.options.guild || newPlayer.options.guild;
+    const namespace_io = io.of(`/guild/${guildId}`);
+    switch (changeType) {
+      case 'channelChange':
+        namespace_io.to("pona! music").emit('channel_updated' as GuildEvents);
+        break;
+      case 'queueChange':
+        namespace_io.to("pona! music").emit('queue_updated' as GuildEvents);
+        break;
+      case 'connectionChange':
+        namespace_io.to("pona! music").emit('connection_updated' as GuildEvents);
+        break;
+      case 'trackChange':
+        namespace_io.to("pona! music").emit('track_updated' as GuildEvents);
+        break;
+      case 'volumeChange':
+        namespace_io.to("pona! music").emit('volume_updated' as GuildEvents);
+        break;
+      case 'repeatChange':
+        namespace_io.to("pona! music").emit('repeat_updated' as GuildEvents);
+        break;
+      case 'autoplayChange':
+        namespace_io.to("pona! music").emit('autoplay_updated' as GuildEvents);
+        break;
+      case 'pauseChange':
+        namespace_io.to("pona! music").emit('pause_updated' as GuildEvents);
+        break;
+      case 'playerCreate':
+        namespace_io.to("pona! music").emit('player_created' as GuildEvents);
+        break;
+      case 'playerDestroy':
+        namespace_io.to("pona! music").emit('player_destroyed' as GuildEvents);
+        break;
+      default:
+        namespace_io.to("pona! music").emit('unknown_updated' as GuildEvents);
+        break;
+    }
+  });
+
+  events.registerHandler("queueEnded", (player) => {
+    const guildId = player.guild;
+    const namespace_io = io.of(`/guild/${guildId}`);
+    namespace_io.to("pona! music").emit('queue_ended' as GuildEvents);
+  });
+
+  io_guild.use(async (socket, next) => {
     trafficDebugger(socket);
     const guildId = socket.nsp.name.split('/')[2];
-
+    const authorization = socket.handshake.headers.authorization;
+    const accesstoken_type = socket.handshake.auth.type;
+    const accesstoken_key = socket.handshake.auth.key;
     if (
-      !Number.isInteger(guildId) ||
-      !socket.handshake.auth.type ||
-      !socket.handshake.auth.token
-    ) {
-      const err = Error("Invalid guild ID or authentication details");
-      socket._error(err);
-      socket.request.statusMessage = err.message;
-      socket.emit('exception', {errorMessage: err.message});
-      socket.request.statusCode = HttpStatusCode.Unauthorized;
-      return socket.request.destroy(err);
-    }
+      !Number.isInteger(Number(guildId)) ||
+      (!authorization &&
+      (!accesstoken_type ||
+      !accesstoken_key))
+    ) return next(new Error("Authentication token required"));
 
-    const OauthType = socket.handshake.auth.type;
-    const accessToken = socket.handshake.auth.token;
     const guild = self.client.guilds.cache.get(guildId);
-    const user = await FetchUserByOAuth(OauthType, accessToken);
+    const user = authorization ?
+      await fetchUserByOAuth(authorization) :
+      await fetchUserByOAuthAccessToken(accesstoken_type, accesstoken_key);
 
-    if (
-      !user ||
-      !guild ||
-      (user && !guild.members.cache.has(user.id))
-    ) {
-      const err = Error("User not found or not a member of the guild");
-      socket._error(err);
-      socket.request.statusMessage = err.message;
-      socket.emit('exception', {errorMessage: err.message});
-      socket.request.statusCode = HttpStatusCode.NotFound;
-      return socket.request.destroy(err);
-    }
+    if ( !user ) return next(new Error("unauthorized"));
+    if ( !guild ) return next(new Error("invalid guild"));
 
-    const events = new eventManager();
-    // soon.. i will sleep now :)
+    const member = await guild.members.fetch(user.id);
 
-    socket.join(guildId);
-    io_guild.to(guildId).emit("hello");
+    if (!member) return next(new Error("not a member of this guild"));
+    next();
+  });
+
+  io_guild.on("connection", async (socket) => {
+    // const guildId = socket.nsp.name.split('/')[2];
+    socket.join("pona! music");
   });
 }

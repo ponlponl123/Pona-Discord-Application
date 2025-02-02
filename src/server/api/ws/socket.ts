@@ -2,7 +2,7 @@ import { Server, Socket } from "socket.io";
 import { Server as HttpServer } from "http";
 import register from "./register";
 import dynamicGuildNamespace from "./of/guilds";
-import trafficDebugger from "@/server/middlewares/socket/trafficDebuger";
+import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
 
 export class initialize {
     public readonly server: Server;

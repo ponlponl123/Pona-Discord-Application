@@ -4,16 +4,29 @@ import {
   database,
   apiServer
 } from './index'
-import { voiceStateChange } from './client'
-import { Player } from './lavalink'
+import { PonaEvents, voiceStateChange } from './client'
+import { Player, PlayerEvents } from './lavalink'
 
 import ping from './utils/ping'
 import { Client, VoiceState } from 'discord.js'
 import { Track } from './interfaces/player'
 import os from 'os';
+import { PlayerStateEventType } from './interfaces/manager'
+
+export type EventEmitter = keyof PonaEvents | keyof PlayerEvents;
+
+interface CommonEventHandler {
+  heartbeat: (client: Client) => void;
+  voiceStateUpdate: (type: voiceStateChange, oldState: VoiceState, newState: VoiceState) => void;
+  playerStateUpdate: (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) => void;
+  trackStart: (player: Player, track: Track) => void;
+  playerDestroy: (player: Player) => void;
+  clientReady: (client: Client) => void;
+  queueEnded: (player: Player) => void;
+}
 
 export default class eventManager {
-  private customHandlers: { [key: string]: Function[] } = {};
+  private customHandlers: { [K in EventEmitter]?: any[] | CommonEventHandler[keyof CommonEventHandler][] } = {};
 
   constructor () {
     pona.on('heartbeat', this.pona_heartbeat.bind(this));
@@ -21,19 +34,21 @@ export default class eventManager {
 
     lavalink.on('trackStart', this.player_trackStart.bind(this));
     lavalink.on('playerDestroy', this.player_playerDestroy.bind(this));
+    lavalink.on('playerStateUpdate', this.pona_playerStateUpdate.bind(this));
   }
 
-  public registerHandler(event: string, handler: Function) {
+  public registerHandler<T extends EventEmitter>(event: T, handler: CommonEventHandler[T & keyof CommonEventHandler]) {
     if (!this.customHandlers[event]) {
       this.customHandlers[event] = [];
     }
-    this.customHandlers[event].push(handler);
+    this.customHandlers[event]!.push(handler);
   }
 
-  private async invokeHandlers(event: string, ...args: any[]) {
+  // define static args for common handlers
+  private async invokeHandlers<T extends EventEmitter>(event: T, ...args: Parameters<CommonEventHandler[T & keyof CommonEventHandler]> | any[]) {
     if (this.customHandlers[event]) {
-      for (const handler of this.customHandlers[event]) {
-        await handler(...args);
+      for (const handler of this.customHandlers[event]!) {
+        await (handler as (...args: Parameters<CommonEventHandler[T & keyof CommonEventHandler]> | any[]) => void)(...args);
       }
     }
   }
@@ -78,6 +93,10 @@ export default class eventManager {
     if ( (oldState && !newState) && oldState.member?.id === pona.client.user?.id )
       apiServer.io.to(guildId).emit('voiceStateUpdate', false);
     await this.invokeHandlers('voiceStateUpdate', type, oldState, newState);
+  }
+  
+  private async pona_playerStateUpdate (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) {
+    await this.invokeHandlers('playerStateUpdate', oldPlayer, newPlayer, changeType);
   }
 
   private async player_trackStart (player: Player, track: Track) {

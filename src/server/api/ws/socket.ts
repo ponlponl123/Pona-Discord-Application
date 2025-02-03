@@ -11,11 +11,6 @@ export class initialize {
     public readonly redis: Redis | undefined;
 
     constructor(http: HttpServer) {
-        if ( redisConfig )
-            this.redis = new Redis({
-                sentinels: [{ host: redisConfig.REDIS_HOST, port: redisConfig.REDIS_PORT }],
-                name: "pona_master",
-            });
         const socketServer = new Server(http, {
             cors: {
                 origin: "https://pona.ponlponl123.com",
@@ -23,8 +18,15 @@ export class initialize {
             }
         });
         this.server = socketServer;
-        if ( this.redis )
+
+        if ( redisConfig && redisConfig.REDIS_ENABLED && redisConfig.REDIS_HOST && redisConfig.REDIS_PORT )
+        {
+            this.redis = new Redis({
+                sentinels: [{ host: redisConfig.REDIS_HOST, port: redisConfig.REDIS_PORT }],
+                name: "pona_master",
+            });
             this.server.adapter(require("socket.io-redis")({ pubClient: this.redis, subClient: this.redis }));
+        }
 
         dynamicGuildNamespace(this.server);
 

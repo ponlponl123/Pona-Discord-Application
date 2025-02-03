@@ -1,11 +1,7 @@
-const { REDIS_HOST, REDIS_PORT } = process.env;
-
-var toPort = Number(REDIS_PORT);
-
-if (!REDIS_PORT || !toPort) 
-  throw new Error("Missing environment variables");
+const { REDIS_ENABLED, REDIS_HOST, REDIS_PORT } = process.env;
 
 export const config = {
+  REDIS_ENABLED: REDIS_ENABLED === "true" ? true : REDIS_ENABLED === "false" ? false : undefined,
   REDIS_HOST,
-  REDIS_PORT: toPort
+  REDIS_PORT: REDIS_PORT ? Number(REDIS_PORT) : undefined
 };

@@ -1,0 +1,84 @@
+services:
+  redis-master:
+    image: redis:alpine
+    command: redis-server /etc/redis/redis.conf --appendonly yes
+    volumes:
+      - redis_master_data:/data
+      - ./redis-master.conf:/etc/redis/redis.conf
+    networks:
+      - socketio-network
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+  redis-replica:
+    image: redis:alpine
+    command: redis-server /etc/redis/redis.conf --replicaof redis-master 6379
+    volumes:
+      - redis_replica_data:/data
+      - ./redis-replica.conf:/etc/redis/redis.conf
+    networks:
+      - socketio-network
+    deploy:
+      replicas: 2
+
+  redis-sentinel:
+    image: redis:alpine
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./conf/redis/sentinel.conf:/etc/redis/sentinel.conf
+    networks:
+      - socketio-network
+    deploy:
+      replicas: 3
+  lavalink:
+    # pin the image version to Lavalink v4
+    image: ghcr.io/lavalink-devs/lavalink:4
+    container_name: lavalink
+    restart: unless-stopped
+    environment:
+      # set Java options here
+      - _JAVA_OPTIONS=-Xmx6G
+      # set lavalink server port
+      - SERVER_PORT=2333
+      # set password for lavalink
+      - LAVALINK_SERVER_PASSWORD=youshallnotpass
+    volumes:
+      # mount application.yml from the same directory or use environment variables
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml
+      # persist plugins between restarts, make sure to set the correct permissions (user: 322, group: 322)
+      - ./lavalink/plugins/:/opt/Lavalink/plugins/
+    networks:
+      - lavalink
+    expose:
+      # lavalink exposes port 2333 to connect to for other containers (this is for documentation purposes only)
+      - 2333
+    ports:
+      # you only need this if you want to make your lavalink accessible from outside of containers
+      - "2333:2333"
+  pona:
+    build: .
+    container_name: pona
+    volumes:
+      - ./.env:/pona/.env.production
+      - ./ponaState/:/pona/ponaState/
+    environment:
+      # ... other environment variables
+      LAVALINK_SERVER: lavalink  # Use the service name "lavalink" instead of localhost
+    expose:
+      - 3000
+    networks:
+      - lavalink
+      - socketio-network
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis-sentinel
+volumes:
+  redis_master_data:
+  redis_replica_data:
+networks:
+  # create a lavalink network you can add other containers to, to give them access to Lavalink
+  lavalink:
+    name: lavalink

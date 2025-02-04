@@ -1,10 +1,11 @@
 services:
   redis-master:
     image: redis:alpine
-    command: redis-server /etc/redis/redis.conf --appendonly yes
+    hostname: redis-master
+    command: redis-server /etc/redis-config/redis.conf --appendonly yes
     volumes:
       - redis_master_data:/data
-      - ./conf/redis/redis-master.conf:/etc/redis/redis.conf
+      - ./conf/redis-master:/etc/redis-config
     ports:
       - "6379:6379"
     networks:
@@ -16,30 +17,47 @@ services:
 
   redis-replica:
     image: redis:alpine
-    command: redis-server /etc/redis/redis.conf --replicaof redis-master 6379
+    command: redis-server /etc/redis-config/redis.conf --replicaof redis-master 6379
     volumes:
       - redis_replica_data:/data
-      - ./conf/redis/redis-replica.conf:/etc/redis/redis.conf
+      - ./conf/redis-replica:/etc/redis-config
+    ports:
+      - "6380:6380"
     networks:
       - redis-network
     deploy:
       replicas: 2
+    depends_on:
+      - redis-master
 
   redis-sentinel:
     image: redis:alpine
-    command: redis-sentinel /etc/redis/sentinel.conf
-    volumes:
-      - ./conf/redis/sentinel.conf:/etc/redis/sentinel.conf
+    command: >
+      sh -c 'mkdir -p /etc/redis-config &&
+        echo "bind 0.0.0.0" > /etc/redis-config/sentinel.conf &&
+        echo "sentinel monitor pona_master redis-master 6379 2" >> /etc/redis-config/sentinel.conf &&
+        echo "sentinel resolve-hostnames yes" >> /etc/redis-config/sentinel.conf &&
+        echo "sentinel down-after-milliseconds pona_master 30000" >> /etc/redis-config/sentinel.conf &&
+        echo "sentinel failover-timeout pona_master 180000" >> /etc/redis-config/sentinel.conf &&
+        echo "sentinel parallel-syncs pona_master 1" >> /etc/redis-config/sentinel.conf &&
+        redis-server /etc/redis-config/sentinel.conf --sentinel'
     ports:
       - "26379:26379"
     networks:
       - redis-network
+    environment:
+      - TILT_MODE=no
     deploy:
       replicas: 3
+    depends_on:
+      - redis-master
+      - redis-replica
+
 networks:
   redis-network:
     name: redis-network
     driver: overlay
+
 volumes:
   redis_master_data:
   redis_replica_data:

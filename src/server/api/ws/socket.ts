@@ -22,18 +22,40 @@ export class initialize {
 
         if ( redisConfig && redisConfig.REDIS_ENABLED && redisConfig.REDIS_HOST && redisConfig.REDIS_PORT )
         {
-            console.log(consolePrefix.socket, '🟠 Starting Redis Network');
-            this.redis = new Redis({
-                sentinels: [{ host: redisConfig.REDIS_HOST, port: redisConfig.REDIS_PORT }],
-                name: "pona_master",
-                connectTimeout: 10000,
-                retryStrategy(times) {
-                    return Math.min(times * 50, 2000);
-                },
-            });
+            const redis_host = redisConfig.REDIS_HOST;
+            const redis_port = redisConfig.REDIS_PORT;
+            const redis_type = redisConfig.REDIS_TYPE;
+            console.log(consolePrefix.socket, `🟠 Starting Redis(type: ${redis_type}) Network (${redis_host}:${redis_port})`);
+            this.redis =
+                redis_type === 'sentinel' ? new Redis({
+                    sentinels: [
+                        { host: redis_host, port: redis_port }
+                    ],
+                    name: "pona_master",
+                    keyPrefix: "pona",
+                    sentinelRetryStrategy(times) {
+                      return Math.min(times * 50, 2000);
+                    },
+                    keepAlive: 60 * 1000,
+                    sentinelMaxConnections: 5,
+                    sentinelCommandTimeout: 30 * 1000, // 30 seconds
+                    connectTimeout: 10 * 1000 // 10 seconds
+                }) : new Redis({
+                    host: redis_host,
+                    port: redis_port,
+                    name: "pona_master",
+                    keyPrefix: "pona",
+                    commandTimeout: 30 * 1000,
+                });
+            
             this.redis.on("ready", () => {
                 console.log(consolePrefix.socket, '🟢 Redis Network is ready');
-            })
+            });
+            
+            this.redis.on("error", (err) => {
+                console.error(consolePrefix.socket, '🔴 Redis Network error :', err);
+            });
+
             this.server.adapter(require("socket.io-redis")({ pubClient: this.redis, subClient: this.redis }));
         }
 

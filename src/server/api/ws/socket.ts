@@ -6,6 +6,7 @@ import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
 import { prefix as consolePrefix } from "@/config/console";
 import { config as redisConfig } from "@/config/redis";
 import Redis from "ioredis";
+import { createAdapter } from "@socket.io/redis-adapter";
 
 export class initialize {
     public readonly server: Server;
@@ -36,16 +37,19 @@ export class initialize {
                     sentinelRetryStrategy(times) {
                       return Math.min(times * 50, 2000);
                     },
-                    keepAlive: 60 * 1000,
+                    lazyConnect: true,
+                    keepAlive: 5 * 60 * 1000,
                     sentinelMaxConnections: 5,
-                    sentinelCommandTimeout: 30 * 1000, // 30 seconds
+                    sentinelCommandTimeout: 5 * 60 * 1000, // 30 seconds
                     connectTimeout: 10 * 1000 // 10 seconds
                 }) : new Redis({
                     host: redis_host,
                     port: redis_port,
                     name: "pona_master",
                     keyPrefix: "pona",
-                    commandTimeout: 30 * 1000,
+                    lazyConnect: true,
+                    keepAlive: 5 * 60 * 1000,
+                    commandTimeout: 5 * 60 * 1000,
                 });
             
             this.redis.on("ready", () => {
@@ -56,7 +60,7 @@ export class initialize {
                 console.error(consolePrefix.socket, '🔴 Redis Network error :', err);
             });
 
-            this.server.adapter(require("socket.io-redis")({ pubClient: this.redis, subClient: this.redis }));
+            this.server.adapter(createAdapter(this.redis, this.redis));
         }
 
         dynamicGuildNamespace(this.server);

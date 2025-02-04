@@ -1,0 +1,45 @@
+services:
+  redis-master:
+    image: redis:alpine
+    command: redis-server /etc/redis/redis.conf --appendonly yes
+    volumes:
+      - redis_master_data:/data
+      - ./conf/redis/redis-master.conf:/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    networks:
+      - redis-network
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+
+  redis-replica:
+    image: redis:alpine
+    command: redis-server /etc/redis/redis.conf --replicaof redis-master 6379
+    volumes:
+      - redis_replica_data:/data
+      - ./conf/redis/redis-replica.conf:/etc/redis/redis.conf
+    networks:
+      - redis-network
+    deploy:
+      replicas: 2
+
+  redis-sentinel:
+    image: redis:alpine
+    command: redis-sentinel /etc/redis/sentinel.conf
+    volumes:
+      - ./conf/redis/sentinel.conf:/etc/redis/sentinel.conf
+    ports:
+      - "26379:26379"
+    networks:
+      - redis-network
+    deploy:
+      replicas: 3
+networks:
+  redis-network:
+    name: redis-network
+    driver: overlay
+volumes:
+  redis_master_data:
+  redis_replica_data:

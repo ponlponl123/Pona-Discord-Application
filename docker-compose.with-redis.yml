@@ -32,6 +32,7 @@ services:
       - socketio-network
     deploy:
       replicas: 3
+  
   lavalink:
     # pin the image version to Lavalink v4
     image: ghcr.io/lavalink-devs/lavalink:4
@@ -82,3 +83,5 @@ networks:
   # create a lavalink network you can add other containers to, to give them access to Lavalink
   lavalink:
     name: lavalink
+  pona:
+    name: socketio-network

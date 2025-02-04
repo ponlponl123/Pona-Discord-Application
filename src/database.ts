@@ -15,7 +15,9 @@ export class Database {
   public constructor (public option: databaseOption) {
     this.createConnection(option).then(conn => {
       this.connection = conn;
-      console.log(consolePrefix.database + 'Database connected successfully!');
+      console.log(consolePrefix.database + '🟢 Database connected successfully!');
+    }).catch(() => {
+      console.log(consolePrefix.database + '🔴 Failed to connect to the database, now pona application will have nosql and store everything in memory.');
     })
   }
 

@@ -5,12 +5,13 @@ import dynamicGuildNamespace from "./of/guilds";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
 import { prefix as consolePrefix } from "@/config/console";
 import { config as redisConfig } from "@/config/redis";
-import Redis from "ioredis";
+import Redis, { RedisOptions } from "ioredis";
 import { createAdapter } from "@socket.io/redis-adapter";
 
 export class initialize {
     public readonly server: Server;
-    public readonly redis: Redis | undefined;
+    public readonly redis_pub: Redis | undefined;
+    public readonly redis_sub: Redis | undefined;
 
     constructor(http: HttpServer) {
         const socketServer = new Server(http, {
@@ -21,54 +22,62 @@ export class initialize {
         });
         this.server = socketServer;
 
-        if ( redisConfig && redisConfig.REDIS_ENABLED && redisConfig.REDIS_HOST && redisConfig.REDIS_PORT )
+        if ( redisConfig && redisConfig.REDIS_ENABLED )
         {
-            const redis_host = redisConfig.REDIS_HOST;
-            const redis_port = redisConfig.REDIS_PORT;
-            const redis_type = redisConfig.REDIS_TYPE;
-            console.log(consolePrefix.socket + `🟠 Starting Redis(type: ${redis_type}) Network (${redis_host}:${redis_port})`);
-            this.redis =
-                redis_type === 'sentinel' ? new Redis({
-                    host: redis_host,
-                    port: redis_port,
-                    // sentinels: [
-                    //     { host: redis_host, port: redis_port }
-                    // ],
-                    name: "pona_master",
-                    keyPrefix: "pona",
-                    sentinelRetryStrategy(times) {
-                      return Math.min(times * 50, 2000);
-                    },
-                    lazyConnect: true,
-                    keepAlive: 30 * 60 * 1000,
-                    sentinelMaxConnections: 5,
-                    sentinelCommandTimeout: 5 * 60 * 1000, // 30 seconds
-                    connectTimeout: 10 * 1000 // 10 seconds
-                }) : new Redis({
-                    host: redis_host,
-                    port: redis_port,
-                    name: "pona_master",
-                    keyPrefix: "pona",
-                    lazyConnect: true,
-                    keepAlive: 30 * 60 * 1000,
-                    commandTimeout: 5 * 60 * 1000,
-                });
-            
-            this.redis.on("ready", () => {
-                console.log(consolePrefix.socket, '🟢 Redis Network is ready');
-            });
-            
-            this.redis.on("error", (err: { code: string; message: string }) => {
-                if (err.code === 'ETIMEDOUT') {
-                    console.error(consolePrefix.socket + '🔴 Connection timed out. Retrying...');
-                } else if (err.message.includes('All sentinels are unreachable')) {
-                    console.error(consolePrefix.socket + '🔴 All Sentinels are unreachable. Retrying from scratch...');
-                } else {
-                    console.error(consolePrefix.socket + '🔴 Unknown Redis error occurred:', err);
-                }
-            });
+            const redis_conf = redisConfig;
+            console.log(consolePrefix.socket + `🟠 Starting Pub Redis(type: standalone) Network (${redis_conf.pub.host}:${redis_conf.pub.port})`);
+            console.log(consolePrefix.socket + `🟠 Starting Sub Redis(type: ${redis_conf.sub.type}) Network (${redis_conf.sub.host}:${redis_conf.sub.port})`);
+            const redis_pub_options: RedisOptions = {
+                host: redis_conf.pub.host,
+                port: redis_conf.pub.port,
+                name: "pona_master",
+                keyPrefix: "pona",
+                lazyConnect: true,
+                keepAlive: 30 * 60 * 1000,
+                commandTimeout: 5 * 60 * 1000,
+            }
+            const redis_sub_options: RedisOptions = redis_conf.sub.type === 'sentinel' ? {
+                sentinels: [{ host: redis_conf.sub.host, port: redis_conf.sub.port }],
+                name: "pona_master",
+                keyPrefix: "pona",
+                sentinelRetryStrategy(times) {
+                    return Math.min(times * 50, 2000);
+                },
+                lazyConnect: true,
+                keepAlive: 30 * 60 * 1000,
+                sentinelMaxConnections: 5,
+                sentinelCommandTimeout: 5 * 60 * 1000, // 30 seconds
+                connectTimeout: 10 * 1000 // 10 seconds
+            } : redis_pub_options;
 
-            this.server.adapter(createAdapter(this.redis, this.redis));
+            this.redis_pub = new Redis(redis_pub_options);
+            this.redis_sub = new Redis(redis_sub_options);
+            
+            const onRedisReady = (type: 'pub' | 'sub') => {
+                console.log(consolePrefix.socket, `🟢 Redis Network is ready (${type})`);
+            }
+            
+            const onRedisError = (err: { code: string; message: string }, type: 'pub' | 'sub') => {
+                if (err.code === 'ETIMEDOUT') {
+                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: Connection timed out. Retrying...`);
+                } else if (err.message.includes('All sentinels are unreachable')) {
+                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: All Sentinels are unreachable. Retrying from scratch...`);
+                } else if (err.message.includes('Connection in subscriber mode, only subscriber commands may be used')) {
+                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: Redis is in subscriber mode. Please check your Redis configuration.`);
+                } else if (err.message.includes('Only HELLO messages are accepted by Sentinel instances')) {
+                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: Attempted to connect to a Sentinel instance. Please check your Redis configuration.`);
+                } else {
+                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: Unknown Redis error occurred:`, err);
+                }
+            }
+            
+            this.redis_pub.on("ready", ()=>{onRedisReady('pub')});
+            this.redis_sub.on("ready", ()=>{onRedisReady('sub')});
+            
+            this.redis_pub.on("error", (err: { code: string; message: string })=>{onRedisError(err,'pub')});
+            this.redis_sub.on("error", (err: { code: string; message: string })=>{onRedisError(err,'sub')});
+
+            this.server.adapter(createAdapter(this.redis_pub, this.redis_sub));
         }
 
         dynamicGuildNamespace(this.server);

@@ -2,7 +2,7 @@ services:
   redis-master:
     image: redis:alpine
     hostname: redis-master
-    command: redis-server /etc/redis-config/redis.conf --appendonly yes
+    command: redis-server /etc/redis-config/redis.conf --appendonly yes --slave-read-only no
     volumes:
       - redis_master_data:/data
       - ./conf/redis-master:/etc/redis-config
@@ -17,7 +17,7 @@ services:
 
   redis-replica:
     image: redis:alpine
-    command: redis-server /etc/redis-config/redis.conf --replicaof redis-master 6379
+    command: redis-server /etc/redis-config/redis.conf --replicaof redis-master 6379 --slave-read-only no
     volumes:
       - redis_replica_data:/data
       - ./conf/redis-replica:/etc/redis-config

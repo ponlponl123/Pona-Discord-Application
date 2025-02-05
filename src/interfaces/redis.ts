@@ -1,1 +1,1 @@
-export type RedisClusterType = 'redis' | 'sentinel';
+export type RedisClusterType = 'standalone' | 'sentinel';

@@ -18,7 +18,8 @@ export class initialize {
             cors: {
                 origin: "https://pona.ponlponl123.com",
                 methods: ["GET", "POST"]
-            }
+            },
+            maxHttpBufferSize: 15e6 // 15 MB
         });
         this.server = socketServer;
 

@@ -25,7 +25,7 @@ export default async function dynamicGuildNamespace(io: Server) {
   events.registerHandler("trackStart", (player, track) => {
     const guildId = player.guild;
     const namespace_io = io.of(`/guild/${guildId}`);
-    namespace_io.to("pona! music").emit('track_started' as GuildEvents);
+    namespace_io.to("pona! music").emit('track_started' as GuildEvents, track);
   });
 
   events.registerHandler("playerStateUpdate", (oldPlayer, newPlayer, changeType) => {
@@ -33,31 +33,35 @@ export default async function dynamicGuildNamespace(io: Server) {
     const namespace_io = io.of(`/guild/${guildId}`);
     switch (changeType) {
       case 'channelChange':
-        namespace_io.to("pona! music").emit('channel_updated' as GuildEvents);
+        namespace_io.to("pona! music").emit('channel_updated' as GuildEvents, newPlayer.voiceChannel);
         break;
       case 'queueChange':
-        namespace_io.to("pona! music").emit('queue_updated' as GuildEvents);
+        namespace_io.to("pona! music").emit('queue_updated' as GuildEvents, newPlayer.queue);
         break;
       case 'connectionChange':
         namespace_io.to("pona! music").emit('connection_updated' as GuildEvents);
         break;
       case 'trackChange':
-        namespace_io.to("pona! music").emit('track_updated' as GuildEvents);
+        namespace_io.to("pona! music").emit('track_updated' as GuildEvents, newPlayer.queue.current);
         break;
       case 'volumeChange':
-        namespace_io.to("pona! music").emit('volume_updated' as GuildEvents);
+        namespace_io.to("pona! music").emit('volume_updated' as GuildEvents, newPlayer.volume);
         break;
       case 'repeatChange':
-        namespace_io.to("pona! music").emit('repeat_updated' as GuildEvents);
+        namespace_io.to("pona! music").emit('repeat_updated' as GuildEvents, {
+          track: newPlayer.trackRepeat,
+          queue: newPlayer.queueRepeat,
+          dynamic: newPlayer.dynamicRepeat,
+        });
         break;
       case 'autoplayChange':
-        namespace_io.to("pona! music").emit('autoplay_updated' as GuildEvents);
+        namespace_io.to("pona! music").emit('autoplay_updated' as GuildEvents, newPlayer.isAutoplay);
         break;
       case 'pauseChange':
-        namespace_io.to("pona! music").emit('pause_updated' as GuildEvents);
+        namespace_io.to("pona! music").emit('pause_updated' as GuildEvents, newPlayer.paused);
         break;
       case 'playerCreate':
-        namespace_io.to("pona! music").emit('player_created' as GuildEvents);
+        namespace_io.to("pona! music").emit('player_created' as GuildEvents, newPlayer.voiceChannel);
         break;
       case 'playerDestroy':
         namespace_io.to("pona! music").emit('player_destroyed' as GuildEvents);

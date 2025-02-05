@@ -35,6 +35,7 @@ export class initialize {
                 lazyConnect: true,
                 keepAlive: 30 * 60 * 1000,
                 commandTimeout: 5 * 60 * 1000,
+                maxRetriesPerRequest: null, // disable the max retries per request limit
             }
             const redis_sub_options: RedisOptions = redis_conf.sub.type === 'sentinel' ? {
                 sentinels: [{ host: redis_conf.sub.host, port: redis_conf.sub.port }],
@@ -47,7 +48,8 @@ export class initialize {
                 keepAlive: 30 * 60 * 1000,
                 sentinelMaxConnections: 5,
                 sentinelCommandTimeout: 5 * 60 * 1000, // 30 seconds
-                connectTimeout: 10 * 1000 // 10 seconds
+                connectTimeout: 10 * 1000, // 10 seconds
+                maxRetriesPerRequest: null, // disable the max retries per request limit
             } : redis_pub_options;
 
             this.redis_pub = new Redis(redis_pub_options);

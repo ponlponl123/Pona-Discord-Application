@@ -26,19 +26,21 @@ export class initialize {
             const redis_host = redisConfig.REDIS_HOST;
             const redis_port = redisConfig.REDIS_PORT;
             const redis_type = redisConfig.REDIS_TYPE;
-            console.log(consolePrefix.socket, `🟠 Starting Redis(type: ${redis_type}) Network (${redis_host}:${redis_port})`);
+            console.log(consolePrefix.socket + `🟠 Starting Redis(type: ${redis_type}) Network (${redis_host}:${redis_port})`);
             this.redis =
                 redis_type === 'sentinel' ? new Redis({
-                    sentinels: [
-                        { host: redis_host, port: redis_port }
-                    ],
+                    host: redis_host,
+                    port: redis_port,
+                    // sentinels: [
+                    //     { host: redis_host, port: redis_port }
+                    // ],
                     name: "pona_master",
                     keyPrefix: "pona",
                     sentinelRetryStrategy(times) {
                       return Math.min(times * 50, 2000);
                     },
                     lazyConnect: true,
-                    keepAlive: 5 * 60 * 1000,
+                    keepAlive: 30 * 60 * 1000,
                     sentinelMaxConnections: 5,
                     sentinelCommandTimeout: 5 * 60 * 1000, // 30 seconds
                     connectTimeout: 10 * 1000 // 10 seconds
@@ -48,7 +50,7 @@ export class initialize {
                     name: "pona_master",
                     keyPrefix: "pona",
                     lazyConnect: true,
-                    keepAlive: 5 * 60 * 1000,
+                    keepAlive: 30 * 60 * 1000,
                     commandTimeout: 5 * 60 * 1000,
                 });
             
@@ -56,8 +58,14 @@ export class initialize {
                 console.log(consolePrefix.socket, '🟢 Redis Network is ready');
             });
             
-            this.redis.on("error", (err) => {
-                console.error(consolePrefix.socket, '🔴 Redis Network error :', err);
+            this.redis.on("error", (err: { code: string; message: string }) => {
+                if (err.code === 'ETIMEDOUT') {
+                    console.error(consolePrefix.socket + '🔴 Connection timed out. Retrying...');
+                } else if (err.message.includes('All sentinels are unreachable')) {
+                    console.error(consolePrefix.socket + '🔴 All Sentinels are unreachable. Retrying from scratch...');
+                } else {
+                    console.error(consolePrefix.socket + '🔴 Unknown Redis error occurred:', err);
+                }
             });
 
             this.server.adapter(createAdapter(this.redis, this.redis));

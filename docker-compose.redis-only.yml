@@ -35,6 +35,7 @@ services:
     command: >
       sh -c 'mkdir -p /etc/redis-config &&
         echo "bind 0.0.0.0" > /etc/redis-config/sentinel.conf &&
+        echo "port 26379" > /etc/redis-config/sentinel.conf && 
         echo "sentinel monitor pona_master redis-master 6379 2" >> /etc/redis-config/sentinel.conf &&
         echo "sentinel resolve-hostnames yes" >> /etc/redis-config/sentinel.conf &&
         echo "sentinel down-after-milliseconds pona_master 30000" >> /etc/redis-config/sentinel.conf &&

@@ -1,6 +1,8 @@
 import { Player } from "@lavalink/structures/player";
 import { ClientUser, Guild, TextBasedChannel, User, VoiceBasedChannel } from "discord.js";
 import { Sizes, TrackSourceName } from "./lavaUtils";
+import { Queue } from "@/lavalink";
+import { Band } from "@/utils/lavalink/equalizers";
 
 export interface lavaPlayer {
     player: Player;
@@ -66,4 +68,26 @@ export interface PlayOptions {
 export interface EqualizerBand {
 	band: number;
 	gain: number;
+}
+
+export interface HTTP_PonaRepeatState {
+	track: boolean;
+	queue: boolean;
+	dynamic: boolean;
+}
+
+export interface HTTP_PonaCommonState {
+	repeat: HTTP_PonaRepeatState;
+	volume: number;
+	equalizer: Band[];
+	paused: boolean;
+	playing: boolean;
+	isAutoplay: boolean;
+	voiceChannel: string;
+}
+
+export interface HTTP_PonaCommonStateWithTracks {
+	pona: HTTP_PonaCommonState;
+	current: Track | UnresolvedTrack | null;
+	queue: Queue;
 }

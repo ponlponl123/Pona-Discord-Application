@@ -1,6 +1,6 @@
 import express from 'express';
 import { HttpStatusCode } from 'axios';
-import { discordClient as discord, lavalink } from '@/index';
+import { discordClient as discord } from '@/index';
 
 export const path = '/:guildId?';
 

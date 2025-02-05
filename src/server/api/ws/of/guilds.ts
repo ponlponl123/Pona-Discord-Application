@@ -3,6 +3,8 @@ import eventManager from '@/events';
 import { discordClient as self } from '@/index';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
+import { HTTP_PonaRepeatState } from "@/interfaces/player";
+import { getHTTP_PlayerState } from "@/utils/player/httpReq";
 
 export type GuildEvents =
   'player_created'      |
@@ -52,7 +54,7 @@ export default async function dynamicGuildNamespace(io: Server) {
           track: newPlayer.trackRepeat,
           queue: newPlayer.queueRepeat,
           dynamic: newPlayer.dynamicRepeat,
-        });
+        } as HTTP_PonaRepeatState);
         break;
       case 'autoplayChange':
         namespace_io.to("pona! music").emit('autoplay_updated' as GuildEvents, newPlayer.isAutoplay);
@@ -61,7 +63,7 @@ export default async function dynamicGuildNamespace(io: Server) {
         namespace_io.to("pona! music").emit('pause_updated' as GuildEvents, newPlayer.paused);
         break;
       case 'playerCreate':
-        namespace_io.to("pona! music").emit('player_created' as GuildEvents, newPlayer.voiceChannel);
+        namespace_io.to("pona! music").emit('player_created' as GuildEvents, getHTTP_PlayerState(guildId));
         break;
       case 'playerDestroy':
         namespace_io.to("pona! music").emit('player_destroyed' as GuildEvents);
@@ -106,7 +108,9 @@ export default async function dynamicGuildNamespace(io: Server) {
   });
 
   io_guild.on("connection", async (socket) => {
-    // const guildId = socket.nsp.name.split('/')[2];
+    const guildId = socket.nsp.name.split('/')[2];
     socket.join("pona! music");
+    const playerState = getHTTP_PlayerState(guildId);
+    socket.emit("handshake", playerState);
   });
 }

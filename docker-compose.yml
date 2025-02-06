@@ -32,6 +32,7 @@ services:
       - ./ponaState/:/pona/ponaState/
     environment:
       # ... other environment variables
+      REDIS_ENABLED: false
       LAVALINK_SERVER: lavalink  # Use the service name "lavalink" instead of localhost
     expose:
       - 3000

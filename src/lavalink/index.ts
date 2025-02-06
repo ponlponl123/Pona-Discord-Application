@@ -14,11 +14,13 @@ import { getGuildLanguage } from "@/utils/i18n";
 import { EventEmitter } from "events";
 import setVoiceChannelStatus from "@/utils/setVoiceChannelStatus";
 import { PlayerStateEventType } from "@/interfaces/manager";
+import axios, { AxiosError } from 'axios';
 
 export interface PlayerEvents {
     'trackStart': (player: Player, track: Track) => void;
     'playerStateUpdate': (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) => void;
     'queueEnded': (player: Player) => void;
+    'playerCreate': (player: Player) => void;
     'playerDestroy': (player: Player) => void;
 }
 
@@ -34,6 +36,15 @@ declare interface LavalinkServer {
 class LavalinkServer extends EventEmitter {
     public manager: Manager;
     public lavanodes = new Array<NodeOptions>();
+
+    private async handleAxiosError(error: AxiosError) {
+        if (error.response?.status === 503) {
+            console.error('Service Unavailable: The server is currently unable to handle the request due to a temporary overload or scheduled maintenance.');
+            // Implement retry logic or other handling here
+        } else {
+            console.error('An error occurred:', error.message);
+        }
+    }
 
     public constructor(public readonly clientId: string) {
         super();
@@ -66,41 +77,65 @@ class LavalinkServer extends EventEmitter {
         self.client.on('raw', (d) => this.manager.updateVoiceState(d));
 
         this.manager.on('playerStateUpdate', async (oldPlayer, newPlayer, changeType) => {
-            this.emit('playerStateUpdate', oldPlayer, newPlayer, changeType);
+            try {
+                this.emit('playerStateUpdate', oldPlayer, newPlayer, changeType);
+            } catch (error) {
+                if (axios.isAxiosError(error)) {
+                    this.handleAxiosError(error);
+                } else {
+                    console.error('An unexpected error occurred:', error);
+                }
+            }
         })
 
         this.manager.on('trackStart', async (player, track) => {
-            self.saveSessionOnFile();
-            // set voice channel status to current playing track
-            if ( !player.voiceChannel ) return false;
-            const lang = getGuildLanguage(player.guild);
-            await setVoiceChannelStatus(player.voiceChannel, `${lang.data.music.state.voiceChannel.status} ${track.title} ${lang.data.music.play.author} ${track.author}`)
+            try {
+                self.saveSessionOnFile();
+                // set voice channel status to current playing track
+                if ( !player.voiceChannel ) return false;
+                const lang = getGuildLanguage(player.guild);
+                await setVoiceChannelStatus(player.voiceChannel, `${lang.data.music.state.voiceChannel.status} ${track.title} ${lang.data.music.play.author} ${track.author}`)
 
-            this.emit('trackStart', player, track);
+                this.emit('trackStart', player, track);
 
-            // Notify currently playing to text channel
-            // if ( !player.textChannel ) return false;
-            // const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
-            // (channel && channel.isSendable()) && channel.send(`Now playing: \`${track.title}\`, requested by \`${(track.requester as User).username}\`.`);
+                // Notify currently playing to text channel
+                // if ( !player.textChannel ) return false;
+                // const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
+                // (channel && channel.isSendable()) && channel.send(`Now playing: \`${track.title}\`, requested by \`${(track.requester as User).username}\`.`);
+            } catch (error) {
+                if (axios.isAxiosError(error)) {
+                    this.handleAxiosError(error);
+                } else {
+                    console.error('An unexpected error occurred:', error);
+                }
+            }
         });
 
         // Emitted the player queue ends
         this.manager.on('queueEnd', async (player) => {
-            // set voice channel status to null
-            if ( player.voiceChannel ) {
-                const rest = new discord.REST({ version: "10" }).setToken(discordConf.DISCORD_TOKEN);
-                await rest.put((Routes.channel(player.voiceChannel) + '/voice-status' as discord.RouteLike), {
-                    body: {"status": null}
-                })
+            try {
+                // set voice channel status to null
+                if ( player.voiceChannel ) {
+                    const rest = new discord.REST({ version: "10" }).setToken(discordConf.DISCORD_TOKEN);
+                    await rest.put((Routes.channel(player.voiceChannel) + '/voice-status' as discord.RouteLike), {
+                        body: {"status": null}
+                    })
+                }
+
+                leaveVoiceChannelAsPlayer(player.guild);
+                this.emit('queueEnded', player);
+
+                // Notify queue ended to text channel
+                // if ( !player.textChannel ) return false;
+                // const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
+                // (channel && channel.isSendable()) && channel.send('Queue has ended.');
+            } catch (error) {
+                if (axios.isAxiosError(error)) {
+                    this.handleAxiosError(error);
+                } else {
+                    console.error('An unexpected error occurred:', error);
+                }
             }
-
-            leaveVoiceChannelAsPlayer(player.guild);
-            this.emit('queueEnded', player);
-
-            // Notify queue ended to text channel
-            // if ( !player.textChannel ) return false;
-            // const channel = await self.client.channels.cache.get(player.textChannel)?.fetch();
-            // (channel && channel.isSendable()) && channel.send('Queue has ended.');
         });
 
         this.manager.on('playerDestroy', (player: Player) => {
@@ -118,7 +153,8 @@ class LavalinkServer extends EventEmitter {
         });
 
         this.manager.on('playerCreate', async (player: Player) => {
-            console.log( consolePrefix.lavalink + `Player Created, playing ${player.queue.current?.title} for ${player.guild}` )
+            console.log( consolePrefix.lavalink + `Player Created, playing ${player.queue.current?.title} for ${player.guild}` );
+            this.emit('playerCreate', player);
         });
 
         this.manager.on('chaptersLoaded', async (player: Player, track: UnresolvedTrack | Track) => {

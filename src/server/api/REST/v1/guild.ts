@@ -137,9 +137,15 @@ export async function GET_PRIVATE(request: express.Request, response: express.Re
         });
       }
     default: 
-      return response.status(HttpStatusCode.Ok).json({
-        message: 'OK',
-        guild: guild
-      });
+      {
+        if ( !query ) 
+          return response.status(HttpStatusCode.Ok).json({
+            message: 'OK',
+            guild: guild
+          });
+        return response.status(HttpStatusCode.MethodNotAllowed).json({
+          message: 'Method Not Allowed'
+        });
+      }
   }
 }

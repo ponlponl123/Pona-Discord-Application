@@ -3,8 +3,11 @@ import eventManager from '@/events';
 import { discordClient as self } from '@/index';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
-import { HTTP_PonaRepeatState } from "@/interfaces/player";
-import { getHTTP_PlayerState } from "@/utils/player/httpReq";
+import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState } from "@/interfaces/player";
+import { convertTo_HTTPPlayerState, getHTTP_PlayerState } from "@/utils/player/httpReq";
+import { MemberVoiceChangedState } from "@/interfaces/member";
+import { VoiceBasedChannel } from "discord.js";
+import joinChannel from "@/utils/player/joinVoiceChannelAsPlayer";
 
 export type GuildEvents =
   'player_created'      |
@@ -19,6 +22,18 @@ export type GuildEvents =
   'connection_updated'  |
   'queue_updated'       |
   'queue_ended'         ;
+
+async function connectToVoiceChannelBySocket(guildId: string, voiceBasedChannelId: string) {
+  if ( guildId && voiceBasedChannelId ) {
+    const guild = self.client.guilds.cache.get(guildId);
+    if (!guild ) return;
+    const textChannel = guild.systemChannel;
+    if (!textChannel ) return;
+    const voiceChannel = guild.channels.cache.get(voiceBasedChannelId) as VoiceBasedChannel;
+    if (!voiceChannel ) return;
+    await joinChannel(textChannel, voiceChannel, guild);
+  }
+}
 
 export default async function dynamicGuildNamespace(io: Server) {
   const io_guild = io.of(/^\/guild\/\d+$/);
@@ -62,16 +77,46 @@ export default async function dynamicGuildNamespace(io: Server) {
       case 'pauseChange':
         namespace_io.to("pona! music").emit('pause_updated' as GuildEvents, newPlayer.paused);
         break;
-      case 'playerCreate':
-        namespace_io.to("pona! music").emit('player_created' as GuildEvents, getHTTP_PlayerState(guildId));
-        break;
-      case 'playerDestroy':
-        namespace_io.to("pona! music").emit('player_destroyed' as GuildEvents);
-        break;
       default:
         namespace_io.to("pona! music").emit('unknown_updated' as GuildEvents);
         break;
     }
+  });
+
+  events.registerHandler("voiceStateUpdate", (type, oldState, newState) => {
+    if (
+      type==='clientJoined' ||
+      type==='clientLeaved' ||
+      type==='clientSwitched'
+    ) return;
+    const guildId = oldState?.guild.id || newState?.guild.id;
+    const memberId = oldState?.member?.id || newState?.member?.id;
+    const namespace_io = io.of(`/guild/${guildId}`);
+    const isUserJoined = ( oldState?.channel === undefined && newState?.channel !== undefined );
+    const isUserSwitched = ( oldState?.channel !== undefined && newState?.channel !== undefined );
+    const isUserLeaved = ( oldState?.channel !== undefined && newState?.channel === undefined );
+    const memberVoiceState: MemberVoiceChangedState = {
+      oldVC: oldState?.channel || null,
+      newVC: newState?.channel || null,
+      isUserJoined,
+      isUserSwitched,
+      isUserLeaved
+    }
+    namespace_io.to(`stream:${memberId}`).emit('member_state_updated', memberVoiceState);
+  })
+
+  events.registerHandler("playerCreate", (player) => {
+    const guildId = player.guild;
+    const namespace_io = io.of(`/guild/${guildId}`);
+    const httpPlayer = convertTo_HTTPPlayerState(player);
+    namespace_io.to("pona! music").emit('player_created' as GuildEvents, httpPlayer);
+  });
+
+  events.registerHandler("playerDestroy", (player) => {
+    const guildId = player.guild;
+    const namespace_io = io.of(`/guild/${guildId}`);
+    const httpPlayer = convertTo_HTTPPlayerState(player);
+    namespace_io.to("pona! music").emit('player_destroyed' as GuildEvents, httpPlayer);
   });
 
   events.registerHandler("queueEnded", (player) => {
@@ -104,13 +149,26 @@ export default async function dynamicGuildNamespace(io: Server) {
     const member = await guild.members.fetch(user.id);
 
     if (!member) return next(new Error("not a member of this guild"));
+    socket.data.member = member;
     next();
   });
 
   io_guild.on("connection", async (socket) => {
     const guildId = socket.nsp.name.split('/')[2];
     socket.join("pona! music");
+    socket.join(`stream:${socket.data.member.id}`);
     const playerState = getHTTP_PlayerState(guildId);
-    socket.emit("handshake", playerState);
+    // get member voice channel by guild id and member id without know user voice channel permission
+    const member = await self.client.guilds.cache.get(guildId)?.members.fetch(socket.data.member.id);
+    const memberVC = member?.voice.channel;
+    const data : {
+      pona: HTTP_PonaCommonStateWithTracks | null;
+      isMemberInVC: VoiceBasedChannel | null;
+    } = {
+      pona: playerState,
+      isMemberInVC: memberVC || null
+    }
+    socket.emit("handshake", data);
+    socket.on("join", connectToVoiceChannelBySocket);
   });
 }

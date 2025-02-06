@@ -17,10 +17,11 @@ export type EventEmitter = keyof PonaEvents | keyof PlayerEvents;
 
 interface CommonEventHandler {
   heartbeat: (client: Client) => void;
-  voiceStateUpdate: (type: voiceStateChange, oldState: VoiceState, newState: VoiceState) => void;
+  voiceStateUpdate: (type: voiceStateChange, oldState?: VoiceState, newState?: VoiceState) => void;
   playerStateUpdate: (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) => void;
   trackStart: (player: Player, track: Track) => void;
   playerDestroy: (player: Player) => void;
+  playerCreate: (player: Player) => void;
   clientReady: (client: Client) => void;
   queueEnded: (player: Player) => void;
 }
@@ -33,6 +34,7 @@ export default class eventManager {
     pona.on('voiceStateUpdate', this.pona_voiceStateUpdate.bind(this));
 
     lavalink.on('trackStart', this.player_trackStart.bind(this));
+    lavalink.on('playerCreate', this.player_playerCreate.bind(this));
     lavalink.on('playerDestroy', this.player_playerDestroy.bind(this));
     lavalink.on('playerStateUpdate', this.pona_playerStateUpdate.bind(this));
   }
@@ -126,6 +128,11 @@ export default class eventManager {
     apiServer.io.to(player.guild).emit('queueUpdated', player.queue);
     await this.invokeHandlers('trackStart', player, track);
   }
+
+  private async player_playerCreate (player: Player) {
+    await this.invokeHandlers('playerCreate', player);
+  }
+
   private async player_playerDestroy (player: Player) {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
     await database.connection?.query(

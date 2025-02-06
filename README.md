@@ -70,11 +70,11 @@ i have created a docker compose file to get more easier setting up a whole appli
 
 Try this command to make ./conf directory can edit by any users
 
-- Windows
+- Windows (cmd)
     ```cmd
     start .\allow-edit-config-dir.ps1
     ```
-    or
+    or (powershell)
     
     ```ps1
     $acl = Get-Acl -Path ".\conf"

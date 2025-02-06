@@ -55,10 +55,42 @@ Pona! can be streaming audio through twitch.tv, youtube videos, youtube music or
 i have created a docker compose file to get more easier setting up a whole application.
 
 - Run `docker-compose.yml` to get both lavalink server and Pona discord application.
+
+- Run `docker-compose.with-redis.yml` to get all lavalink server, redis-master, redis-replica, redis-sentinel and Pona discord application.
+
+- Run `docker-compose.redis-only.yml` to get only redis-master, redis-replica, redis-sentinel for Pona discord application.
   
-- Run `docker-compose-standalone.yml` to get only Pona discord application if u have your own lavalink server.
+- Run `docker-compose.standalone.yml` to get only Pona discord application if u have your own lavalink server (and redis server).
 
 - the last one is the `lavalink/docker-compose.yml` this is a standalone lavalink server on docker, if u want it.
+
+### Troubleshooting
+
+#### Redis can't saved, override or modified thier configuration.
+
+Try this command to make ./conf directory can edit by any users
+
+- Windows
+    ```cmd
+    start .\allow-edit-config-dir.ps1
+    ```
+    or
+    
+    ```ps1
+    $acl = Get-Acl -Path ".\conf"
+
+    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone","FullControl","Allow")
+    $acl.SetAccessRule($accessRule)
+
+    Set-Acl -Path ".\conf" -AclObject $acl -Recurse
+    ```
+
+
+- Linux / Debian / Ubuntu
+    ```bash
+    chmod -R 777 ./conf
+    ```
+
 
 </br>
 

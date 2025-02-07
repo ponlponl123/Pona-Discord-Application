@@ -8,6 +8,7 @@ import { convertTo_HTTPPlayerState, getHTTP_PlayerState } from "@/utils/player/h
 import { MemberVoiceChangedState } from "@/interfaces/member";
 import { VoiceBasedChannel } from "discord.js";
 import joinChannel from "@/utils/player/joinVoiceChannelAsPlayer";
+import { Player } from "@/lavalink";
 
 export type GuildEvents =
   'player_created'      |
@@ -39,6 +40,13 @@ export default async function dynamicGuildNamespace(io: Server) {
   const io_guild = io.of(/^\/guild\/\d+$/);
   const events = new eventManager();
 
+  async function playerUpdate(player: Player, event: GuildEvents) {
+    const guildId = player.guild;
+    const namespace_io = io.of(`/guild/${guildId}`);
+    const httpPlayer = convertTo_HTTPPlayerState(player);
+    namespace_io.to("pona! music").emit(event, httpPlayer);
+  }
+
   events.registerHandler("trackStart", (player, track) => {
     const guildId = player.guild;
     const namespace_io = io.of(`/guild/${guildId}`);
@@ -46,7 +54,7 @@ export default async function dynamicGuildNamespace(io: Server) {
   });
 
   events.registerHandler("playerStateUpdate", (oldPlayer, newPlayer, changeType) => {
-    const guildId = oldPlayer.options.guild || newPlayer.options.guild;
+    const guildId = oldPlayer.options?.guild || newPlayer.options?.guild;
     const namespace_io = io.of(`/guild/${guildId}`);
     switch (changeType) {
       case 'channelChange':
@@ -103,21 +111,10 @@ export default async function dynamicGuildNamespace(io: Server) {
       isUserLeaved
     }
     namespace_io.to(`stream:${memberId}`).emit('member_state_updated', memberVoiceState);
-  })
-
-  events.registerHandler("playerCreate", (player) => {
-    const guildId = player.guild;
-    const namespace_io = io.of(`/guild/${guildId}`);
-    const httpPlayer = convertTo_HTTPPlayerState(player);
-    namespace_io.to("pona! music").emit('player_created' as GuildEvents, httpPlayer);
   });
 
-  events.registerHandler("playerDestroy", (player) => {
-    const guildId = player.guild;
-    const namespace_io = io.of(`/guild/${guildId}`);
-    const httpPlayer = convertTo_HTTPPlayerState(player);
-    namespace_io.to("pona! music").emit('player_destroyed' as GuildEvents, httpPlayer);
-  });
+  events.registerHandler("playerCreate", (player) => {playerUpdate(player, 'player_created')});
+  events.registerHandler("playerDestroy", (player) => {playerUpdate(player, 'player_destroyed')});
 
   events.registerHandler("queueEnded", (player) => {
     const guildId = player.guild;

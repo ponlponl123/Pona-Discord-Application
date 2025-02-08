@@ -10,6 +10,7 @@ export type SponsorBlockSegmentEventType = "SegmentSkipped" | "SegmentsLoaded" |
 export type SponsorBlockSegmentEvents = SponsorBlockSegmentSkipped | SponsorBlockSegmentsLoaded | SponsorBlockChapterStarted | SponsorBlockChaptersLoaded;
 export type PlayerEvents = TrackStartEvent | TrackEndEvent | TrackStuckEvent | TrackExceptionEvent | WebSocketClosedEvent | SponsorBlockSegmentEvents;
 export type PlayerEventType =
+	| "TrackPosUpdated"
 	| "TrackStartEvent"
 	| "TrackEndEvent"
 	| "TrackExceptionEvent"

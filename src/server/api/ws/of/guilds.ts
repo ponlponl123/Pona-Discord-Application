@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import eventManager from '@/events';
-import { discordClient as self } from '@/index';
+import { database, discordClient as self } from '@/index';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
 import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState } from "@/interfaces/player";
@@ -18,6 +18,7 @@ export type GuildEvents =
   'autoplay_updated'    |
   'repeat_updated'      |
   'track_started'       |
+  'track_pos_updated'   |
   'track_updated'       |
   'channel_updated'     |
   'connection_updated'  |
@@ -51,6 +52,11 @@ export default async function dynamicGuildNamespace(io: Server) {
     const guildId = player.guild;
     const namespace_io = io.of(`/guild/${guildId}`);
     namespace_io.to("pona! music").emit('track_started' as GuildEvents, track);
+  });
+
+  events.registerHandler("trackPos", (guildId, pos) => {
+    const namespace_io = io.of(`/guild/${guildId}`);
+    namespace_io.to("pona! music").emit('track_pos_updated' as GuildEvents, pos);
   });
 
   events.registerHandler("playerStateUpdate", (oldPlayer, newPlayer, changeType) => {
@@ -167,5 +173,109 @@ export default async function dynamicGuildNamespace(io: Server) {
     }
     socket.emit("handshake", data);
     socket.on("join", connectToVoiceChannelBySocket);
+    socket.on("repeat", async (type: 'none' | 'track' | 'queue')=>{
+      if ( !member ) return;
+      const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+      let repeatType: typeof type = 'none';
+      switch ( type ) {
+        case 'track':
+          player.player.setTrackRepeat(true);
+          repeatType = 'track';
+          break;
+        case 'queue':
+          player.player.setQueueRepeat(true);
+          repeatType = 'queue';
+          break;
+        default:
+          player.player.setTrackRepeat(false);
+          repeatType = 'none';
+          break;
+      }
+      const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+      await database.connection?.query(
+          `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+          VALUES (?, ?, ?, ?, ?, ?)`
+      , [
+          member.id,
+          date,
+          'repeat',
+          repeatType,
+          guildId,
+          player.voiceChannel.id
+        ]
+      )
+    });
+    socket.on("pause", async ()=>{
+      if ( !member ) return;
+      const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+      player.player.pause(true);
+      const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+      await database.connection?.query(
+          `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+          VALUES (?, ?, ?, ?, ?, ?)`
+      , [
+          member.id,
+          date,
+          'pause',
+          'true',
+          guildId,
+          player.voiceChannel.id
+        ]
+      )
+    });
+    socket.on("play", async ()=>{
+      if ( !member ) return;
+      const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+      player.player.pause(false);
+      const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+      await database.connection?.query(
+          `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+          VALUES (?, ?, ?, ?, ?, ?)`
+      , [
+          member.id,
+          date,
+          'pause',
+          'false',
+          guildId,
+          player.voiceChannel.id
+        ]
+      )
+    });
+    socket.on("previous", async ()=>{
+      if ( !member ) return;
+      const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+      player.player.previous();
+      const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+      await database.connection?.query(
+          `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+          VALUES (?, ?, ?, ?, ?, ?)`
+      , [
+          member.id,
+          date,
+          'previous',
+          'true',
+          guildId,
+          player.voiceChannel.id
+        ]
+      )
+    });
+    socket.on("next", async ()=>{
+      if ( !member ) return;
+      const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+      player.player.skipto(0);
+      const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+      await database.connection?.query(
+          `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+          VALUES (?, ?, ?, ?, ?, ?)`
+      , [
+          member.id,
+          date,
+          'next',
+          'true',
+          guildId,
+          player.voiceChannel.id
+        ]
+      )
+    });
   });
 }

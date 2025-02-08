@@ -20,6 +20,7 @@ interface CommonEventHandler {
   voiceStateUpdate: (type: voiceStateChange, oldState?: VoiceState, newState?: VoiceState) => void;
   playerStateUpdate: (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) => void;
   trackStart: (player: Player, track: Track) => void;
+  trackPos: (guildId: string, pos: number) => void;
   playerDestroy: (player: Player) => void;
   playerCreate: (player: Player) => void;
   clientReady: (client: Client) => void;
@@ -33,10 +34,11 @@ export default class eventManager {
     pona.on('heartbeat', this.pona_heartbeat.bind(this));
     pona.on('voiceStateUpdate', this.pona_voiceStateUpdate.bind(this));
 
+    lavalink.on('trackPos', this.player_trackPos.bind(this));
     lavalink.on('trackStart', this.player_trackStart.bind(this));
     lavalink.on('playerCreate', this.player_playerCreate.bind(this));
     lavalink.on('playerDestroy', this.player_playerDestroy.bind(this));
-    lavalink.on('playerStateUpdate', this.pona_playerStateUpdate.bind(this));
+    lavalink.on('playerStateUpdate', this.player_playerStateUpdate.bind(this));
   }
 
   public registerHandler<T extends EventEmitter>(event: T, handler: CommonEventHandler[T & keyof CommonEventHandler]) {
@@ -97,8 +99,12 @@ export default class eventManager {
     await this.invokeHandlers('voiceStateUpdate', type, oldState, newState);
   }
   
-  private async pona_playerStateUpdate (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) {
+  private async player_playerStateUpdate (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) {
     await this.invokeHandlers('playerStateUpdate', oldPlayer, newPlayer, changeType);
+  }
+
+  private async player_trackPos (guildId: string, pos: number) {
+    await this.invokeHandlers('trackPos', guildId, pos);
   }
 
   private async player_trackStart (player: Player, track: Track) {

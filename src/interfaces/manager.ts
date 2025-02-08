@@ -111,6 +111,7 @@ export interface ManagerEvents {
 	socketClosed: [player: Player, payload: WebSocketClosedEvent];
 	trackStart: [player: Player, track: Track, payload: TrackStartEvent];
 	trackEnd: [player: Player, track: Track, payload: TrackEndEvent];
+	trackPos: [guildId: string, pos: number];
 	trackStuck: [player: Player, track: Track, payload: TrackStuckEvent];
 	trackError: [player: Player, track: Track | UnresolvedTrack, payload: TrackExceptionEvent];
 	segmentsLoaded: [player: Player, track: Track | UnresolvedTrack, payload: SponsorBlockSegmentsLoaded];

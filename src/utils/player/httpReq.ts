@@ -7,6 +7,8 @@ export function getHTTP_PlayerState(guildId: string): HTTP_PonaCommonStateWithTr
   if ( player )
     return {
       pona: {
+        position: player.player.position,
+        length: player.player.queue.current?.duration || 0,
         voiceChannel: player.voiceChannel.id,
         volume: player.player.volume,
         equalizer: player.player.filters.equalizer,
@@ -29,6 +31,8 @@ export function convertTo_HTTPPlayerState(player: Player): HTTP_PonaCommonStateW
   try {
     return {
       pona: {
+        position: player.position,
+        length: player.queue.current?.duration || 0,
         voiceChannel: player.voiceChannel as string,
         volume: player.volume,
         equalizer: player.filters?.equalizer || [],

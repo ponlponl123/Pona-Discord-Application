@@ -150,21 +150,21 @@ export class Node {
 
 	public connect(): void {
 		if (this.connected) return;
-	  
+
 		const headers: { [key: string]: string | undefined } = {
-		  Authorization: this.options.password,
-		  "User-Id": this.manager.options.clientId,
-		  "Client-Name": this.manager.options.clientName,
+				Authorization: this.options.password,
+				"User-Id": this.manager.options.clientId,
+				"Client-Name": this.manager.options.clientName,
 		};
-	  
+
 		if (this.sessionId) {
-		  headers["Session-Id"] = this.sessionId;
+			headers["Session-Id"] = this.sessionId;
 		} else if (this.options.resumeStatus && sessionIdsMap.has(this.options.identifier as string)) {
-		  this.sessionId = sessionIdsMap.get(this.options.identifier as string) || null;
-		  headers["Session-Id"] = this.sessionId as string;
-		  console.log(consolePrefix.lavalink + `Resuming lavalink session with Id: ${this.sessionId}`);
+			this.sessionId = sessionIdsMap.get(this.options.identifier as string) || null;
+			headers["Session-Id"] = this.sessionId as string;
+			console.log(consolePrefix.lavalink + `Resuming lavalink session with Id: ${this.sessionId}`);
 		}
-	  
+
 		this.socket = new WebSocket(`ws${this.options.secure ? "s" : ""}://${this.address}/v4/websocket`, { headers });
 		this.socket.on("open", this.open.bind(this));
 		this.socket.on("close", this.close.bind(this));
@@ -238,7 +238,10 @@ export class Node {
 				break;
 			case "playerUpdate":
 				player = this.manager.players.get(payload.guildId) as Player;
-				if (player) player.position = payload.state.position || 0;
+				if (player) {
+					player.position = payload.state.position || 0;
+					this.manager.emit("trackPos", player.guild, player.position);
+				}
 				break;
 			case "event":
 				this.handleEvent(payload);

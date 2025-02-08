@@ -17,6 +17,7 @@ import { PlayerStateEventType } from "@/interfaces/manager";
 import axios, { AxiosError } from 'axios';
 
 export interface PlayerEvents {
+    'trackPos': (guildId: string, pos: number) => void;
     'trackStart': (player: Player, track: Track) => void;
     'playerStateUpdate': (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) => void;
     'queueEnded': (player: Player) => void;
@@ -76,18 +77,6 @@ class LavalinkServer extends EventEmitter {
         
         self.client.on('raw', (d) => this.manager.updateVoiceState(d));
 
-        this.manager.on('playerStateUpdate', async (oldPlayer, newPlayer, changeType) => {
-            try {
-                this.emit('playerStateUpdate', oldPlayer, newPlayer, changeType);
-            } catch (error) {
-                if (axios.isAxiosError(error)) {
-                    this.handleAxiosError(error);
-                } else {
-                    console.error('An unexpected error occurred:', error);
-                }
-            }
-        })
-
         this.manager.on('trackStart', async (player, track) => {
             try {
                 self.saveSessionOnFile();
@@ -137,6 +126,14 @@ class LavalinkServer extends EventEmitter {
                 }
             }
         });
+
+        this.manager.on('playerStateUpdate', (oldPlayer, newPlayer, changeType) => {
+            this.emit('playerStateUpdate', oldPlayer, newPlayer, changeType);
+        })
+
+        this.manager.on('trackPos', (guildId: string, pos: number) => {
+            this.emit('trackPos', guildId, pos);
+        })
 
         this.manager.on('playerDestroy', (player: Player) => {
             this.emit('playerDestroy', player);

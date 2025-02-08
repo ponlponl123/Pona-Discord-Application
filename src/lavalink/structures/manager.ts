@@ -115,7 +115,7 @@ export class Manager extends EventEmitter {
 				artworkUrl: song.artworkUrl,
 				sourceName: song.sourceName,
 			},
-   			pluginInfo: (song.pluginInfo as Record<string, string>),
+				pluginInfo: (song.pluginInfo as Record<string, string>),
 		});
 
 		for (const file of playerFiles) {
@@ -182,13 +182,6 @@ export class Manager extends EventEmitter {
 					}
 				} else {
 					const currentTrack = state.queue.current;
-					if ( !currentTrack ) {
-						// console.log( consolePrefix.lavalink + '---------- WARNING Cannot restore track ----------')
-						// console.log( consolePrefix.lavalink + 'debug state: ',state)
-						// console.log( consolePrefix.lavalink + 'debug queue: ',state.queue)
-						// console.log( consolePrefix.lavalink + 'debug currentTrack: ',currentTrack)
-						// console.log( consolePrefix.lavalink + '---------- WARNING Cannot restore track ----------')
-					}
 					if ( currentTrack ) {
 						tracks.push(TrackUtils.build(createTrackData(currentTrack), currentTrack.requester));
 

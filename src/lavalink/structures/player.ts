@@ -389,7 +389,7 @@ export class Player {
 		if (!this.queue.current) throw new ReferenceError("Cannot get current track.");
 		const spliceQueue = this.queue.splice(0, index);
 		spliceQueue.map(track => {
-			this.queue.add(track);
+			this.queue.push(track);
 		})
 		this.seek(this.queue.current.duration as number);
 		this.manager.emit("playerStateUpdate", oldPlayer, this, "trackChange");

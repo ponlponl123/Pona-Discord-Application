@@ -52,6 +52,10 @@ export default async function dynamicGuildNamespace(io: Server) {
     const guildId = player.guild;
     const namespace_io = io.of(`/guild/${guildId}`);
     namespace_io.to("pona! music").emit('track_started' as GuildEvents, track);
+    namespace_io.to("pona! music").emit('queue_updated' as GuildEvents, [
+      track,
+      ...player.queue
+    ]);
   });
 
   events.registerHandler("trackPos", (guildId, pos) => {
@@ -67,7 +71,10 @@ export default async function dynamicGuildNamespace(io: Server) {
         namespace_io.to("pona! music").emit('channel_updated' as GuildEvents, newPlayer.voiceChannel);
         break;
       case 'queueChange':
-        namespace_io.to("pona! music").emit('queue_updated' as GuildEvents, newPlayer.queue);
+        namespace_io.to("pona! music").emit('queue_updated' as GuildEvents, [
+          newPlayer.queue.current,
+          ...newPlayer.queue
+        ]);
         break;
       case 'connectionChange':
         namespace_io.to("pona! music").emit('connection_updated' as GuildEvents);
@@ -223,10 +230,10 @@ export default async function dynamicGuildNamespace(io: Server) {
         ]
       )
     });
-    socket.on("seek", async (position: number | string)=>{
-      if ( !member || !position || !Number(position) ) return;
+    socket.on("seek", async (position: number)=>{
+      if ( !member ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
-      player.player.seek(Number(position));
+      player.player.seek(position);
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
       await database.connection?.query(
           `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
@@ -241,10 +248,10 @@ export default async function dynamicGuildNamespace(io: Server) {
         ]
       )
     });
-    socket.on("skipto", async (index: number| string)=>{
-      if ( !member || !index || !Number(index) ) return;
+    socket.on("skipto", async (index: number)=>{
+      if ( !member ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
-      player.player.skipto(Number(index));
+      player.player.skipto(index);
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
       await database.connection?.query(
           `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)

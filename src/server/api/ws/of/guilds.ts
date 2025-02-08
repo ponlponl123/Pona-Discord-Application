@@ -174,7 +174,7 @@ export default async function dynamicGuildNamespace(io: Server) {
     socket.emit("handshake", data);
     socket.on("join", connectToVoiceChannelBySocket);
     socket.on("repeat", async (type: 'none' | 'track' | 'queue')=>{
-      if ( !member ) return;
+      if ( !member || !type ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       let repeatType: typeof type = 'none';
       switch ( type ) {
@@ -218,6 +218,42 @@ export default async function dynamicGuildNamespace(io: Server) {
           date,
           'pause',
           'true',
+          guildId,
+          player.voiceChannel.id
+        ]
+      )
+    });
+    socket.on("seek", async (position: number | string)=>{
+      if ( !member || !position || !Number(position) ) return;
+      const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+      player.player.seek(Number(position));
+      const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+      await database.connection?.query(
+          `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+          VALUES (?, ?, ?, ?, ?, ?)`
+      , [
+          member.id,
+          date,
+          'seek',
+          position,
+          guildId,
+          player.voiceChannel.id
+        ]
+      )
+    });
+    socket.on("skipto", async (index: number| string)=>{
+      if ( !member || !index || !Number(index) ) return;
+      const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+      player.player.skipto(Number(index));
+      const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+      await database.connection?.query(
+          `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+          VALUES (?, ?, ?, ?, ?, ?)`
+      , [
+          member.id,
+          date,
+          'skipto',
+          index,
           guildId,
           player.voiceChannel.id
         ]

@@ -47,7 +47,7 @@ export default async function execute(interaction: CommandInteraction) {
     const member = interaction.member as GuildMember;
     const lang = getGuildLanguage(member.guild.id);
     const input = interaction.options.get("input")?.value as string;
-    const searchEngine = (String(interaction.options.get("search_engine")?.value) || 'youtube') as SearchPlatform;
+    const searchEngine = (String(interaction.options.get("search_engine")?.value) || 'youtube music') as SearchPlatform;
 
     if ( !member.voice.channel || !interaction.channel ) {
         return interaction.reply({

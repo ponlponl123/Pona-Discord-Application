@@ -35,8 +35,9 @@ export default async function getSongs(search: string, searchEngine: SearchPlatf
                     let searchResult: SearchResult;
                     if ( track.platform === 'youtube' || track.platform === 'youtube music' ) {
                         searchResult = await lavalink.manager.search({
-                            query: `https://youtu.be/${track.id}`,
-                            source: 'youtube'
+                            // query: `https://youtu.be/${track.id}`,
+                            query: `https://music.youtube.com/watch?v=${track.id}`,
+                            source: 'youtube music'
                         }, (author.user as User));
                     } else {
                         searchResult = await lavalink.manager.search({

@@ -399,7 +399,7 @@ export class Manager extends EventEmitter {
 			autoPlay: true,
 			usePriority: false,
 			clientName: "Pona!",
-			defaultSearchPlatform: "youtube",
+			defaultSearchPlatform: "youtube music",
 			useNode: "leastPlayers",
 			...options,
 		}
@@ -491,7 +491,7 @@ export class Manager extends EventEmitter {
 			if (this.options.replaceYouTubeCredentials) {
 				const replaceCreditsURLs = ["youtube.com", "youtu.be"];
 				const processTrack = (track: Track) => {
-					if (!replaceCreditsURLs.some((url) => track.uri.includes(url))) return track;
+					// if (!replaceCreditsURLs.some((url) => track.uri.includes(url))) return track;
 					const { cleanTitle, cleanAuthor } = this.parseYouTubeTitle(track.title, track.author);
 					track.title = cleanTitle;
 					track.author = cleanAuthor;
@@ -507,30 +507,44 @@ export class Manager extends EventEmitter {
 	}
 
 	private parseYouTubeTitle(title: string, originalAuthor: string): { cleanTitle: string; cleanAuthor: string } {
-		const cleanAuthor = originalAuthor.replace("- Topic", "").trim();
-		title = title.replace("Topic -", "").trim();
+    let cleanAuthor = originalAuthor.replace(/\s*-\s*Topic\s*$/i, "").trim(); // Normalize author
+    title = title.replace(/\bTopic\s*-\s*/i, "").trim(); // Remove leading "Topic -"
 
-		const escapedBlockedWords = blockedWords.map((word) => this.escapeRegExp(word));
-		const blockedWordsPattern = new RegExp(`\\b(${escapedBlockedWords.join("|")})\\b`, "gi");
-		title = title.replace(blockedWordsPattern, "").trim();
+    // List of noise words/phrases to remove
+    const noiseWords = [
+        "official video", "official music video", "official mv", "official", 
+        "lyrics", "audio", "hd", "4k", "remastered", "explicit", "clean", 
+        "full song", "video edit", "cover", "live", "mv"
+    ];
+    
+    // Remove blocked words and noise words
+    const allBlockedWords = [...blockedWords, ...noiseWords].map(this.escapeRegExp).join("|");
+    if (allBlockedWords) {
+        title = title.replace(new RegExp(`\\b(${allBlockedWords})\\b`, "gi"), "").trim();
+    }
 
-		title = title
-			.replace(/[([{]\s*[)\]}]/g, "")
-			.replace(/^[^\w\d]*|[^\w\d]*$/g, "")
-			.replace(/\s{2,}/g, " ")
-			.trim();
-		title = title.replace(/@(\w+)/g, "$1");
-		title = this.balanceBrackets(title);
+    // Normalize brackets, spaces, and unwanted symbols
+    title = title
+        .replace(/@(\w+)/g, "$1") // Remove @mentions like "@Artist"
+        .replace(/\s*\([\s\)]*\)|\s*\[[\s\]]*\]|\s*\{[\s\}]*\}/g, "") // Remove empty brackets
+        .replace(/\s*-\s*/g, " - ") // Normalize spacing around '-'
+        .replace(/^[^\w\d]+|[^\w\d]+$/g, "") // Trim unwanted leading/trailing symbols
+        .replace(/\s{2,}/g, " ") // Normalize spaces
+        .trim();
+    
+    title = this.balanceBrackets(title); // Ensure balanced brackets
 
-		if (title.includes(" - ")) {
-			const [artist, songTitle] = title.split(" - ").map((part) => part.trim());
-			if (artist.toLowerCase() === cleanAuthor.toLowerCase() || cleanAuthor.toLowerCase().includes(artist.toLowerCase())) {
-				return { cleanAuthor, cleanTitle: songTitle };
-			}
-			return { cleanAuthor: artist, cleanTitle: songTitle };
-		}
+    // Detect and handle "Artist - Title" format AFTER removing noise words
+    const parts = title.split(" - ");
+    if (parts.length === 2) {
+        const [potentialArtist, songTitle] = parts.map(part => part.trim());
+        if (potentialArtist.toLowerCase() === cleanAuthor.toLowerCase() || cleanAuthor.toLowerCase().includes(potentialArtist.toLowerCase())) {
+            return { cleanAuthor, cleanTitle: songTitle };
+        }
+        return { cleanAuthor: potentialArtist, cleanTitle: songTitle };
+    }
 
-		return { cleanAuthor, cleanTitle: title };
+    return { cleanAuthor, cleanTitle: title };
 	}
 
 	private balanceBrackets(str: string): string {

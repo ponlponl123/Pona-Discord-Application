@@ -67,7 +67,8 @@ export default async function dynamicGuildNamespace(io: Server) {
   });
 
   events.registerHandler("playerStateUpdate", (oldPlayer, newPlayer, changeType) => {
-    const guildId = oldPlayer.options?.guild || newPlayer.options?.guild;
+    const guildId = oldPlayer?.options?.guild || newPlayer?.options?.guild;
+    if ( !guildId ) return;
     const namespace_io = io.of(`/guild/${guildId}`);
     switch (changeType) {
       case 'channelChange':

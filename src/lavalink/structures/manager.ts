@@ -37,6 +37,7 @@ import {
 	SearchResult
 } from "@/interfaces/manager";
 import randomString from "@/utils/randomString";
+import { parseYouTubeTitle } from "@/utils/parser";
 
 interface LavaPlayer {
 	guildId: string;
@@ -111,6 +112,7 @@ export class Manager extends EventEmitter {
 				isrc: song.isrc,
 				isStream: song.isStream,
 				title: song.title,
+				cleanTitle: song.cleanTitle,
 				uri: song.uri,
 				artworkUrl: song.artworkUrl,
 				sourceName: song.sourceName,
@@ -468,6 +470,7 @@ export class Manager extends EventEmitter {
 			const tracks = searchData.map((track: TrackData) => {
 				track.info.timestamp = new Date().getTime();
 				track.info.uniqueId = randomString(32);
+				track.info.cleanTitle = parseYouTubeTitle(track.info.title, track.info.author).cleanTitle;
 				return TrackUtils.build(track, requester)
 			});
 			let playlist = null;
@@ -477,6 +480,7 @@ export class Manager extends EventEmitter {
 					tracks: playlistData!.tracks.map((track) => {
 						track.info.timestamp = new Date().getTime();
 						track.info.uniqueId = randomString(32);
+						track.info.cleanTitle = parseYouTubeTitle(track.info.title, track.info.author).cleanTitle;
 						return TrackUtils.build(track, requester)
 					}),
 					duration: playlistData!.tracks.reduce((acc, cur) => acc + (cur.info.length || 0), 0),
@@ -492,7 +496,7 @@ export class Manager extends EventEmitter {
 				const replaceCreditsURLs = ["youtube.com", "youtu.be"];
 				const processTrack = (track: Track) => {
 					// if (!replaceCreditsURLs.some((url) => track.uri.includes(url))) return track;
-					const { cleanTitle, cleanAuthor } = this.parseYouTubeTitle(track.title, track.author);
+					const { cleanTitle, cleanAuthor } = parseYouTubeTitle(track.title, track.author);
 					track.title = cleanTitle;
 					track.author = cleanAuthor;
 					return track;
@@ -504,85 +508,6 @@ export class Manager extends EventEmitter {
 		} catch (err: any) {
 			throw new Error(err);
 		}
-	}
-
-	private parseYouTubeTitle(title: string, originalAuthor: string): { cleanTitle: string; cleanAuthor: string } {
-    let cleanAuthor = originalAuthor.replace(/\s*-\s*Topic\s*$/i, "").trim(); // Normalize author
-    title = title.replace(/\bTopic\s*-\s*/i, "").trim(); // Remove leading "Topic -"
-
-    // List of noise words/phrases to remove
-    const noiseWords = [
-        "official video", "official music video", "official mv", "official", 
-        "lyrics", "audio", "hd", "4k", "remastered", "explicit", "clean", 
-        "full song", "video edit", "cover", "live", "mv"
-    ];
-    
-    // Remove blocked words and noise words
-    const allBlockedWords = [...blockedWords, ...noiseWords].map(this.escapeRegExp).join("|");
-    if (allBlockedWords) {
-        title = title.replace(new RegExp(`\\b(${allBlockedWords})\\b`, "gi"), "").trim();
-    }
-
-    // Normalize brackets, spaces, and unwanted symbols
-    title = title
-        .replace(/@(\w+)/g, "$1") // Remove @mentions like "@Artist"
-        .replace(/\s*\([\s\)]*\)|\s*\[[\s\]]*\]|\s*\{[\s\}]*\}/g, "") // Remove empty brackets
-        .replace(/\s*-\s*/g, " - ") // Normalize spacing around '-'
-        .replace(/^[^\w\d]+|[^\w\d]+$/g, "") // Trim unwanted leading/trailing symbols
-        .replace(/\s{2,}/g, " ") // Normalize spaces
-        .trim();
-    
-    title = this.balanceBrackets(title); // Ensure balanced brackets
-
-    // Detect and handle "Artist - Title" format AFTER removing noise words
-    const parts = title.split(" - ");
-    if (parts.length === 2) {
-        const [potentialArtist, songTitle] = parts.map(part => part.trim());
-        if (potentialArtist.toLowerCase() === cleanAuthor.toLowerCase() || cleanAuthor.toLowerCase().includes(potentialArtist.toLowerCase())) {
-            return { cleanAuthor, cleanTitle: songTitle };
-        }
-        return { cleanAuthor: potentialArtist, cleanTitle: songTitle };
-    }
-
-    return { cleanAuthor, cleanTitle: title };
-	}
-
-	private balanceBrackets(str: string): string {
-		const stack: string[] = [];
-		const openBrackets = "([{";
-		const closeBrackets = ")]}";
-		let result = "";
-
-		for (const char of str) {
-			if ( openBrackets.includes(char) )
-			{
-				stack.push(char);
-				result += char;
-			}
-			else if ( closeBrackets.includes(char) )
-			{
-				if (stack.length > 0 && openBrackets.indexOf(stack[stack.length - 1]) === closeBrackets.indexOf(char))
-				{
-					stack.pop();
-					result += char;
-				}
-			}
-			else
-			{
-				result += char;
-			}
-		}
-
-		while (stack.length > 0)
-		{
-			const lastOpen = stack.pop()!;
-			result += closeBrackets[openBrackets.indexOf(lastOpen)];
-		}
-		return result;
-	}
-
-	private escapeRegExp(string: string): string {
-		return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 	}
 
 	public decodeTracks(tracks: string[]): Promise<TrackData[]> {

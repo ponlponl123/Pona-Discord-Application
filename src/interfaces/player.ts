@@ -28,6 +28,7 @@ export interface Track {
 	readonly artworkUrl: string;
 	readonly sourceName: TrackSourceName;
 	title: string;
+	cleanTitle: string;
 	readonly identifier: string;
 	author: string;
 	readonly duration: number;

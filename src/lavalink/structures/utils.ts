@@ -105,6 +105,7 @@ export abstract class TrackUtils {
 				timestamp: data.info.timestamp,
 				uniqueId: data.info.uniqueId,
 				title: data.info.title,
+				cleanTitle: data.info.cleanTitle,
 				identifier: data.info.identifier,
 				author: data.info.author,
 				duration: data.info.length,

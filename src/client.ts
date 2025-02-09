@@ -234,7 +234,7 @@ class Pona extends EventEmitter {
     private async registerSlashCommands() {
         const commandsDirectory = join(__dirname, "commands");
         const commandFiles = readdirSync(commandsDirectory).filter((file) => !file.endsWith(".map"));
-      
+
         for (const file of commandFiles) {
             if ( file.startsWith('index') || (!file.endsWith('.ts') && !file.endsWith('.js')) ) continue;
 
@@ -266,7 +266,7 @@ class Pona extends EventEmitter {
 
         }
         const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
-      
+
         const regisResult = await rest.put(Routes.applicationCommands(this.client.user!.id), { body: this.slashCommands });
 
         if ( regisResult )

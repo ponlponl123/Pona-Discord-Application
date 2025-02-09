@@ -1,4 +1,5 @@
 import { GuildMember } from 'discord.js';
+import { discordClient as self } from '..';
 
 export default function isUserInVoiceChannel(member: GuildMember): boolean {
     if (!member.voice) {
@@ -11,4 +12,23 @@ export default function isUserInVoiceChannel(member: GuildMember): boolean {
     }
   
     return true; // User is in a defined voice channel
+}
+
+export async function fetchIsUserInVoiceChannel(guildId: string, memberId: string): Promise<boolean> {
+  const member = await self.client.guilds.cache.get(guildId)?.members.fetch(memberId);
+  if (member && member.voice && member.voice.channel) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function fetchIsUserInSameVoiceChannel(guildId: string, memberId: string): Promise<boolean> {
+  const member = await self.client.guilds.cache.get(guildId)?.members.fetch(memberId);
+  const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+  if (player && member ) {
+    const voiceChannel = member.voice.channel;
+    if (voiceChannel) return voiceChannel && voiceChannel.id === player.voiceChannel.id;
+  }
+  return false;
 }

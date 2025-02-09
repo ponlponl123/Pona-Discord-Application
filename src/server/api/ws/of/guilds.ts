@@ -9,6 +9,7 @@ import { MemberVoiceChangedState } from "@/interfaces/member";
 import { VoiceBasedChannel } from "discord.js";
 import joinChannel from "@/utils/player/joinVoiceChannelAsPlayer";
 import { Player } from "@/lavalink";
+import { fetchIsUserInSameVoiceChannel, fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
 
 export type GuildEvents =
   'player_created'      |
@@ -36,6 +37,8 @@ async function connectToVoiceChannelBySocket(guildId: string, voiceBasedChannelI
     await joinChannel(textChannel, voiceChannel, guild);
   }
 }
+
+
 
 export default async function dynamicGuildNamespace(io: Server) {
   const io_guild = io.of(/^\/guild\/\d+$/);
@@ -104,7 +107,7 @@ export default async function dynamicGuildNamespace(io: Server) {
     }
   });
 
-  events.registerHandler("voiceStateUpdate", (type, oldState, newState) => {
+  events.registerHandler("voiceStateUpdate", async (type, oldState, newState) => {
     if (
       type==='clientJoined' ||
       type==='clientLeaved' ||
@@ -116,12 +119,14 @@ export default async function dynamicGuildNamespace(io: Server) {
     const isUserJoined = ( oldState?.channel === undefined && newState?.channel !== undefined );
     const isUserSwitched = ( oldState?.channel !== undefined && newState?.channel !== undefined );
     const isUserLeaved = ( oldState?.channel !== undefined && newState?.channel === undefined );
+    const isSameVC = (guildId && memberId) ? await fetchIsUserInVoiceChannel(guildId, memberId) : false;
     const memberVoiceState: MemberVoiceChangedState = {
       oldVC: oldState?.channel || null,
       newVC: newState?.channel || null,
       isUserJoined,
       isUserSwitched,
-      isUserLeaved
+      isUserLeaved,
+      isSameVC
     }
     namespace_io.to(`stream:${memberId}`).emit('member_state_updated', memberVoiceState);
   });
@@ -179,9 +184,12 @@ export default async function dynamicGuildNamespace(io: Server) {
       isMemberInVC: memberVC || null
     }
     socket.emit("handshake", data);
-    socket.on("join", connectToVoiceChannelBySocket);
+    socket.on("join", async (guildId: string, voiceBasedChannelId: string)=>{
+      if ( member && (await fetchIsUserInVoiceChannel(guildId, member.id)) )
+      connectToVoiceChannelBySocket(guildId, voiceBasedChannelId);
+    });
     socket.on("repeat", async (type: 'none' | 'track' | 'queue')=>{
-      if ( !member || !type ) return;
+      if ( !member || !type || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       let repeatType: typeof type = 'none';
       switch ( type ) {
@@ -213,7 +221,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       )
     });
     socket.on("pause", async ()=>{
-      if ( !member ) return;
+      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       player.player.pause(true);
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -231,9 +239,10 @@ export default async function dynamicGuildNamespace(io: Server) {
       )
     });
     socket.on("seek", async (position: number)=>{
-      if ( !member ) return;
+      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       player.player.seek(position);
+      player.player.pause(false);
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
       await database.connection?.query(
           `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
@@ -249,9 +258,10 @@ export default async function dynamicGuildNamespace(io: Server) {
       )
     });
     socket.on("skipto", async (index: number)=>{
-      if ( !member ) return;
+      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       player.player.skipto(index);
+      player.player.pause(false);
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
       await database.connection?.query(
           `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
@@ -267,7 +277,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       )
     });
     socket.on("play", async ()=>{
-      if ( !member ) return;
+      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       player.player.pause(false);
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -285,9 +295,10 @@ export default async function dynamicGuildNamespace(io: Server) {
       )
     });
     socket.on("previous", async ()=>{
-      if ( !member ) return;
+      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       player.player.previous();
+      player.player.pause(false);
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
       await database.connection?.query(
           `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
@@ -303,9 +314,10 @@ export default async function dynamicGuildNamespace(io: Server) {
       )
     });
     socket.on("next", async ()=>{
-      if ( !member ) return;
+      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       player.player.skipto(0);
+      player.player.pause(false);
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
       await database.connection?.query(
           `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)

@@ -3,13 +3,17 @@ import eventManager from '@/events';
 import { database, discordClient as self } from '@/index';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
-import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState } from "@/interfaces/player";
+import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState, Track } from "@/interfaces/player";
 import { convertTo_HTTPPlayerState, getHTTP_PlayerState } from "@/utils/player/httpReq";
 import { MemberVoiceChangedState } from "@/interfaces/member";
 import { VoiceBasedChannel } from "discord.js";
 import joinChannel from "@/utils/player/joinVoiceChannelAsPlayer";
-import { Player } from "@/lavalink";
+import { Player, Queue, TrackUtils } from "@/lavalink";
 import { fetchIsUserInSameVoiceChannel, fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
+import randomString from "@/utils/randomString";
+import getSongs from "@/utils/player/getSongs";
+import { SearchPlatform } from "@/interfaces/manager";
+import addToQueue from "@/utils/player/addToQueue";
 
 export type GuildEvents =
   'player_created'      |
@@ -174,14 +178,21 @@ export default async function dynamicGuildNamespace(io: Server) {
     socket.join("pona! music");
     socket.join(`stream:${socket.data.member.id}`);
     const playerState = getHTTP_PlayerState(guildId);
-    // get member voice channel by guild id and member id without know user voice channel permission
+    let newPlayerState: HTTP_PonaCommonStateWithTracks | undefined
+    if ( playerState?.current && playerState?.queue )
+    {
+      newPlayerState = {
+        ...playerState,
+        queue: ([ playerState.current, ...playerState.queue ] as Queue),
+      }
+    }
     const member = await self.client.guilds.cache.get(guildId)?.members.fetch(socket.data.member.id);
     const memberVC = member?.voice.channel;
     const data : {
       pona: HTTP_PonaCommonStateWithTracks | null;
       isMemberInVC: VoiceBasedChannel | null;
     } = {
-      pona: playerState,
+      pona: newPlayerState || playerState,
       isMemberInVC: memberVC || null
     }
     socket.emit("handshake", data);
@@ -259,7 +270,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       )
     });
     socket.on("skipto", async (index: number)=>{
-      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !Number(index) ) return;
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       player.player.skipto(index);
       player.player.pause(false);
@@ -294,6 +305,33 @@ export default async function dynamicGuildNamespace(io: Server) {
           player.voiceChannel.id
         ]
       )
+    });
+    socket.on("add", async (uri: string, searchengine: SearchPlatform, callback)=>{
+      if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !uri || !searchengine ) return;
+      const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+      try {
+        const track = await getSongs(uri, searchengine, member);
+        if ( typeof track === 'string' ) return;
+        addToQueue(track.tracks, player);
+        callback({
+          status: "ok"
+        });
+        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+        await database.connection?.query(
+            `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+            VALUES (?, ?, ?, ?, ?, ?)`
+        , [
+            member.id,
+            date,
+            'add',
+            JSON.stringify(track),
+            guildId,
+            player.voiceChannel.id
+          ]
+        )
+      } catch {
+        return;
+      }
     });
     socket.on("previous", async ()=>{
       if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;

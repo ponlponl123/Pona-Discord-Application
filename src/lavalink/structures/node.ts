@@ -333,8 +333,16 @@ export class Node {
 		player.playing = true;
 		player.paused = false;
 		const accentColor = '';
-		const highResArtworkUrl = await fetch(`http://localhost:${expressConfig.EXPRESS_PORT}/v1/proxy/yt-thumbnail/${track.identifier}/highres?endpoint=true`);
-		const lyrics = await fetch(`http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?title=${track.title}&author=${track.author}`);
+		const highResArtworkUrl = await fetch(`http://localhost:${expressConfig.EXPRESS_PORT}/v1/proxy/yt-thumbnail/${track.identifier}/highres?endpoint=true`, {
+			headers: {
+        'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
+      }
+		});
+		const lyrics = await fetch(`http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?title=${track.title}&author=${track.author}`, {
+			headers: {
+        'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
+      }
+		});
 		const parsed_highResArtwork = (await highResArtworkUrl.json()).endpoint;
 		track.accentColor = accentColor;
 		track.highResArtworkUrl = parsed_highResArtwork || '';

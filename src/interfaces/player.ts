@@ -21,23 +21,32 @@ export interface PlayerOptions {
 	selfDeafen?: boolean;
 }
 
+export interface Lyric {
+    seconds: number;
+    lyrics: string;
+}
+
 export interface Track {
 	readonly track: string;
 	readonly timestamp: number;
 	readonly uniqueId: string;
 	readonly artworkUrl: string;
+	highResArtworkUrl?: string;
 	readonly sourceName: TrackSourceName;
 	title: string;
 	cleanTitle: string;
 	readonly identifier: string;
 	author: string;
+	cleanAuthor: string;
 	readonly duration: number;
 	readonly isrc: string;
 	readonly isSeekable: boolean;
 	readonly isStream: boolean;
 	readonly uri: string;
 	readonly thumbnail: string | null;
+	lyrics?: Lyric[];
 	readonly requester?: User | ClientUser;
+	accentColor?: string;
 	displayThumbnail(size?: Sizes): string;
 	pluginInfo: TrackPluginInfo;
 	customData: Record<string, unknown>;

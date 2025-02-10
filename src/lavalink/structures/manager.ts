@@ -7,7 +7,6 @@ import {
 import { Node } from "./node";
 import { Player } from "./player";
 import managerCheck from "@utils/lavalink/managerCheck";
-import { blockedWords } from "@config/blockedWords";
 import { Collection } from "@discordjs/collection";
 import { ClientUser, User } from "discord.js";
 import { EventEmitter } from "events";
@@ -108,6 +107,7 @@ export class Manager extends EventEmitter {
 				identifier: song.identifier,
 				isSeekable: song.isSeekable,
 				author: song.author,
+				cleanAuthor: song.cleanAuthor,
 				length: song.duration,
 				isrc: song.isrc,
 				isStream: song.isStream,
@@ -115,6 +115,9 @@ export class Manager extends EventEmitter {
 				cleanTitle: song.cleanTitle,
 				uri: song.uri,
 				artworkUrl: song.artworkUrl,
+				hightResArtworkUrl: song.highResArtworkUrl,
+				accentColor: song.accentColor,
+				lyrics: song.lyrics,
 				sourceName: song.sourceName,
 			},
 				pluginInfo: (song.pluginInfo as Record<string, string>),
@@ -468,9 +471,11 @@ export class Manager extends EventEmitter {
 			}
 
 			const tracks = searchData.map((track: TrackData) => {
+				const parsed = parseYouTubeTitle(track.info.title, track.info.author);
 				track.info.timestamp = new Date().getTime();
 				track.info.uniqueId = randomString(32);
-				track.info.cleanTitle = parseYouTubeTitle(track.info.title, track.info.author).cleanTitle;
+				track.info.cleanTitle = parsed.cleanTitle;
+				track.info.cleanAuthor = parsed.cleanAuthor;
 				return TrackUtils.build(track, requester)
 			});
 			let playlist = null;
@@ -478,9 +483,11 @@ export class Manager extends EventEmitter {
 				playlist = {
 					name: playlistData!.info.name,
 					tracks: playlistData!.tracks.map((track) => {
+						const parsed = parseYouTubeTitle(track.info.title, track.info.author);
 						track.info.timestamp = new Date().getTime();
 						track.info.uniqueId = randomString(32);
-						track.info.cleanTitle = parseYouTubeTitle(track.info.title, track.info.author).cleanTitle;
+						track.info.cleanTitle = parsed.cleanTitle;
+						track.info.cleanAuthor = parsed.cleanAuthor;
 						return TrackUtils.build(track, requester)
 					}),
 					duration: playlistData!.tracks.reduce((acc, cur) => acc + (cur.info.length || 0), 0),
@@ -489,8 +496,8 @@ export class Manager extends EventEmitter {
 
 			const result: SearchResult = {
 				loadType: res.loadType,
-				tracks: tracks,
-				playlist: (playlist as PlaylistData),
+				tracks: tracks, // for async function: await Promise.all(tracks)
+				playlist: (playlist as PlaylistData), // for async function: playlist ? { ...playlist, tracks: await Promise.all(playlist.tracks) } : undefined
 			}
 			if (this.options.replaceYouTubeCredentials) {
 				const replaceCreditsURLs = ["youtube.com", "youtu.be"];

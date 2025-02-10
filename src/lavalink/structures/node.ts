@@ -13,7 +13,7 @@ import fs from "fs";
 import { prefix as consolePrefix } from "@/config/console";
 
 import nodeCheck from "@utils/lavalink/nodeCheck";
-import { Track, UnresolvedTrack } from "@interfaces/player";
+import { Lyric, Track, UnresolvedTrack } from "@interfaces/player";
 import {
 	PlayerEvent,
 	PlayerEvents,
@@ -29,6 +29,7 @@ import {
 } from "@interfaces/lavaUtils";
 import { LavalinkInfo, NodeOptions, NodeStats } from "@interfaces/node";
 import { LavalinkResponse, PlaylistData, PlaylistRawData } from "@/interfaces/manager";
+import { config as expressConfig } from "@/config/express";
 
 export const validSponsorBlocks = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic", "filler"];
 export type SponsorBlockSegment = "sponsor" | "selfpromo" | "interaction" | "intro" | "outro" | "preview" | "music_offtopic" | "filler";
@@ -327,10 +328,17 @@ export class Node {
 		}
 	}
 
-	protected trackStart(player: Player, track: Track, payload: TrackStartEvent): void {
+	protected async trackStart(player: Player, track: Track, payload: TrackStartEvent): Promise<void> {
 		const oldPlayer = player;
 		player.playing = true;
 		player.paused = false;
+		const accentColor = '';
+		const highResArtworkUrl = await fetch(`http://localhost:${expressConfig.EXPRESS_PORT}/v1/proxy/yt-thumbnail/${track.identifier}/highres?endpoint=true`);
+		const lyrics = await fetch(`http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?title=${track.title}&author=${track.author}`);
+		const parsed_highResArtwork = (await highResArtworkUrl.json()).endpoint;
+		track.accentColor = accentColor;
+		track.highResArtworkUrl = parsed_highResArtwork || '';
+		track.lyrics = lyrics.ok ? (await lyrics.json() as Lyric[]) : [];
 		this.manager.emit("trackStart", player, track, payload);
 		this.manager.emit("playerStateUpdate", oldPlayer, player, "trackChange");
 	}

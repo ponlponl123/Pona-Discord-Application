@@ -2,6 +2,7 @@ import { Player } from '@lavalink/structures/player';
 import { Queue } from '@lavalink/structures/queue'
 import { Node } from '@lavalink/structures/node';
 import { NodeStats } from "./node";
+import { Lyric } from './player';
 
 export type LoadType = "track" | "playlist" | "search" | "empty" | "error";
 export type State = "CONNECTED" | "CONNECTING" | "DISCONNECTED" | "DISCONNECTING" | "DESTROYING";
@@ -40,6 +41,7 @@ export interface TrackDataInfo {
 	identifier: string;
 	isSeekable: boolean;
 	author: string;
+	cleanAuthor: string;
 	timestamp: number;
 	uniqueId: string;
 	length: number;
@@ -49,6 +51,9 @@ export interface TrackDataInfo {
 	cleanTitle: string;
 	uri?: string;
 	artworkUrl?: string;
+	hightResArtworkUrl?: string;
+	accentColor?: string;
+	lyrics?: Lyric[];
 	sourceName?: TrackSourceName;
 }
 

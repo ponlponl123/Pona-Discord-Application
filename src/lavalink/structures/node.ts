@@ -340,42 +340,20 @@ export class Node {
 			}
 		});
 		const endpoint = `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics`;
-		const defaultLyricEngine = new URL(endpoint);
-		const YTMusicEngine = new URL(endpoint);
-		YTMusicEngine.searchParams.append('engine', 'ytmusic');
-		YTMusicEngine.searchParams.append('v', track.identifier);
-		defaultLyricEngine.searchParams.append('title', track.title);
-		defaultLyricEngine.searchParams.append('author', parseYouTubeAuthorTitle(track.cleanAuthor));
-		const LrclibEngine = defaultLyricEngine;
-		LrclibEngine.searchParams.append('engine', 'lrclib');
-		LrclibEngine.searchParams.append('duration', String(track.duration/1000));
+		const fetchLyric = new URL(endpoint);
+		fetchLyric.searchParams.append('engine', 'dynamic');
+		fetchLyric.searchParams.append('title', track.title);
+		fetchLyric.searchParams.append('author', parseYouTubeAuthorTitle(track.author));
+		fetchLyric.searchParams.append('v', track.identifier);
+		fetchLyric.searchParams.append('duration', String(track.duration/1000));
 		try {
-			const fetchLyricByLrclib = await fetch(LrclibEngine.toString(), {
+			const fetchLyricByInternalAPI = await fetch(fetchLyric.toString(), {
 				headers: {
 					'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
 				}
 			});
-			if ( fetchLyricByLrclib.ok ) {
-				track.lyrics = (await fetchLyricByLrclib.json()) as Lyric;
-			} else {
-				const fetchLyricByYTMusicEngine = await fetch(YTMusicEngine.toString(), {
-					headers: {
-						'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
-					}
-				});
-				if ( fetchLyricByYTMusicEngine.ok ) {
-					track.lyrics = (await fetchLyricByYTMusicEngine.json()) as Lyric;
-				} else {
-					const fetchLyricByDefaultEngine = await fetch(defaultLyricEngine.toString(), {
-						headers: {
-							'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
-						}
-					});
-					if ( fetchLyricByDefaultEngine.ok ) {
-						track.lyrics = (await fetchLyricByDefaultEngine.json()) as Lyric;
-					}
-				}
-			}
+			if ( fetchLyricByInternalAPI.ok )
+				track.lyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
 		} catch {
 			console.log('failed to fetch lyrics')
 		}

@@ -37,19 +37,23 @@ export const data = new SlashCommandBuilder()
     .setDMPermission(false)
 
 export async function execute(interaction: CommandInteraction) {
-    const lang = getGuildLanguage(interaction.guildId as string);
-    const member = interaction.member as GuildMember;
-    const subCommand = (interaction.options as CommandInteractionOptionResolver<CacheType>).getSubcommand();
+    try {
+        const lang = getGuildLanguage(interaction.guildId as string);
+        const member = interaction.member as GuildMember;
+        const subCommand = (interaction.options as CommandInteractionOptionResolver<CacheType>).getSubcommand();
 
-    switch ( subCommand ) {
-        case 'language':
-            {
-                const lang = interaction.options.get('lang') as CommandInteractionOption<CacheType>;
-                return languageSubsystem(interaction, lang.value as languageCode);
-            }
-        default:
-            return interaction.reply({
-                embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.invalid_subcommand)]
-            });
+        switch ( subCommand ) {
+            case 'language':
+                {
+                    const lang = interaction.options.get('lang') as CommandInteractionOption<CacheType>;
+                    return languageSubsystem(interaction, lang.value as languageCode);
+                }
+            default:
+                return interaction.reply({
+                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.invalid_subcommand)]
+                });
+        }
+    } catch {
+        return;
     }
 }

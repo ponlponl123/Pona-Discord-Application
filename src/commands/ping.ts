@@ -11,5 +11,9 @@ export const data = new SlashCommandBuilder()
   });
 
 export async function execute(interaction: CommandInteraction) {
-  return interaction.reply(":ping_pong: Pong!");
+  try {
+    return interaction.reply(":ping_pong: Pong!");
+  } catch {
+    return;
+  }
 }

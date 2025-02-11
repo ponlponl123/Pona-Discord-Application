@@ -172,103 +172,107 @@ export const data = new SlashCommandBuilder()
     .setDMPermission(false);
 
 export async function execute(interaction: CommandInteraction) {
-    const lang = getGuildLanguage(interaction.guildId as string);
-    const member = interaction.member as GuildMember;
-    const subCommand = (interaction.options as CommandInteractionOptionResolver<CacheType>).getSubcommand();
-    const isLavalinkIsAvailable = await isAvailable();
+    try {
+        const lang = getGuildLanguage(interaction.guildId as string);
+        const member = interaction.member as GuildMember;
+        const subCommand = (interaction.options as CommandInteractionOptionResolver<CacheType>).getSubcommand();
+        const isLavalinkIsAvailable = await isAvailable();
 
-    if ( !isLavalinkIsAvailable )
-        return interaction.reply({
-            embeds: [errorEmbedBuilder('Service is not available right now :(')],
-            ephemeral: true
-        });
+        if ( !isLavalinkIsAvailable )
+            return interaction.reply({
+                embeds: [errorEmbedBuilder('Service is not available right now :(')],
+                ephemeral: true
+            });
 
-    switch ( subCommand ) {
-        case 'play':
-            return playSubsystem(interaction);
-        case 'stop':
-            return stopSubsystem(interaction);
-        case 'skip':
-            return skipSubsystem(interaction);
-        case 'skipto':
-            return skiptoSubsystem(interaction);
-        case 'pause':
-        case 'resume':
-            {
-                const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
-                return pauseSubsystem(interaction, playback.length > 0 && !playback[0].player.paused);
-            }
-        case 'queue':
-            return queueSubsystem(interaction);
-        case 'remove':
-            return removeSubsystem(interaction);
-        case 'loop':
-            {
-                const state = interaction.options.get('state') as CommandInteractionOption<CacheType>;
-                switch (state.value) {
-                    case 'track':
-                        {
-                            if (
-                                await loopSubsystem(interaction, true, false) === true &&
-                                interaction.isRepliable()
-                            )
+        switch ( subCommand ) {
+            case 'play':
+                return playSubsystem(interaction);
+            case 'stop':
+                return stopSubsystem(interaction);
+            case 'skip':
+                return skipSubsystem(interaction);
+            case 'skipto':
+                return skiptoSubsystem(interaction);
+            case 'pause':
+            case 'resume':
+                {
+                    const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
+                    return pauseSubsystem(interaction, playback.length > 0 && !playback[0].player.paused);
+                }
+            case 'queue':
+                return queueSubsystem(interaction);
+            case 'remove':
+                return removeSubsystem(interaction);
+            case 'loop':
+                {
+                    const state = interaction.options.get('state') as CommandInteractionOption<CacheType>;
+                    switch (state.value) {
+                        case 'track':
                             {
-                                const repeatStateEmbed = new EmbedBuilder()
-                                    .setTitle(`<:Revertarrow:1299947479571107942> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.track}`)
-                                    .setColor(color('focus'));
-                                return interaction.reply({
-                                    embeds: [repeatStateEmbed]
-                                })
-                            }
-                            else
-                                return;
-                        }
-                    case 'queue':
-                        {
-                            if (
-                                await loopQueueSubsystem(interaction, true, false) === true &&
-                                interaction.isRepliable()
-                            )
-                            {
-                                const repeatStateEmbed = new EmbedBuilder()
-                                    .setTitle(`<:MusicNote:1299943220301529118> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.queue}`)
-                                    .setColor(color('focus'));
-                                return interaction.reply({
-                                    embeds: [repeatStateEmbed]
-                                })
-                            }
-                            else
-                                return;
-                        }
-                    default:
-                        {
-                            if (
-                                await loopSubsystem(interaction, false, false) === true &&
-                                interaction.isRepliable()
-                            )
                                 if (
-                                    await loopQueueSubsystem(interaction, false, false) === true &&
+                                    await loopSubsystem(interaction, true, false) === true &&
                                     interaction.isRepliable()
                                 )
                                 {
                                     const repeatStateEmbed = new EmbedBuilder()
-                                        .setTitle(`<:Revertarrowwithslash:1299947493756243989> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.off}`)
-                                        .setColor(color('light'));
+                                        .setTitle(`<:Revertarrow:1299947479571107942> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.track}`)
+                                        .setColor(color('focus'));
                                     return interaction.reply({
                                         embeds: [repeatStateEmbed]
                                     })
                                 }
                                 else
                                     return;
-                            else
-                                return;
-                        }
+                            }
+                        case 'queue':
+                            {
+                                if (
+                                    await loopQueueSubsystem(interaction, true, false) === true &&
+                                    interaction.isRepliable()
+                                )
+                                {
+                                    const repeatStateEmbed = new EmbedBuilder()
+                                        .setTitle(`<:MusicNote:1299943220301529118> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.queue}`)
+                                        .setColor(color('focus'));
+                                    return interaction.reply({
+                                        embeds: [repeatStateEmbed]
+                                    })
+                                }
+                                else
+                                    return;
+                            }
+                        default:
+                            {
+                                if (
+                                    await loopSubsystem(interaction, false, false) === true &&
+                                    interaction.isRepliable()
+                                )
+                                    if (
+                                        await loopQueueSubsystem(interaction, false, false) === true &&
+                                        interaction.isRepliable()
+                                    )
+                                    {
+                                        const repeatStateEmbed = new EmbedBuilder()
+                                            .setTitle(`<:Revertarrowwithslash:1299947493756243989> · ${lang.data.music.state.repeat.title}: ${lang.data.music.state.repeat.off}`)
+                                            .setColor(color('light'));
+                                        return interaction.reply({
+                                            embeds: [repeatStateEmbed]
+                                        })
+                                    }
+                                    else
+                                        return;
+                                else
+                                    return;
+                            }
+                    }
+                    return;
                 }
-                return;
-            }
-        default:
-            return interaction.reply({
-                embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.invalid_subcommand)]
-            });
+            default:
+                return interaction.reply({
+                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.invalid_subcommand)]
+                });
+        }
+    } catch {
+        return;
     }
 }

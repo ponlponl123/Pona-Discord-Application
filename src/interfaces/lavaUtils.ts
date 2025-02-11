@@ -53,7 +53,7 @@ export interface TrackDataInfo {
 	artworkUrl?: string;
 	hightResArtworkUrl?: string;
 	accentColor?: string;
-	lyrics?: Lyric[];
+	lyrics?: Lyric;
 	sourceName?: TrackSourceName;
 }
 

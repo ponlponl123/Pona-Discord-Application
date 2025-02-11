@@ -21,9 +21,16 @@ export interface PlayerOptions {
 	selfDeafen?: boolean;
 }
 
-export interface Lyric {
+export interface TimestampLyrics {
     seconds: number;
     lyrics: string;
+}
+
+export type NonTimestampLyrics = string;
+
+export interface Lyric {
+    isTimestamp: boolean;
+    lyrics: TimestampLyrics[] | NonTimestampLyrics[];
 }
 
 export interface Track {
@@ -44,7 +51,7 @@ export interface Track {
 	readonly isStream: boolean;
 	readonly uri: string;
 	readonly thumbnail: string | null;
-	lyrics?: Lyric[];
+	lyrics?: Lyric;
 	readonly requester?: User | ClientUser;
 	accentColor?: string;
 	displayThumbnail(size?: Sizes): string;

@@ -30,6 +30,7 @@ import {
 import { LavalinkInfo, NodeOptions, NodeStats } from "@interfaces/node";
 import { LavalinkResponse, PlaylistData, PlaylistRawData } from "@/interfaces/manager";
 import { config as expressConfig } from "@/config/express";
+import { parseYouTubeAuthorTitle } from "@/utils/parser";
 
 export const validSponsorBlocks = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic", "filler"];
 export type SponsorBlockSegment = "sponsor" | "selfpromo" | "interaction" | "intro" | "outro" | "preview" | "music_offtopic" | "filler";
@@ -335,18 +336,52 @@ export class Node {
 		const accentColor = '';
 		const highResArtworkUrl = await fetch(`http://localhost:${expressConfig.EXPRESS_PORT}/v1/proxy/yt-thumbnail/${track.identifier}/highres?endpoint=true`, {
 			headers: {
-        'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
-      }
+				'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
+			}
 		});
-		const lyrics = await fetch(`http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?title=${track.title}&author=${track.author}`, {
-			headers: {
-        'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
-      }
-		});
+		const endpoint = `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics`;
+		const defaultLyricEngine = new URL(endpoint);
+		const YTMusicEngine = new URL(endpoint);
+		YTMusicEngine.searchParams.append('engine', 'ytmusic');
+		YTMusicEngine.searchParams.append('v', track.identifier);
+		defaultLyricEngine.searchParams.append('title', track.title);
+		defaultLyricEngine.searchParams.append('author', parseYouTubeAuthorTitle(track.cleanAuthor));
+		const LrclibEngine = defaultLyricEngine;
+		LrclibEngine.searchParams.append('engine', 'lrclib');
+		LrclibEngine.searchParams.append('duration', String(track.duration/1000));
+		try {
+			const fetchLyricByLrclib = await fetch(LrclibEngine.toString(), {
+				headers: {
+					'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
+				}
+			});
+			if ( fetchLyricByLrclib.ok ) {
+				track.lyrics = (await fetchLyricByLrclib.json()) as Lyric;
+			} else {
+				const fetchLyricByYTMusicEngine = await fetch(YTMusicEngine.toString(), {
+					headers: {
+						'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
+					}
+				});
+				if ( fetchLyricByYTMusicEngine.ok ) {
+					track.lyrics = (await fetchLyricByYTMusicEngine.json()) as Lyric;
+				} else {
+					const fetchLyricByDefaultEngine = await fetch(defaultLyricEngine.toString(), {
+						headers: {
+							'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
+						}
+					});
+					if ( fetchLyricByDefaultEngine.ok ) {
+						track.lyrics = (await fetchLyricByDefaultEngine.json()) as Lyric;
+					}
+				}
+			}
+		} catch {
+			console.log('failed to fetch lyrics')
+		}
 		const parsed_highResArtwork = (await highResArtworkUrl.json()).endpoint;
 		track.accentColor = accentColor;
 		track.highResArtworkUrl = parsed_highResArtwork || '';
-		track.lyrics = lyrics.ok ? (await lyrics.json() as Lyric[]) : [];
 		this.manager.emit("trackStart", player, track, payload);
 		this.manager.emit("playerStateUpdate", oldPlayer, player, "trackChange");
 	}

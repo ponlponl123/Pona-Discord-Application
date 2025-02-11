@@ -1,4 +1,5 @@
 import { blockedWords } from "@/config/blockedWords";
+import { Lyric, NonTimestampLyrics, TimestampLyrics } from "@/interfaces/player";
 
 // List of noise words/phrases to remove
 export const noiseWords = [
@@ -8,7 +9,7 @@ export const noiseWords = [
   "cut version"
 ];
 
-export function parseYouTubeAuthorTitle(title: string, originalAuthor: string): string {
+export function parseYouTubeAuthorTitle(originalAuthor: string): string {
   let cleanAuthor = originalAuthor.replace(/\s*-\s*Topic\s*$/i, "").trim(); // Normalize author
   return cleanAuthor;
 }
@@ -76,7 +77,7 @@ export function parseYouTubeTitle(title: string, originalAuthor: string): { clea
       if (cleanAuthor.toLowerCase().includes(artistPart.toLowerCase())) {
           return { cleanAuthor, cleanTitle: songTitle };
       }
-      return { cleanAuthor: artistPart, cleanTitle: songTitle };
+      return { cleanAuthor, cleanTitle: songTitle };
   }
 
   return { cleanAuthor, cleanTitle: cleanedTitle };
@@ -118,4 +119,30 @@ export function balanceBrackets(str: string): string {
 
 export function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function parseLyrics(input: string): Lyric {
+  const lines = input.split('\n').map(line => line.trim()).filter(line => line);
+  const timestampRegex = /^\[(\d+):(\d+\.\d+)\]\s*(.*)$/;
+  const parsedLyrics: TimestampLyrics[] = [];
+  const nonTimestampLyrics: NonTimestampLyrics[] = [];
+
+  for (const line of lines) {
+      const match = line.match(timestampRegex);
+      if (match) {
+          const minutes = parseInt(match[1], 10);
+          const seconds = parseFloat(match[2]);
+          parsedLyrics.push({
+              seconds: minutes * 60 + seconds,
+              lyrics: match[3]
+          });
+      } else {
+          nonTimestampLyrics.push(line);
+      }
+  }
+
+  return {
+      isTimestamp: parsedLyrics.length > 0,
+      lyrics: parsedLyrics.length > 0 ? parsedLyrics : nonTimestampLyrics
+  };
 }

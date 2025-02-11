@@ -220,7 +220,7 @@ export default async function dynamicGuildNamespace(io: Server) {
           repeatType = 'none';
           break;
       }
-      callback({
+      if ( callback ) callback({
         status: "ok"
       });
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -242,7 +242,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       if ( !player ) return;
       player.player.pause(true);
-      callback({
+      if ( callback ) callback({
         status: "ok"
       });
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -265,7 +265,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       if ( !player ) return;
       player.player.seek(position);
       player.player.pause(false);
-      callback({
+      if ( callback ) callback({
         status: "ok"
       });
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -288,7 +288,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       if ( !player ) return;
       player.player.skipto(index);
       player.player.pause(false);
-      callback({
+      if ( callback ) callback({
         status: "ok"
       });
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -310,7 +310,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
       if ( !player ) return;
       player.player.pause(false);
-      callback({
+      if ( callback ) callback({
         status: "ok"
       });
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -335,7 +335,7 @@ export default async function dynamicGuildNamespace(io: Server) {
         const track = await getSongs(uri, searchengine, member);
         if ( typeof track === 'string' ) return;
         addToQueue(track.tracks, player);
-        callback({
+        if ( callback ) callback({
           status: "ok"
         });
         const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -361,7 +361,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       if ( !player ) return;
       player.player.previous();
       player.player.pause(false);
-      callback({
+      if ( callback ) callback({
         status: "ok"
       });
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -384,7 +384,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       if ( !player ) return;
       player.player.skipto(0);
       player.player.pause(false);
-      callback({
+      if ( callback ) callback({
         status: "ok"
       });
       const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));

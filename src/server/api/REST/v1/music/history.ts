@@ -5,17 +5,17 @@ import { database } from '@/index';
 import { isNumber } from 'lodash';
 
 export async function GET(request: express.Request, response: express.Response) {
-  if ( !database || !database.connection ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
-  const { authorization } = request.headers;
-  const { l } = request.params;
-  if ( !authorization ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
-  const tokenType = authorization.split(' ')[0];
-  const tokenKey = authorization.split(' ')[1];
-  const user = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
-  if ( !user ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
-  const limit = Number(l) || 14;
-  if ( limit < 1 || limit > 100 || !isNumber(limit) ) return response.status(HttpStatusCode.BadRequest).json({error: 'Invalid limit'});
   try {
+    if ( !database || !database.connection ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
+    const { authorization } = request.headers;
+    const { l } = request.params;
+    if ( !authorization ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
+    const tokenType = authorization.split(' ')[0];
+    const tokenKey = authorization.split(' ')[1];
+    const user = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
+    if ( !user ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
+    const limit = Number(l) || 14;
+    if ( limit < 1 || limit > 100 || !isNumber(limit) ) return response.status(HttpStatusCode.BadRequest).json({error: 'Invalid limit'});
     const sql_query = `SELECT id, track
       FROM (
         SELECT id, track,

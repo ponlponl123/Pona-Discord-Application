@@ -147,79 +147,83 @@ export async function fetchLyrics(
 }
 
 export async function GET_PRIVATE (req: Request, res: Response) {
+  try {
     const { title, author, duration, v, engine } = req.query;
 
-  switch ( engine ) {
-    case "dynamic": {
-      if ( !v || !title || !author || !duration )
-        return res.status(400).json({ error: "Missing required parameters" });
+    switch ( engine ) {
+      case "dynamic": {
+        if ( !v || !title || !author || !duration )
+          return res.status(400).json({ error: "Missing required parameters" });
 
-      // fetch all search engines when lyrics are still not found
-      const engines: SearchLyricEngine[] = ['lrclib', 'ytmusic_android', 'ytmusic_web', 'boidu', 'textyl'] as SearchLyricEngine[];
-      let lyrics;
+        // fetch all search engines when lyrics are still not found
+        const engines: SearchLyricEngine[] = ['lrclib', 'ytmusic_android', 'ytmusic_web', 'boidu', 'textyl'] as SearchLyricEngine[];
+        let lyrics;
 
-      for ( const engine of engines ) {
+        for ( const engine of engines ) {
+          try {
+            if (engine === 'ytmusic_web') {
+              lyrics = await fetchLyrics('ytmusic_web', String(v));
+            } else if (engine === 'ytmusic_android') {
+              lyrics = await fetchLyrics('ytmusic_android', String(v));
+            } else if (engine === 'textyl') {
+              lyrics = await fetchLyrics('textyl', String(title), String(author));
+            } else {
+              lyrics = await fetchLyrics(engine as 'boidu' | 'lrclib', String(title), String(author), Number(duration));
+            }
+            if ( lyrics ) return res.status(200).json(lyrics);
+          } catch {}
+        }
+
+        if (!lyrics ) return res.status(404).json({ error: "Lyrics not found" });
+        return res.status(HttpStatusCode.Gone).json({ message: "Where i am now?" });
+      }
+      case "ytmusic": {
+        if ( !v )
+          return res.status(400).json({ error: "Missing required parameters" });
+
         try {
-          if (engine === 'ytmusic_web') {
-            lyrics = await fetchLyrics('ytmusic_web', String(v));
-          } else if (engine === 'ytmusic_android') {
-            lyrics = await fetchLyrics('ytmusic_android', String(v));
-          } else if (engine === 'textyl') {
-            lyrics = await fetchLyrics('textyl', String(title), String(author));
-          } else {
-            lyrics = await fetchLyrics(engine as 'boidu' | 'lrclib', String(title), String(author), Number(duration));
-          }
+          const lyrics = await fetchLyrics('ytmusic_android', String(v));
           if ( lyrics ) return res.status(200).json(lyrics);
-        } catch {}
+          return res.status(404).json({ error: "Lyrics not found" });
+        } catch (err) {
+          return res.status(404).json({ error: "Invalid lyrics", debug: err });
+        }
       }
+      case "boidu": {
+        return res.status(HttpStatusCode.ServiceUnavailable).json({ error: "Service Unavailable" });
+      }
+      case "lrclib": {
+        if ( !title || !author || !duration || !Number(duration) )
+          return res.status(400).json({ error: "Missing required parameters" });
 
-      if (!lyrics ) return res.status(404).json({ error: "Lyrics not found" });
-      return res.status(HttpStatusCode.Gone).json({ message: "Where i am now?" });
-    }
-    case "ytmusic": {
-      if ( !v )
-        return res.status(400).json({ error: "Missing required parameters" });
-
-      try {
-        const lyrics = await fetchLyrics('ytmusic_android', String(v));
-        if ( lyrics ) return res.status(200).json(lyrics);
-        return res.status(404).json({ error: "Lyrics not found" });
-      } catch (err) {
-        return res.status(404).json({ error: "Invalid lyrics", debug: err });
+        try {
+          const lyrics = await fetchLyrics('lrclib', String(title), String(author), Number(duration));
+          
+          if ( lyrics )
+            return res.status(200).json(lyrics);
+      
+          return res.status(404).json({ error: "No lyrics found for the provided title and author" });
+        } catch {
+          return res.status(400).json({ error: "No lyrics found." });
+        }
+      }
+      default: {
+        if ( !title || !author )
+          return res.status(400).json({ error: "Missing required parameters" });
+      
+        try {
+          const lyrics = await fetchLyrics('textyl', String(title), String(author));
+    
+          if ( lyrics ) 
+            return res.status(200).json(lyrics);
+      
+          return res.status(404).json({ error: "No lyrics found for the provided title and author" });
+        } catch {
+          return res.status(400).json({ error: "No lyrics found." });
+        }
       }
     }
-    case "boidu": {
-      return res.status(HttpStatusCode.ServiceUnavailable).json({ error: "Service Unavailable" });
-    }
-    case "lrclib": {
-      if ( !title || !author || !duration || !Number(duration) )
-        return res.status(400).json({ error: "Missing required parameters" });
-
-      try {
-        const lyrics = await fetchLyrics('lrclib', String(title), String(author), Number(duration));
-        
-        if ( lyrics )
-          return res.status(200).json(lyrics);
-    
-        return res.status(404).json({ error: "No lyrics found for the provided title and author" });
-      } catch {
-        return res.status(400).json({ error: "No lyrics found." });
-      }
-    }
-    default: {
-      if ( !title || !author )
-        return res.status(400).json({ error: "Missing required parameters" });
-    
-      try {
-        const lyrics = await fetchLyrics('textyl', String(title), String(author));
-  
-        if ( lyrics ) 
-          return res.status(200).json(lyrics);
-    
-        return res.status(404).json({ error: "No lyrics found for the provided title and author" });
-      } catch {
-        return res.status(400).json({ error: "No lyrics found." });
-      }
-    }
+  } catch {
+    return res.status(HttpStatusCode.InternalServerError).json({error: 'Internal Server Error'});
   }
 }

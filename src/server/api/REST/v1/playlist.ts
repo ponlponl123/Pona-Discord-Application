@@ -5,12 +5,16 @@ import { discordClient as discord, lavalink } from '@/index';
 export const path = '/:playlistId?';
 
 export function GET_PRIVATE(request: express.Request, response: express.Response) {
-    const playlistId = request.params.playlistId;
-    if (!playlistId)
-    {
-        return response.status(HttpStatusCode.BadRequest).json({ error: 'Missing playlistId' });
+    try {
+        const playlistId = request.params.playlistId;
+        if (!playlistId)
+        {
+            return response.status(HttpStatusCode.BadRequest).json({ error: 'Missing playlistId' });
+        }
+        response.status(HttpStatusCode.ServiceUnavailable).json({
+            message: 'ServiceUnavailable',
+        });
+    } catch {
+        return response.status(HttpStatusCode.InternalServerError).json({error: 'Internal Server Error'});
     }
-    response.status(HttpStatusCode.ServiceUnavailable).json({
-        message: 'ServiceUnavailable',
-    });
 }

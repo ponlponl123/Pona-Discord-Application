@@ -3,17 +3,18 @@ import eventManager from '@/events';
 import { database, lavalink, discordClient as self } from '@/index';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
-import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState, Track } from "@/interfaces/player";
+import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState, Lyric, Track } from "@/interfaces/player";
 import { convertTo_HTTPPlayerState, getHTTP_PlayerState } from "@/utils/player/httpReq";
 import { MemberVoiceChangedState } from "@/interfaces/member";
 import { VoiceBasedChannel } from "discord.js";
 import joinChannel from "@/utils/player/joinVoiceChannelAsPlayer";
 import { Player, Queue, TrackUtils } from "@/lavalink";
 import { fetchIsUserInSameVoiceChannel, fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
-import randomString from "@/utils/randomString";
+import { config as expressConfig } from "@/config/express";
 import getSongs from "@/utils/player/getSongs";
 import { SearchPlatform } from "@/interfaces/manager";
 import addToQueue from "@/utils/player/addToQueue";
+import { parseYouTubeAuthorTitle } from "@/utils/parser";
 
 export type GuildEvents =
   'player_created'      |
@@ -57,7 +58,7 @@ export default async function dynamicGuildNamespace(io: Server) {
     namespace_io.to("pona! music").emit(event, httpPlayer);
   }
 
-  events.registerHandler("trackStart", (player, track) => {
+  events.registerHandler("trackStart",async (player, track) => {
     const guildId = player.guild;
     const namespace_io = io.of(`/guild/${guildId}`);
     namespace_io.to("pona! music").emit('track_started' as GuildEvents, track);
@@ -65,6 +66,27 @@ export default async function dynamicGuildNamespace(io: Server) {
       track,
       ...player.queue
     ]);
+    const endpoint = `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics`;
+    const fetchLyric = new URL(endpoint);
+    fetchLyric.searchParams.append('engine', 'dynamic');
+    fetchLyric.searchParams.append('title', track.title);
+    fetchLyric.searchParams.append('author', parseYouTubeAuthorTitle(track.author));
+    fetchLyric.searchParams.append('v', track.identifier);
+    fetchLyric.searchParams.append('duration', String(track.duration/1000));
+    try {
+      const fetchLyricByInternalAPI = await fetch(fetchLyric.toString(), {
+        headers: {
+          'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
+        }
+      });
+      if ( fetchLyricByInternalAPI.ok )
+      {
+        track.lyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
+        namespace_io.to("pona! music").emit('track_updated' as GuildEvents, track);
+      }
+    } catch {
+      console.log('failed to fetch lyrics')
+    }
   });
 
   events.registerHandler("trackPos", (guildId, pos) => {
@@ -372,9 +394,11 @@ export default async function dynamicGuildNamespace(io: Server) {
         } catch { return; }
       });
       socket.on("previous", async (callback)=>{try{
-        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback({
+          status: "error"
+        });
         const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
-        if ( !player ) return;
+        if ( !player || !player.player.queue.previous ) return;
         player.player.previous();
         player.player.pause(false);
         if ( callback ) callback({
@@ -398,7 +422,9 @@ export default async function dynamicGuildNamespace(io: Server) {
       socket.on("next", async (callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
         const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
-        if ( !player ) return;
+        if ( !player || !(player.player.queue.length > 0) ) return callback({
+          status: "error"
+        });
         player.player.skipto(0);
         player.player.pause(false);
         if ( callback ) callback({

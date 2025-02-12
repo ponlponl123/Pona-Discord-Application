@@ -8,7 +8,7 @@ export async function GET(request: express.Request, response: express.Response) 
   try {
     if ( !database || !database.connection ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
     const { authorization } = request.headers;
-    const { l } = request.params;
+    const { l } = request.query;
     if ( !authorization ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
     const tokenType = authorization.split(' ')[0];
     const tokenKey = authorization.split(' ')[1];

@@ -30,7 +30,6 @@ import {
 import { LavalinkInfo, NodeOptions, NodeStats } from "@interfaces/node";
 import { LavalinkResponse, PlaylistData, PlaylistRawData } from "@/interfaces/manager";
 import { config as expressConfig } from "@/config/express";
-import { parseYouTubeAuthorTitle } from "@/utils/parser";
 
 export const validSponsorBlocks = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic", "filler"];
 export type SponsorBlockSegment = "sponsor" | "selfpromo" | "interaction" | "intro" | "outro" | "preview" | "music_offtopic" | "filler";
@@ -339,24 +338,6 @@ export class Node {
 				'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
 			}
 		});
-		const endpoint = `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics`;
-		const fetchLyric = new URL(endpoint);
-		fetchLyric.searchParams.append('engine', 'dynamic');
-		fetchLyric.searchParams.append('title', track.title);
-		fetchLyric.searchParams.append('author', parseYouTubeAuthorTitle(track.author));
-		fetchLyric.searchParams.append('v', track.identifier);
-		fetchLyric.searchParams.append('duration', String(track.duration/1000));
-		try {
-			const fetchLyricByInternalAPI = await fetch(fetchLyric.toString(), {
-				headers: {
-					'Authorization': `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
-				}
-			});
-			if ( fetchLyricByInternalAPI.ok )
-				track.lyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
-		} catch {
-			console.log('failed to fetch lyrics')
-		}
 		const parsed_highResArtwork = (await highResArtworkUrl.json()).endpoint;
 		track.accentColor = accentColor;
 		track.highResArtworkUrl = parsed_highResArtwork || '';

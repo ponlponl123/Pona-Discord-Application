@@ -111,8 +111,8 @@ class LavalinkServer extends EventEmitter {
                         body: {"status": null}
                     })
                 }
-
-                leaveVoiceChannelAsPlayer(player.guild);
+                // Un comment this line below if you want to save some memory :)
+                // leaveVoiceChannelAsPlayer(player.guild);
                 this.emit('queueEnded', player);
 
                 // Notify queue ended to text channel

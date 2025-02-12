@@ -8,7 +8,7 @@ import { config as databaseConf } from '@config/database'
 import { apiServer as createAPIServer } from '@server/main'
 import { Client, GatewayIntentBits, Partials } from 'discord.js'
 import { getInfo } from 'discord-hybrid-sharding'
-import { YTMusicClient } from './ytmusic'
+import { PonaYTMusicAPI } from './ytmusic'
 
 export const config = discordConf;
 
@@ -43,4 +43,4 @@ export const database = new Database({
 export const lavalink = new LavalinkServer(discordClient.client.user?.id || config.DISCORD_CLIENT_ID);
 export const apiServer = new createAPIServer(expressConf.EXPRESS_PORT);
 export const ponaEventManager = new eventManager();
-export const ytmusic = new YTMusicClient();
+export const ytmusic = new PonaYTMusicAPI();

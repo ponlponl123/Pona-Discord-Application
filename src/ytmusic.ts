@@ -1,6 +1,6 @@
 import YTMusic from "ytmusic-api";
 
-export class YTMusicClient {
+export class PonaYTMusicAPI {
     public readonly client;
     
     constructor() {

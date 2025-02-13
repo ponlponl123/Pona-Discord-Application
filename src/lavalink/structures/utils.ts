@@ -117,7 +117,7 @@ export abstract class TrackUtils {
 				artworkUrl: data.info?.artworkUrl || '',
 				highResArtworkUrl: data.info?.hightResArtworkUrl || '',
 				accentColor: data.info?.accentColor || '',
-				lyrics: data.info?.lyrics || [],
+				lyrics: data.info?.lyrics || undefined,
 				sourceName: data.info?.sourceName as Interface.TrackSourceName,
 				thumbnail: (data.info.uri as string).includes("youtube") ? `https://img.youtube.com/vi/${data.info.identifier}/default.jpg` : null,
 				displayThumbnail(size = "default"): string | '' {

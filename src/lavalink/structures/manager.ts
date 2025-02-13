@@ -120,7 +120,7 @@ export class Manager extends EventEmitter {
 				lyrics: song.lyrics,
 				sourceName: song.sourceName,
 			},
-				pluginInfo: (song.pluginInfo as Record<string, string>),
+			pluginInfo: (song.pluginInfo as Record<string, string>),
 		});
 
 		for (const file of playerFiles) {

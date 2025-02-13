@@ -15,10 +15,10 @@ export class initialize {
 
     constructor(http: HttpServer) {
         const socketServer = new Server(http, {
-            // cors: {
-            //     origin: "http://pona.ponlponl123.com",
-            //     methods: ["GET", "POST"]
-            // },
+            cors: {
+                origin: "https://pona.ponlponl123.com",
+                methods: ["GET", "POST"]
+            },
             maxHttpBufferSize: 15e6 // 15 MB
         });
         this.server = socketServer;

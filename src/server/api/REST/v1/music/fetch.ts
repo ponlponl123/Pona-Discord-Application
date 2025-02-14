@@ -30,7 +30,8 @@ export async function GET(request: express.Request, response: express.Response) 
       case "playlist": {
         const searchResult = await ytmusic.client.getPlaylist(queryId);
         if ( !searchResult ) response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
-        return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
+        const videos = await ytmusic.client.getPlaylistVideos(queryId);
+        return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: {...searchResult, videos}});
       }
       default: {
         return response.status(400).json({ error: 'Invalid type' });

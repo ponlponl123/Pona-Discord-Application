@@ -20,7 +20,7 @@ export async function GET(request: express.Request, response: express.Response) 
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', searchSuggestions: searchSuggestions});
     } else {
       const searchResult = await ytmusic.client.search(String(q));
-      return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
+      return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.results});
     }
   } catch (err) {
     if ( process.env.NODE_ENV === "development" ) return response.status(HttpStatusCode.InternalServerError).json({error: 'Internal Server Error', debug: err});

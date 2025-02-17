@@ -1,6 +1,7 @@
 import express from 'express';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
+import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { database, ytmusic } from '@/index';
 
 export async function GET(request: express.Request, response: express.Response) {
@@ -18,9 +19,10 @@ export async function GET(request: express.Request, response: express.Response) 
 
     switch ( type ) {
       case "album": {
-        const searchResult = await ytmusic.client.getAlbum(queryId);
-        if ( !searchResult ) response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
-        return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
+        // const searchResult = await ytmusic.client.getAlbum(queryId);
+        const searchResult = await YTMusicAPI('GET', `album/${encodeURIComponent(queryId)}`);
+        if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+        return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
       }
       case "artist": {
         const searchResult = await ytmusic.client.getArtist(queryId);

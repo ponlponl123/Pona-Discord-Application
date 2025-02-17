@@ -1,11 +1,11 @@
 import express from 'express';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
-import { database, ytmusic } from '@/index';
+import YTMusicAPI from '@/utils/ytmusic-api/request';
+import { ytmusic } from '@/index';
 
 export async function GET(request: express.Request, response: express.Response) {
   try {
-    if ( !database || !database.connection ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
     const { authorization } = request.headers;
     const { q, is_suggestion } = request.query;
     if ( !q ) return response.status(400).json({ error: "Missing required parameters" });
@@ -19,8 +19,9 @@ export async function GET(request: express.Request, response: express.Response) 
       const searchSuggestions = await ytmusic.client.getSearchSuggestions(String(q));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', searchSuggestions: searchSuggestions});
     } else {
-      const searchResult = await ytmusic.client.search(String(q));
-      return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.results});
+      const searchResult = await YTMusicAPI('GET', `search/${encodeURIComponent(String(q))}`);
+      if ( !searchResult ) return response.status(HttpStatusCode.ServiceUnavailable).json({message: 'Service Unavailable'});
+      return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
     }
   } catch (err) {
     if ( process.env.NODE_ENV === "development" ) return response.status(HttpStatusCode.InternalServerError).json({error: 'Internal Server Error', debug: err});

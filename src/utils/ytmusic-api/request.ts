@@ -3,8 +3,8 @@ import { config as APIconfig } from "@/config/ytmusic-api";
 
 export type request_method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
-export default async function request(method: 'GET' | 'DELETE', path: string, config?: AxiosRequestConfig<any> | undefined): Promise<AxiosResponse<any, any> | null | false>;
-export default async function request(method: request_method, path: string, config?: AxiosRequestConfig<any> | undefined, data?: any): Promise<AxiosResponse<any, any> | null | false> {
+export default async function request(method: 'GET' | 'DELETE', path: string, config?: AxiosRequestConfig<any>): Promise<AxiosResponse<any, any> | null | false>;
+export default async function request(method: request_method, path: string, config?: AxiosRequestConfig<any>, data?: any): Promise<AxiosResponse<any, any> | null | false> {
     if (
         !( method === 'POST' || method === 'DELETE' ) &&
         data

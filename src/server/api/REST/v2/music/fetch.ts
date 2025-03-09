@@ -3,7 +3,6 @@ import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { database, ytmusic } from '@/index';
-import { URL } from 'url';
 
 export const path = '/:fetch?';
 
@@ -23,17 +22,35 @@ export async function GET(request: express.Request, response: express.Response) 
 
     switch ( fetch ) {
         case "av": {
-            const request = new URL(`search/${encodeURIComponent(queryId)}`);
-            request.searchParams.append('limit', '1');
+            const { t, a } = request.query; // Title and Artist
+            if ( !t || !a ) return response.status(400).json({ error: "Missing required parameters" });
+            let api_request = `search/${encodeURIComponent(`${queryId}: ${t.toString()} - ${a.toString()}`)}`;
+            api_request += '?limit=1';
             if ( type === 'song' )
-                request.searchParams.append('filter', 'songs');
+                api_request += '&filter=songs';
             else if ( type === 'video' )
-                request.searchParams.append('filter', 'videos');
+                api_request += '&filter=videos';
             else return response.status(HttpStatusCode.MethodNotAllowed).json({error: 'Method Not Allowed'});
-            const searchResult = await YTMusicAPI('GET', request.toString());
+            const searchResult = await YTMusicAPI('GET', api_request.toString());
             if ( !searchResult || searchResult.data.result.length === 0 ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
-            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result[0]});
+            const result = searchResult.data.result[0];
+            if (
+                (
+                    result.resultType === 'song'
+                    // && result.album.name === t.toString()
+                    // && (result.artists as Array<ArtistBasic>).some(artist => artist.name === a)
+                ) ||
+                (
+                    result.resultType === 'video'
+                    // && (result.title as String).includes(t.toString())
+                    // && (result.artists as Array<ArtistBasic>).some(artist => artist.name === a)
+                )
+            ) {
+                return response.status(HttpStatusCode.Ok).json({message: 'Ok', result});
+            }
+            return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', result});
         }
+        
         case "album": {
             const searchResult = await YTMusicAPI('GET', `album/${encodeURIComponent(queryId)}`);
             if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});

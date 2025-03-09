@@ -19,7 +19,7 @@ export default async function request(method: request_method, path: string, conf
         : method === 'DELETE' ? await axios.delete(url, config)
         : false
     
-    if ( !req ) return false;
+    // if ( !req ) return false;
 
     return req;
 }

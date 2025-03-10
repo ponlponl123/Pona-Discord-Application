@@ -19,8 +19,8 @@ export async function GET(request: express.Request, response: express.Response) 
       const searchSuggestions = await ytmusic.client.getSearchSuggestions(String(q));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', searchSuggestions: searchSuggestions});
     } else {
-      let URL = `search/${encodeURIComponent(String(q))}`;
-      URL += filter ? `?filter=${filter}` : "";
+      let URL = `search?query=${encodeURIComponent(String(q))}`;
+      URL += filter ? `&filter=${filter}` : "";
       const searchResult = await YTMusicAPI('GET', URL.toString());
       if ( !searchResult ) return response.status(HttpStatusCode.ServiceUnavailable).json({message: 'Service Unavailable'});
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});

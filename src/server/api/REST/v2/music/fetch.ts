@@ -51,6 +51,11 @@ export async function GET(request: express.Request, response: express.Response) 
             return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', result});
         }
         
+        case "user": {
+            const searchResult = await YTMusicAPI('GET', `user/${encodeURIComponent(queryId)}`);
+            if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
+        }
         case "album": {
             const searchResult = await YTMusicAPI('GET', `album/${encodeURIComponent(queryId)}`);
             if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
@@ -64,8 +69,7 @@ export async function GET(request: express.Request, response: express.Response) 
         case "playlist": {
             const searchResult = await YTMusicAPI('GET', `playlist/${encodeURIComponent(queryId)}`);
             if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
-            const videos = await ytmusic.client.getPlaylistVideos(queryId);
-            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: {...searchResult.data.result, videos}});
+            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
         }
         default: {
             return response.status(400).json({ error: 'Invalid type' });

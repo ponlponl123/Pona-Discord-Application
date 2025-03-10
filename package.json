@@ -18,11 +18,17 @@
   "bin": "./dist/cli.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "dotenvx run -f .env.development -- cross-env CLUSTER=false tsx watch src/index.ts",
-    "type-check": "npx tsc --noEmit",
-    "start-shard": "dotenvx run -f .env.production -- cross-env CLUSTER=true node -r ./tsconfig-paths.js dist/shard.js",
-    "start": "dotenvx run -f .env.production -- cross-env CLUSTER=false node -r ./tsconfig-paths.js dist/index.js",
-    "build": "npx tsc --build"
+    "dev": "cross-env NODE_ENV=development npx dotenv -e .env.development tsx watch src/index.ts",
+    "type-check": "tsc --noEmit",
+    "start": "cross-env NODE_ENV=production dotenv -e .env.production node -r ./tsconfig-paths.js dist/index.js",
+    "start-shard": "cross-env NODE_ENV=production CLUSTER=true dotenv -e .env.production node -r ./tsconfig-paths.js dist/shard.js",
+    "build": "tsc --build",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write .",
+    "bun:dev": "bun dev",
+    "bun:start": "bun start",
+    "bun:build": "tsup --config tsup.config.ts src/index.ts --format cjs,esm --out-dir dist --clean"
   },
   "repository": {
     "type": "git",
@@ -58,7 +64,7 @@
     "cors": "^2.8.5",
     "discord-hybrid-sharding": "^2.2.3",
     "discord.js": "^14.16.3",
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.4.7",
     "express": "^4.21.1",
     "ffmpeg-static": "^5.2.0",
     "ioredis": "^5.4.2",
@@ -77,6 +83,7 @@
     "@types/node": "^22.13.1",
     "@types/socket.io-redis": "^1.0.27",
     "cross-env": "^7.0.3",
+    "dotenv-cli": "^8.0.0",
     "eslint": "^8.57.0",
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-import": "^2.29.1",
@@ -84,9 +91,19 @@
     "eslint-plugin-promise": "^6.4.0",
     "globals": "^15.8.0",
     "pkgroll": "^2.5.0",
+    "prettier": "^2.7.1",
     "tsup": "^8.3.0",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
     "typescript-eslint": "^7.16.0"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "all",
+    "bracketSpacing": true,
+    "arrowParens": "always"
   }
 }

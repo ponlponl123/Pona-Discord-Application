@@ -6,7 +6,7 @@ import th_TH from '@/../locates/th-TH.json'
 import en_US from '@/../locates/en-US.json'
 import path from 'path';
 
-var default_lang = process.env.LANG || 'en_US';
+var default_lang = process.env["LANG"] || 'en_US';
 
 export type languageCode = 'th-TH' | 'en-US';
 

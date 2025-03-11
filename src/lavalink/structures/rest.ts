@@ -1,6 +1,6 @@
 import { Node } from "./node";
 import { playOptions } from "@interfaces/rest";
-import axios, { AxiosRequestConfig, RawAxiosRequestConfig } from "axios";
+import axios from "axios";
 
 export class Rest {
 	private node: Node;

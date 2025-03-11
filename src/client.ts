@@ -28,7 +28,7 @@ import { getWelcomeMessage } from '@utils/getWelcomeMessage';
 import GuildSettings from '@interfaces/guildSettings';
 import { Manager, Node, Player } from '@/lavalink';
 import { getGuildLanguage } from './utils/i18n';
-import { lavalink, database } from "@/index";
+import { lavalink } from "@/index";
 import { setInterval } from 'timers';
 import { EventEmitter } from 'events';
 import fs from 'fs';
@@ -57,7 +57,7 @@ interface ClientWithCluster extends Client {
 
 class Pona extends EventEmitter {
     public readonly prefix = 'pona!';
-    private readonly heartbeatInterval = setInterval(() => this.heartbeatEvent(this.client), 60 * 1000);
+    public readonly heartbeatInterval = setInterval(() => this.heartbeatEvent(this.client), 60 * 1000);
     public slashCommands = new Array<ApplicationCommandDataResolvable>();
     public slashCommandsMap = new Collection<string, slashCommand>();
     public voiceConnections = new Array<VoiceConnection>();
@@ -80,8 +80,8 @@ class Pona extends EventEmitter {
 
             this.client.cluster.on('message', message => {
                 console.log(consolePrefix.shard + message);
-                if ((message as BaseMessage)._type !== messageType.CUSTOM_REQUEST) return; // Check if the message needs a reply
-                if ((message as BaseMessage).alive) (message as BaseMessage).reply({ content: 'Yes I am!' });
+                if ((message as BaseMessage)["_type"] !== messageType.CUSTOM_REQUEST) return; // Check if the message needs a reply
+                if ((message as BaseMessage)["alive"]) (message as BaseMessage)["reply"]({ content: 'Yes I am!' });
             });
 
             setInterval(() => {
@@ -89,7 +89,7 @@ class Pona extends EventEmitter {
             }, 5000);
         }
     
-        this.client.once(Events.ClientReady, async (event) => {
+        this.client.once(Events.ClientReady, async () => {
             this.client.user?.setStatus('idle');
             console.log(consolePrefix.discord + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
             this.heartbeatEvent(this.client);
@@ -111,7 +111,7 @@ class Pona extends EventEmitter {
                 const voiceChannel = await this.client.channels.fetch(player.voiceChannel) as VoiceBasedChannel;
                 const textChannel = await this.client.channels.fetch(player.textChannel) as TextBasedChannel;
                 const guild = await this.client.guilds.fetch(player.guild) as Guild;
-                const checkIsPlayerIsExist = this.playerConnections.filter( rootPlayer => rootPlayer.player.guild === player.guild );
+                // const checkIsPlayerIsExist = this.playerConnections.filter( rootPlayer => rootPlayer.player.guild === player.guild );
                 if ( getExistPlayer.length > 0 ) {
                     console.log( consolePrefix.lavalink + '\x1b[32mIgnore exist player: \x1b[0m\x1b[47m\x1b[30m' + player.guild + '\x1b[0m' );
                     return true;

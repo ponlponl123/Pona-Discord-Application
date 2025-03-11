@@ -1,12 +1,11 @@
 import express from 'express';
 import { HttpStatusCode } from 'axios';
-import { discordClient as discord, lavalink } from '@/index';
 
 export const path = '/:playlistId?';
 
 export function GET_PRIVATE(request: express.Request, response: express.Response) {
     try {
-        const playlistId = request.params.playlistId;
+        const { playlistId } = request.params;
         if (!playlistId)
         {
             return response.status(HttpStatusCode.BadRequest).json({ error: 'Missing playlistId' });

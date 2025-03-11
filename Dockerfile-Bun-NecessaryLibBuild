@@ -13,7 +13,7 @@ RUN npm install
 RUN npm run build
 
 # Set up the app and build the project
-FROM base AS builder
+FROM oven/bun:alpine AS builder
 WORKDIR /pona-builder
 COPY package.json package-lock.json ./
 RUN npm install

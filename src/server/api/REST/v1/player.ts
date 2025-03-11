@@ -6,7 +6,7 @@ export const path = '/:guildId?';
 
 export function GET_PRIVATE(request: express.Request, response: express.Response) {
     try {
-        const guildId = request.params.guildId;
+        const { guildId } = request.params;
         if (!guildId)
         {
             return response.status(HttpStatusCode.BadRequest).json({ error: 'Missing guildId' });

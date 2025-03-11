@@ -1,7 +1,29 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
+    // Enable latest features
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": true,
+
+    // Bundler mode
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    // "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    // Best practices
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Some stricter flags
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": true,
+
     "rootDir": "./src",
     "baseUrl": "./",
     "outDir": "./dist",
@@ -9,9 +31,7 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
     "strictNullChecks": true,
-    "skipLibCheck": true,
     "paths": {
       "@/*": ["./src/*"],
       "@app/*": ["./src/app/*"],
@@ -28,5 +48,5 @@
       "bun"
     ]
   },
-  "exclude": ["tsup.config.ts", "tsup.config.js", "tsconfig-paths.js", "dist"]
+  "exclude": ["tsup.config.ts", "tsup.config.js", "tsconfig-paths.js", "eslint.config.mjs", "bun-build.js", "es-build.js", "dist", "build"]
 }

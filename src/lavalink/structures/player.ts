@@ -342,7 +342,7 @@ export class Player {
 				shuffled.forEach((track) => {
 					this.queue.add(track);
 				});
-			}, ms);
+			}, ms) as NodeJS.Timeout;
 		} else {
 			clearInterval(this.dynamicLoopInterval);
 			this.trackRepeat = false;

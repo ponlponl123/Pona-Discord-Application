@@ -2,8 +2,8 @@ import express from 'express';
 import { HttpStatusCode } from 'axios';
 import { apiServer } from '@/index';
 
-export function GET(request: express.Request, response: express.Response) {
-    if ( apiServer.io === undefined )
+export function GET(_request: express.Request, response: express.Response) {
+    if ( !('io' in apiServer) )
         return response.status(HttpStatusCode.ServiceUnavailable).json({
             message: 'Service Unavailable',
         });

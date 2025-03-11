@@ -13,7 +13,7 @@ import fs from "fs";
 import { prefix as consolePrefix } from "@/config/console";
 
 import nodeCheck from "@utils/lavalink/nodeCheck";
-import { Lyric, Track, UnresolvedTrack } from "@interfaces/player";
+import { Track, UnresolvedTrack } from "@interfaces/player";
 import {
 	PlayerEvent,
 	PlayerEvents,
@@ -29,7 +29,6 @@ import {
 } from "@interfaces/lavaUtils";
 import { LavalinkInfo, NodeOptions, NodeStats } from "@interfaces/node";
 import { LavalinkResponse, PlaylistData, PlaylistRawData } from "@/interfaces/manager";
-import { config as expressConfig } from "@/config/express";
 
 export const validSponsorBlocks = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic", "filler"];
 export type SponsorBlockSegment = "sponsor" | "selfpromo" | "interaction" | "intro" | "outro" | "preview" | "music_offtopic" | "filler";
@@ -203,7 +202,7 @@ export class Node {
 			this.manager.emit("nodeReconnect", this);
 			this.connect();
 			this.reconnectAttempts++;
-		}, this.options.retryDelay);
+		}, this.options.retryDelay) as NodeJS.Timeout;
 	}
 
 	protected open(): void {

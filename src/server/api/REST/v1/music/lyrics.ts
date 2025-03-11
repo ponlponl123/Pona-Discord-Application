@@ -1,8 +1,8 @@
-import { Request, Response } from "express";
+import { type Request, type Response } from "express";
 import axios, { HttpStatusCode } from "axios";
 import https from "https";
 import { ytmusic } from "@/index";
-import { Lyric, TimestampLyrics } from "@/interfaces/player";
+import { type Lyric, type TimestampLyrics } from "@/interfaces/player";
 import { parseLyrics } from "@/utils/parser";
 import { TimedLyricsRes } from "ytmusic-api";
 

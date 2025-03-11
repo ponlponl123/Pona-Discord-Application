@@ -5,8 +5,8 @@ import { Guild, type OAuth2Guild } from 'discord.js';
 
 export async function GET_PRIVATE(request: express.Request, response: express.Response) {
   try {
-    const authorization_type = request.cookies.type;
-    const authorization_key = request.cookies.key;
+    const authorization_type = request.cookies["type"];
+    const authorization_key = request.cookies["key"];
     if ( !authorization_type || !authorization_key ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
 
     try {

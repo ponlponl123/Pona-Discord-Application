@@ -1,7 +1,8 @@
 import { discordClient as self } from "..";
 import { config } from "@/config/discord";
 import { prefix as consolePrefix } from "@/config/console";
-import discord, { VoiceBasedChannel, Routes } from "discord.js";
+import * as discord from "discord.js";
+import { VoiceBasedChannel, Routes } from "discord.js";
 
 export default async function setVoiceChannelStatus(voiceChannelRef: VoiceBasedChannel | string, text: string = ''): Promise<unknown> {
     let voiceChannel: VoiceBasedChannel;

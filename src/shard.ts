@@ -31,8 +31,8 @@ manager.on('clusterCreate', (cluster) => {
     console.log(consolePrefix.shard + `clusterCreate [${cluster.id}]`);
     cluster.on('message', message => {
         console.log(message);
-        if ((message as BaseMessage)._type !== messageType.CUSTOM_REQUEST) return; // Check if the message needs a reply
-        (message as BaseMessage).reply({ content: 'hello world' });
+        if ((message as BaseMessage)["_type"] !== messageType.CUSTOM_REQUEST) return; // Check if the message needs a reply
+        (message as BaseMessage)["reply"]({ content: 'hello world' });
     });
     setInterval(() => {
         cluster.send({ content: 'I am alive' }); // Send a message to the client

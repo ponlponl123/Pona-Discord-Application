@@ -232,7 +232,9 @@ export abstract class Structure {
 }
 
 export class Plugin {
-	public load(manager: Manager): void {}
+	// public load(manager: Manager): void {}
+	public load(_manager: Manager): void {}
 
-	public unload(manager: Manager): void {}
+	// public unload(manager: Manager): void {}
+	public unload(_manager: Manager): void {}
 }

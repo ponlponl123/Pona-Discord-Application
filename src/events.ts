@@ -12,6 +12,7 @@ import { Client, VoiceState } from 'discord.js'
 import { Track } from './interfaces/player'
 import os from 'os';
 import { PlayerStateEventType } from './interfaces/manager'
+import { type apiServer as ApiServer } from './server/main'
 
 export type EventEmitter = keyof PonaEvents | keyof PlayerEvents;
 
@@ -95,7 +96,7 @@ export default class eventManager {
       }
     }
     if ( (oldState && !newState) && oldState.member?.id === pona.client.user?.id )
-      apiServer.io.to(guildId).emit('voiceStateUpdate', false);
+      (apiServer as ApiServer).io.to(guildId).emit('voiceStateUpdate', false);
     await this.invokeHandlers('voiceStateUpdate', type, oldState, newState);
   }
   
@@ -129,9 +130,9 @@ export default class eventManager {
       player.guild,
       1
       ]
-    )
-    apiServer.io.to(player.guild).emit('trackStarted', track);
-    apiServer.io.to(player.guild).emit('queueUpdated', player.queue);
+    );
+    (apiServer as ApiServer).io.to(player.guild).emit('trackStarted', track);
+    (apiServer as ApiServer).io.to(player.guild).emit('queueUpdated', player.queue);
     await this.invokeHandlers('trackStart', player, track);
   }
 
@@ -149,8 +150,8 @@ export default class eventManager {
       player.guild,
       0
       ]
-    )
-    apiServer.io.to(player.guild).emit('playerDestroyed');
+    );
+    (apiServer as ApiServer).io.to(player.guild).emit('playerDestroyed');
     await this.invokeHandlers('playerDestroy', player);
   }
 }

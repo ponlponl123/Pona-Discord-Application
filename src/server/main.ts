@@ -17,7 +17,9 @@ import Middleware_errorHandler from './middlewares/errorHandle'
 import Middleware_apikeyHandler from './middlewares/apiKey'
 
 import { initialize as initializeSocket } from './api/ws/socket'
-import { Router as PonaRouter, PRIVATE_HTTPMethod, httpMethod, HTTPMethod, HTTPMethods } from '@interfaces/router'
+
+import { HTTPMethods } from '@interfaces/router'
+import type { Router as PonaRouter, PRIVATE_HTTPMethod, httpMethod, HTTPMethod } from '@interfaces/router'
 
 export class apiServer {
     private portUsing: number = 3000;
@@ -49,7 +51,7 @@ export class apiServer {
             });
         })
     
-        app.get('/', (req: express.Request, res: express.Response) => {
+        app.get('/', (_req: express.Request, res: express.Response) => {
             res.status(HttpStatusCode.Ok).json({
                 status: HttpStatusCode.Ok,
                 message: 'Hello, world!'

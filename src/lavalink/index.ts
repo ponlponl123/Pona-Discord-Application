@@ -3,18 +3,20 @@ import { Player } from "./structures/player";
 import { Node } from "./structures/node";
 
 import { NodeOptions } from "@interfaces/node";
-import { Track, UnresolvedTrack } from "@interfaces/player";
+import { Track } from "@interfaces/player";
 import { discordClient as self } from "@/index";
 import { prefix as consolePrefix } from "@config/console";
 import { config as discordConf } from "@config/discord";
 import { config } from "@config/lavalink";
-import discord, { Routes } from "discord.js";
-import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
+// import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
 import { getGuildLanguage } from "@/utils/i18n";
 import { EventEmitter } from "events";
 import setVoiceChannelStatus from "@/utils/setVoiceChannelStatus";
 import { PlayerStateEventType } from "@/interfaces/manager";
 import axios, { AxiosError } from 'axios';
+
+import * as discord from "discord.js";
+import { Routes } from "discord.js";
 
 export interface PlayerEvents {
     'trackPos': (guildId: string, pos: number) => void;
@@ -157,11 +159,12 @@ class LavalinkServer extends EventEmitter {
             this.emit('playerCreate', player);
         });
 
-        this.manager.on('chaptersLoaded', async (player: Player, track: UnresolvedTrack | Track) => {
+        // this.manager.on('chaptersLoaded', async (player: Player, track: UnresolvedTrack | Track)
+        this.manager.on('chaptersLoaded', async (player: Player) => {
             console.log( consolePrefix.lavalink + `Player chaptersLoaded, Continue playing ${player.queue.current?.title} for ${player.guild}` )
         });
 
-        this.manager.on('segmentsLoaded', async (player: Player, track: UnresolvedTrack | Track) => {
+        this.manager.on('segmentsLoaded', async (player: Player) => {
             console.log( consolePrefix.lavalink + `Player segmentsLoaded, Continue playing ${player.queue.current?.title} for ${player.guild}` )
         });
     }

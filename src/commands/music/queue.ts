@@ -3,7 +3,6 @@ import {
     CommandInteraction,
     SlashCommandBuilder,
     EmbedBuilder,
-    APIEmbedField,
 } from "discord.js";
 import { discordClient as self } from "@/index";
 import warningEmbedBuilder from "@utils/embeds/warning";

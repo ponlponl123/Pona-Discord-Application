@@ -3,12 +3,12 @@ import eventManager from '@/events';
 import { database, lavalink, discordClient as self } from '@/index';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
-import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState, Lyric, Track } from "@/interfaces/player";
+import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState, Lyric } from "@/interfaces/player";
 import { convertTo_HTTPPlayerState, getHTTP_PlayerState } from "@/utils/player/httpReq";
 import { MemberVoiceChangedState } from "@/interfaces/member";
 import { VoiceBasedChannel } from "discord.js";
 import joinChannel from "@/utils/player/joinVoiceChannelAsPlayer";
-import { Player, Queue, TrackUtils } from "@/lavalink";
+import { Player, Queue } from "@/lavalink";
 import { fetchIsUserInSameVoiceChannel, fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
 import { config as expressConfig } from "@/config/express";
 import getSongs from "@/utils/player/getSongs";
@@ -182,8 +182,8 @@ export default async function dynamicGuildNamespace(io: Server) {
       trafficDebugger(socket);
       const guildId = socket.nsp.name.split('/')[2];
       const authorization = socket.handshake.headers.authorization;
-      const accesstoken_type = socket.handshake.auth.type;
-      const accesstoken_key = socket.handshake.auth.key;
+      const accesstoken_type = socket.handshake.auth["type"];
+      const accesstoken_key = socket.handshake.auth["key"];
       if (
         !Number.isInteger(Number(guildId)) ||
         (!authorization &&

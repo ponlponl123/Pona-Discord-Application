@@ -1,4 +1,4 @@
-import * as Bun from 'bun';
+import { type Server, type ServerWebSocket } from 'bun'
 import Redis from 'ioredis';
 import staticRoutes from './bun-static-route'
 
@@ -6,16 +6,16 @@ import { prefix as consolePrefix } from '@config/console'
 
 export class PonaDeliver {
     private portUsing: number = 3000;
-    public readonly app: Bun.Server;
+    public readonly app: Server;
     public readonly redis_pub: Redis | undefined;
     public readonly redis_sub: Redis | undefined;
 
     constructor(port: number) {
-        const corsHeaders = {
-            "Access-Control-Allow-Origin": "https://pona.ponlponl123.com",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        }
+        // const corsHeaders = {
+        //     "Access-Control-Allow-Origin": "https://pona.ponlponl123.com",
+        //     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        //     "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        // }
         const app = Bun.serve({
             port: port,
             fetch: this.errorHandler(async (req, server) => {
@@ -37,7 +37,7 @@ export class PonaDeliver {
             }),
             routes: staticRoutes,
             websocket: {
-                message: (ws: Bun.ServerWebSocket<undefined>, message: string) => {
+                message: (ws: ServerWebSocket<undefined>, message: string) => {
                     try {
                         const data = JSON.parse(message);
                         if (data.type === "hello") {
@@ -56,8 +56,8 @@ export class PonaDeliver {
         console.log(consolePrefix.bun + `\x1b[32mBun API Server running at ${this.portUsing}! 📡\x1b[0m`);
     }
 
-    private errorHandler(fn: (req: Request, server: Bun.Server) => Promise<Response>) {
-        return async (req: Request, server: Bun.Server) => {
+    private errorHandler(fn: (req: Request, server: Server) => Promise<Response>) {
+        return async (req: Request, server: Server) => {
             try {
                 return await fn(req, server);
             } catch (err) {
@@ -70,7 +70,7 @@ export class PonaDeliver {
         };
     }    
 
-    private corsMiddleware(req: Request) {
+    private corsMiddleware(_req: Request) {
         return new Response(null, {
             headers: {
                 "Access-Control-Allow-Origin": "https://pona.ponlponl123.com",

@@ -338,7 +338,7 @@ export class Manager extends EventEmitter {
 		for (const event of events) {
 			this.on(event, (...args: any[]) => {
 				if (event === "playerStateUpdate") {
-					const [oldPlayer, newPlayer] = args;
+					const [_oldPlayer, newPlayer] = args;
 					this.collectPlayerStateEvent(event, newPlayer);
 				} else if (event === "playerDestroy") {
 					const [player] = args;
@@ -360,7 +360,7 @@ export class Manager extends EventEmitter {
 		}
 
 		if (!this.eventBatchInterval) {
-			this.eventBatchInterval = setTimeout(() => this.processBatchEvents(), this.eventBatchDuration);
+			this.eventBatchInterval = setTimeout(() => this.processBatchEvents(), this.eventBatchDuration) as NodeJS.Timeout;
 		}
 	}
 
@@ -370,7 +370,7 @@ export class Manager extends EventEmitter {
 			this.eventBatchInterval = null;
 		}
 
-		this.latestPlayerStates.forEach((player, guildId) => {
+		this.latestPlayerStates.forEach((_player, guildId) => {
 			this.savePlayerState(guildId);
 		});
 
@@ -500,7 +500,7 @@ export class Manager extends EventEmitter {
 				playlist: (playlist as PlaylistData), // for async function: playlist ? { ...playlist, tracks: await Promise.all(playlist.tracks) } : undefined
 			}
 			if (this.options.replaceYouTubeCredentials) {
-				const replaceCreditsURLs = ["youtube.com", "youtu.be"];
+				// const replaceCreditsURLs = ["youtube.com", "youtu.be"];
 				const processTrack = (track: Track) => {
 					// if (!replaceCreditsURLs.some((url) => track.uri.includes(url))) return track;
 					const { cleanTitle, cleanAuthor } = parseYouTubeTitle(track.title, track.author);

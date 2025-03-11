@@ -15,6 +15,7 @@ import {
     SponsorBlockSegmentsLoaded
 } from "./lavaUtils";
 import { Player } from "@lavalink/structures/player";
+import { Plugin } from '@/lavalink';
 
 export type SearchPlatform = "deezer" | "soundcloud" | "youtube music" | "youtube" | "spotify" | "jiosaavn" | "tidal" | "applemusic" | "bandcamp";
 export const SearchPlatforms = [

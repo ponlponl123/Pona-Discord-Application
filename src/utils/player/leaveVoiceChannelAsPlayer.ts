@@ -9,7 +9,7 @@ export default async function leaveVoiceChannelAsPlayer(guildId: string): Promis
     if ( currentPlayerInGuild.length > 0 ) {
         if ( currentPlayerInGuild[0][1] === 'player' )
         {
-            const voiceChannel = (currentPlayerInGuild[0][0] as lavaPlayer).player.voiceChannel;
+            // const voiceChannel = (currentPlayerInGuild[0][0] as lavaPlayer).player.voiceChannel;
             self.playerConnections = self.playerConnections.filter((player) => player.player.guild !== guildId);
             (currentPlayerInGuild[0][0] as lavaPlayer).player.destroy();
             await setVoiceChannelStatus((currentPlayerInGuild[0][0] as lavaPlayer).voiceChannel);

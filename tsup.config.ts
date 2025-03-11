@@ -6,5 +6,5 @@ export default defineConfig({
   outDir: 'dist',
   clean: true,
   // Copy the api directory to the dist folder
-  onSuccess: 'cp -r src/server/api dist/api'
+  onSuccess: 'cp -r src/server/api/REST dist/api && cp -r src/commands dist/commands'
 });

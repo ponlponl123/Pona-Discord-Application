@@ -1,6 +1,7 @@
+import env from './env';
 const {
   DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID
-} = process.env;
+} = env;
 
 if (
   !DISCORD_TOKEN || !DISCORD_CLIENT_ID || !DISCORD_GUILD_ID

@@ -1,4 +1,5 @@
-const { HTTP_PORT, EXPRESS_SECRET_API_KEY } = process.env;
+import env from './env';
+const { HTTP_PORT, EXPRESS_SECRET_API_KEY } = env;
 
 const toPort = Number(HTTP_PORT);
 

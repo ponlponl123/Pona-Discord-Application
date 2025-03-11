@@ -1,4 +1,4 @@
-import { env, argv } from "process";
+import env, {argv} from './env';
 
 const {
   DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASS, DATABASE_NAME

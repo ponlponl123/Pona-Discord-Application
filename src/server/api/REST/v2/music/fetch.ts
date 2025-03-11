@@ -11,7 +11,7 @@ export async function GET(request: express.Request, response: express.Response) 
     if ( !database || !database.connection || !ytmusic.client ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
     const { authorization } = request.headers;
     const { fetch } = request.params;
-    const { id, type } = request.query;
+    const { id, type, query, params } = request.query;
     if ( !id || !fetch ) return response.status(400).json({ error: "Missing required parameters" });
     if ( !authorization ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
     const tokenType = authorization.split(' ')[0];
@@ -24,8 +24,8 @@ export async function GET(request: express.Request, response: express.Response) 
         case "av": {
             const { t, a } = request.query; // Title and Artist
             if ( !t || !a ) return response.status(400).json({ error: "Missing required parameters" });
-            let api_request = `search/${encodeURIComponent(`${queryId}: ${t.toString()} - ${a.toString()}`)}`;
-            api_request += '?limit=1';
+            let api_request = `search?query=${encodeURIComponent(`${queryId}: ${t.toString()} - ${a.toString()}`)}`;
+            api_request += '&limit=1';
             if ( type === 'song' )
                 api_request += '&filter=songs';
             else if ( type === 'video' )
@@ -50,11 +50,28 @@ export async function GET(request: express.Request, response: express.Response) 
             }
             return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', result});
         }
-        
         case "user": {
-            const searchResult = await YTMusicAPI('GET', `user/${encodeURIComponent(queryId)}`);
-            if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
-            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
+            if ( !query )
+            {
+                const searchResult = await YTMusicAPI('GET', `user/${encodeURIComponent(queryId)}`);
+                if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+                return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
+            }
+            else
+            {
+                switch ( query )
+                {
+                    case "videos": {
+                        if ( !params ) return response.status(400).json({ error: "Invalid params" });
+                        const searchResult = await YTMusicAPI('GET', `user/${encodeURIComponent(queryId)}?params=${encodeURIComponent(params.toString())}`);
+                        if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+                        return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
+                    }
+                    default: {
+                        return response.status(400).json({ error: "Invalid query" });
+                    }
+                }
+            }
         }
         case "album": {
             const searchResult = await YTMusicAPI('GET', `album/${encodeURIComponent(queryId)}`);

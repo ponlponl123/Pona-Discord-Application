@@ -1,4 +1,5 @@
-const { YTMUSIC_API_HOST, YTMUSIC_API_PORT } = process.env;
+import env from './env';
+const { YTMUSIC_API_HOST, YTMUSIC_API_PORT } = env;
 
 const toPort = Number(YTMUSIC_API_PORT);
 

@@ -1,5 +1,5 @@
+import env from './env';
 import { RedisClusterType } from "@/interfaces/redis";
-import { env } from "node:process";
 
 const {
   REDIS_ENABLED,

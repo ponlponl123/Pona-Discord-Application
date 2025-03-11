@@ -1,4 +1,5 @@
 import express from 'express'
+import compression from 'compression'
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
 import socketio from 'socket.io'
 import cors from 'cors'
@@ -29,6 +30,7 @@ export class apiServer {
         const httpServer = createServer(app);
         const socket = new initializeSocket(httpServer);
     
+        app.use(compression());
         app.disable('x-powered-by');
         app.use(cors({
             origin: 'https://pona.ponlponl123.com',

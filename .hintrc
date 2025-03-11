@@ -10,6 +10,12 @@
         "aria-valid-attr-value": "off",
         "aria-valid-attr": "off"
       }
+    ],
+    "axe/parsing": [
+      "default",
+      {
+        "duplicate-id": "off"
+      }
     ]
   }
 }

@@ -1,4 +1,4 @@
-import { env, argv } from "process";
+import env, {argv} from './env';
 
 const {
   LAVALINK_SERVER, LAVALINK_PORT, LAVALINK_PASSWORD

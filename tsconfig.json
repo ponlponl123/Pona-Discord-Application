@@ -23,6 +23,10 @@
       "@utils/*": ["./src/utils/*"],
       "@shared/*": ["./public/*"],
       "@tests/*": ["./src/tests/*"]
-    }
-  }
+    },
+    "types": [
+      "bun"
+    ]
+  },
+  "exclude": ["tsup.config.ts", "tsup.config.js", "tsconfig-paths.js", "dist"]
 }

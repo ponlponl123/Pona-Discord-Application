@@ -1,4 +1,5 @@
-const { HTTP_PORT, WEBSOCKET_SECRET_ROOT_AUTHORIZED_KEY } = process.env;
+import env from './env';
+const { HTTP_PORT, WEBSOCKET_SECRET_ROOT_AUTHORIZED_KEY } = env;
 
 var toPort = Number(HTTP_PORT);
 

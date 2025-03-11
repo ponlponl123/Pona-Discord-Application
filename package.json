@@ -18,21 +18,26 @@
   "bin": "./dist/cli.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "cross-env NODE_ENV=development tsx watch src/index.ts",
     "type-check": "tsc --noEmit",
-    "start": "cross-env NODE_ENV=production node -r ./tsconfig-paths.js dist/index.js",
-    "start-shard": "cross-env NODE_ENV=production CLUSTER=true node -r ./tsconfig-paths.js dist/shard.js",
+
+    "dev": "cross-env NODE_ENV=development tsx watch src/index.ts",
+    "start": "cross-env NODE_ENV=production node -r ./tsconfig-paths.cjs dist/index.js",
+    "start-shard": "cross-env NODE_ENV=production CLUSTER=true node -r ./tsconfig-paths.cjs dist/shard.js",
+    "lint": "eslint . -c .ts",
+    "lint:fix": "eslint . -c .ts --fix",
     "build": "tsc --build",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
     
     "bun:dev": "cross-env NODE_ENV=development RUNNER=bun bun --watch src/index.ts",
     "bun:dev-reg": "cross-env NODE_ENV=development RUNNER=default bun --watch src/index.ts",
-    "bun:start": "cross-env NODE_ENV=production RUNNER=bun bunx dist/index.js --target node",
-    "bun:start-reg": "cross-env NODE_ENV=production RUNNER=default bunx dist/index.js --target node",
+    "bun:start": "cross-env NODE_ENV=production RUNNER=bun AUTO_ROUTE=no bunx dist/index.js --target node",
+    "bun:start-reg": "cross-env NODE_ENV=production RUNNER=default AUTO_ROUTE=no bunx dist/index.js --target node",
     "bun:build-reg": "bun build src/index.ts --outdir dist --clean --target node",
-    "bun:build": "tsup --config tsup.config.ts src/index.ts --format cjs,esm --out-dir dist --clean"
+    "bun:build": "tsup --config tsup.config.ts src/index.ts --format cjs,esm --out-dir dist --clean",
+    "bun:build-legacy": "bunx tsc --build",
+    "bun:lint": "bunx eslint . -c .ts",
+    "bun:lint:fix": "bunx eslint . -c .ts --fix",
+    "bun:format": "bunx prettier --write ."
   },
   "repository": {
     "type": "git",

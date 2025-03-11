@@ -18,6 +18,7 @@ import {
     VoiceConnection
 } from '@discordjs/voice';
 import { config } from '@config/discord';
+import commandIndex from '@commands/index';
 import slashCommand from '@interfaces/command';
 import { lavaPlayer } from '@/interfaces/player';
 import { prefix as consolePrefix } from '@config/console'
@@ -232,43 +233,53 @@ class Pona extends EventEmitter {
     }
 
     private async registerSlashCommands() {
-        const commandsDirectory = join(__dirname, "commands");
-        const commandFiles = readdirSync(commandsDirectory).filter((file) => !file.endsWith(".map"));
-
-        for (const file of commandFiles) {
-            if ( file.startsWith('index') || (!file.endsWith('.ts') && !file.endsWith('.js')) ) continue;
-
-            const filePath_mjs = path.resolve(commandsDirectory, file);
-            const filePath_esm = 'file://' + filePath_mjs;
-            let filePath: string = filePath_esm;
-            let command: slashCommand;
-            try {
-                const test = await import(filePath_esm);
-                command = test;
-            } catch (err) {
-                console.warn(consolePrefix.discord + 'Failed to import ESM module, retrying with MJS');
+        if ( process.env["AUTO_ROUTE"] !== "no" )
+        {
+            const commandsDirectory = join(__dirname, "commands");
+            const commandFiles = readdirSync(commandsDirectory).filter((file) => !file.endsWith(".map"));
+    
+            for (const file of commandFiles) {
+                if ( file.startsWith('index') || (!file.endsWith('.ts') && !file.endsWith('.js')) ) continue;
+    
+                const filePath_mjs = path.resolve(commandsDirectory, file);
+                const filePath_esm = 'file://' + filePath_mjs;
+                let filePath: string = filePath_esm;
+                let command: slashCommand;
                 try {
-                    const test = await import(filePath_mjs);
+                    const test = await import(filePath_esm);
                     command = test;
                 } catch (err) {
-                    console.error(consolePrefix.discord + `Failed to import command at ${filePath_mjs}:`, err);
-                    continue;
+                    console.warn(consolePrefix.discord + 'Failed to import ESM module, retrying with MJS');
+                    try {
+                        const test = await import(filePath_mjs);
+                        command = test;
+                    } catch (err) {
+                        console.error(consolePrefix.discord + `Failed to import command at ${filePath_mjs}:`, err);
+                        continue;
+                    }
+                }
+    
+                if ('data' in command && 'execute' in command) {
+                    this.slashCommands.push(command.data.toJSON());
+                    this.slashCommandsMap.set(command.data.name, command);
+                    console.log(consolePrefix.discord + `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`);
+                } else {
+                    console.log(consolePrefix.discord + `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
                 }
             }
-
-            if ('data' in command && 'execute' in command) {
-                this.slashCommands.push(command.data.toJSON());
-                this.slashCommandsMap.set(command.data.name, command);
-                console.log(consolePrefix.discord + `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`);
-            } else {
-                console.log(consolePrefix.discord + `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
-            }
-
+        } else {
+            commandIndex.forEach((command, index) => {
+                if ('data' in command && 'execute' in command) {
+                    this.slashCommands.push(command.data.toJSON());
+                    this.slashCommandsMap.set(command.data.name, command);
+                    console.log(consolePrefix.discord + `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`);
+                } else {
+                    console.log(consolePrefix.discord + `[WARNING] The command at ${index}(index) is missing a required "data" or "execute" property.`);
+                }
+            })
         }
         const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
-
         const regisResult = await rest.put(Routes.applicationCommands(this.client.user!.id), { body: this.slashCommands });
-
         if ( regisResult )
             console.log(consolePrefix.discord + '\x1b[32mRegis Slash commands successfully!\x1b[0m');
         else

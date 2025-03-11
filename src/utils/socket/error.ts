@@ -1,5 +1,5 @@
-import { HttpStatusCode } from "axios";
 import { Socket } from "socket.io";
+import { AxiosResponse } from "axios";
 
 export interface SocketError extends Error {
   message: string;
@@ -8,8 +8,7 @@ export interface SocketError extends Error {
   };
   statusCode?: number;
 }
-
-function error(socket: Socket, err: Error, statusCode: HttpStatusCode, destroy?: boolean): void {
+function error(socket: Socket, err: Error, statusCode: AxiosResponse['status'], destroy?: boolean): void {
   socket._error(err);
   socket.request.statusMessage = err.message;
   socket.emit('exception', {errorMessage: err.message});

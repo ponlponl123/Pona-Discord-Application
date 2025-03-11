@@ -4,7 +4,7 @@ import { getInfo } from 'discord-hybrid-sharding'
 
 export const path = '/:guildId?';
 
-export function GET_PRIVATE(_request: express.Request, response: express.Response) {
+export function GET_PRIVATE(response: express.Response) {
     try {
         const shardInfo = getInfo();
         const lastShard = shardInfo.LAST_SHARD_ID;

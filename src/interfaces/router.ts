@@ -1,9 +1,11 @@
+import express, { Request, Response } from "express";
+
 export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
 export type PRIVATE_HTTPMethod = 'GET_PRIVATE' | 'POST_PRIVATE' | 'PUT_PRIVATE' | 'PATCH_PRIVATE' | 'DELETE_PRIVATE' | 'HEAD_PRIVATE' | 'OPTIONS_PRIVATE'
 
 export type httpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'head' | 'options'
 
-export const HTTPMethods = [
+export const HTTPMethods: HTTPMethod[] = [
     'GET',
     'POST',
     'PUT',
@@ -13,26 +15,31 @@ export const HTTPMethods = [
     'OPTIONS'
 ]
 
+export type RequestParameters =
+    ((request: Express.Request | express.Request | any) => void | Promise<void> | any) |
+    ((response: Express.Response | express.Response | any) => void | Promise<void> | any) |
+    ((request: Express.Request | express.Request | any, response: Express.Response | express.Response | any) => void | Promise<void> | any);
+
 export default interface PublicRouter {
-    GET?: (request: Express.Request, response: Express.Response) => void,
-    POST?: (request: Express.Request, response: Express.Response) => void,
-    PUT?: (request: Express.Request, response: Express.Response) => void,
-    PATCH?: (request: Express.Request, response: Express.Response) => void,
-    DELETE?: (request: Express.Request, response: Express.Response) => void,
-    HEAD?: (request: Express.Request, response: Express.Response) => void,
-    OPTIONS?: (request: Express.Request, response: Express.Response) => void,
+    GET?: RequestParameters;
+    POST?: RequestParameters;
+    PUT?: RequestParameters;
+    PATCH?: RequestParameters;
+    DELETE?: RequestParameters;
+    HEAD?: RequestParameters;
+    OPTIONS?: RequestParameters;
 }
 
 export interface PrivateRouter {
-    GET_PRIVATE?: (request: Express.Request, response: Express.Response) => void,
-    POST_PRIVATE?: (request: Express.Request, response: Express.Response) => void,
-    PUT_PRIVATE?: (request: Express.Request, response: Express.Response) => void,
-    PATCH_PRIVATE?: (request: Express.Request, response: Express.Response) => void,
-    DELETE_PRIVATE?: (request: Express.Request, response: Express.Response) => void,
-    HEAD_PRIVATE?: (request: Express.Request, response: Express.Response) => void,
-    OPTIONS_PRIVATE?: (request: Express.Request, response: Express.Response) => void
+    GET_PRIVATE?: RequestParameters;
+    POST_PRIVATE?: RequestParameters;
+    PUT_PRIVATE?: RequestParameters;
+    PATCH_PRIVATE?: RequestParameters;
+    DELETE_PRIVATE?: RequestParameters;
+    HEAD_PRIVATE?: RequestParameters;
+    OPTIONS_PRIVATE?: RequestParameters;
 }
 
 export interface Router extends PublicRouter, PrivateRouter {
-    path: string
+    path?: string;
 }

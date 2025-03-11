@@ -1,6 +1,6 @@
-import express from 'express';
 import { HttpStatusCode } from 'axios';
 import { database, discordClient as self } from '@/index';
+import { Router } from '@/interfaces/router';
 
 export const path = '/:guildId?/:query?';
 
@@ -14,7 +14,7 @@ export interface memberInChannelHistory {
   }[]
 }
 
-export async function GET_PRIVATE(request: express.Request, response: express.Response) {
+export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
   try {
     const { guildId, query } = request.params;
 

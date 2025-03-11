@@ -18,6 +18,7 @@ import Middleware_apikeyHandler from './middlewares/apiKey'
 
 import { initialize as initializeSocket } from './api/ws/socket'
 
+import rest_routes from './routes'
 import { HTTPMethods } from '@interfaces/router'
 import type { Router as PonaRouter, PRIVATE_HTTPMethod, httpMethod, HTTPMethod } from '@interfaces/router'
 
@@ -72,48 +73,55 @@ export class apiServer {
     }
 
     private async router() {
-        const APIdir = path.join(__dirname, 'api');
-        const restAPI_dir = path.join(APIdir, 'REST');
-
-        if ( !fs.existsSync(APIdir) )
-            throw new ReferenceError('api directory does not exist');
-        if ( !fs.existsSync(restAPI_dir) )
-            throw new ReferenceError('rest api directory does not exist');
-
-        fs.readdirSync(restAPI_dir).forEach(dir => {
-            const routePath = path.join(restAPI_dir, dir);
-            if (fs.lstatSync(routePath).isDirectory()) {
-                fs.readdirSync(routePath).forEach(async file => {
-                    const filePath = path.resolve(routePath, file);
-                    const _route_register = async (fpath: string, className?: string) => {
-                        const name = path.basename(fpath).split('.')[0];
-                        const fpath_esm = 'file://' + fpath;
-                        let controller: PonaRouter;
-                        try {
-                            const test = await import(fpath_esm);
-                            controller = test;
-                        } catch (err) {
-                            console.warn('Failed to import ESM module, retrying with MJS');
+        if ( process.env["AUTO_ROUTE"] !== "no" )
+        {
+            const APIdir = path.join(__dirname, 'api');
+            const restAPI_dir = path.join(APIdir, 'REST');
+    
+            if ( !fs.existsSync(APIdir) )
+                throw new ReferenceError('api directory does not exist');
+            if ( !fs.existsSync(restAPI_dir) )
+                throw new ReferenceError('rest api directory does not exist');
+    
+            fs.readdirSync(restAPI_dir).forEach(dir => {
+                const routePath = path.join(restAPI_dir, dir);
+                if (fs.lstatSync(routePath).isDirectory()) {
+                    fs.readdirSync(routePath).forEach(async file => {
+                        const filePath = path.resolve(routePath, file);
+                        const _route_register = async (fpath: string, className?: string) => {
+                            const name = path.basename(fpath).split('.')[0];
+                            const fpath_esm = 'file://' + fpath;
+                            let controller: PonaRouter;
                             try {
-                                const test = await import(fpath);
+                                const test = await import(fpath_esm);
                                 controller = test;
                             } catch (err) {
-                                console.error(consolePrefix.express, `\x1b[31mFailed to import controller: ${fpath}\x1b[0m`);
-                                return;
+                                console.warn('Failed to import ESM module, retrying with MJS');
+                                try {
+                                    const test = await import(fpath);
+                                    controller = test;
+                                } catch (err) {
+                                    console.error(consolePrefix.express, `\x1b[31mFailed to import controller: ${fpath}\x1b[0m`);
+                                    return;
+                                }
                             }
+    
+                            this.route(name, dir, controller, className);
                         }
-
-                        this.route(name, dir, controller, className);
-                    }
-                    if (fs.lstatSync(filePath).isFile() && (file.endsWith('.ts') || file.endsWith('.js'))) await _route_register(filePath);
-                    else if (fs.lstatSync(filePath).isDirectory())
-                        fs.readdirSync(filePath).forEach(async file_d => {
-                            const filePath_d = path.resolve(filePath, file_d);
-                            if (fs.lstatSync(filePath_d).isFile() && (file_d.endsWith('.ts') || file_d.endsWith('.js'))) await _route_register(filePath_d, file);
-                        });
-                });
-            }
-        });
+                        if (fs.lstatSync(filePath).isFile() && (file.endsWith('.ts') || file.endsWith('.js'))) await _route_register(filePath);
+                        else if (fs.lstatSync(filePath).isDirectory())
+                            fs.readdirSync(filePath).forEach(async file_d => {
+                                const filePath_d = path.resolve(filePath, file_d);
+                                if (fs.lstatSync(filePath_d).isFile() && (file_d.endsWith('.ts') || file_d.endsWith('.js'))) await _route_register(filePath_d, file);
+                            });
+                    });
+                }
+            });
+        } else {
+            rest_routes.forEach((route) => {
+                this.route(route.name, route.version, route.controller, route.classname);
+            })
+        }
     }
 
     private route(name: string, version: string, controller: PonaRouter, className?: string) {

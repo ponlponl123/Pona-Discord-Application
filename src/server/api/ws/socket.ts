@@ -27,10 +27,10 @@ export class initialize {
             const redis_conf = redisConfig;
 
             const redis_pub_options: RedisOptions = {
-                sentinels: [{ host: "redis-sentinel", port: 26379 }],
-                name: "pona_master",
+                host: redis_conf.pub.host,
+                port: redis_conf.pub.port,
                 keyPrefix: "pona",
-                sentinelRetryStrategy(times) {
+                retryStrategy(times) {
                     return Math.min(times * 50, 2000);
                 },
                 lazyConnect: true,
@@ -39,19 +39,15 @@ export class initialize {
             };
 
             const redis_sub_options: RedisOptions = {
-                sentinels: [{ host: "redis-sentinel", port: 26379 }],
-                name: "pona_master",
-                keyPrefix: "pona",
-                sentinelRetryStrategy(times) {
+                host: redis_conf.sub.host,
+                port: redis_conf.sub.port,
+                retryStrategy(times) {
                     return Math.min(times * 50, 2000);
                 },
                 lazyConnect: true,
                 keepAlive: 30 * 60 * 1000,
-                sentinelMaxConnections: 5,
-                sentinelCommandTimeout: 5 * 60 * 1000, // 30 seconds
-                connectTimeout: 10 * 1000, // 10 seconds
-                maxRetriesPerRequest: null, // disable the max retries per request limit
-            };
+                maxRetriesPerRequest: null,
+            };                   
 
             this.redis_pub = new Redis(redis_pub_options);
             this.redis_sub = new Redis(redis_sub_options);

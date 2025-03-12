@@ -5,6 +5,7 @@ import socketio from 'socket.io'
 import cors from 'cors'
 import path from 'path'
 import fs from 'fs'
+import net from 'net'
 
 import cookieParser from 'cookie-parser'
 import { HttpStatusCode } from 'axios'
@@ -71,10 +72,29 @@ export class apiServer {
         this.router();
         this.portUsing = port;
 
-        // this.app.listen(this.portUsing);
-        httpServer.listen(this.portUsing);
-        
-        console.log(consolePrefix.express + `\x1b[32mAPI Server running at ${this.portUsing}! 📡\x1b[0m`);
+        this.checkPortAndListen(port);
+    }
+
+    private checkPortAndListen(port: number) {
+        const server = net.createServer();
+        server.once('error', (err: any) => {
+            if (err.code === 'EADDRINUSE') {
+                console.log(consolePrefix.express + `\x1b[33mPort ${port} is in use, trying next port...\x1b[0m`);
+                this.checkPortAndListen(port + 1);
+            } else {
+                console.error(consolePrefix.express + `\x1b[31mError occurred: ${err.message}\x1b[0m`);
+            }
+        });
+
+        server.once('listening', () => {
+            server.close();
+            this.portUsing = port;
+            this.http.listen(this.portUsing, () => {
+                console.log(consolePrefix.express + `\x1b[32mAPI Server running at ${this.portUsing}! 📡\x1b[0m`);
+            });
+        });
+
+        server.listen(port);
     }
 
     private async router() {

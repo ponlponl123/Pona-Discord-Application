@@ -11,7 +11,7 @@ import { Client, GatewayIntentBits, Partials } from 'discord.js'
 import { getInfo } from 'discord-hybrid-sharding'
 import { PonaYTMusicAPI } from './ytmusic'
 
-const needCluster = process.env["CLUSTER"] === 'true' ? true : false;
+export const needCluster = process.env["CLUSTER"] === 'true' ? true : false;
 const client = new Client({
     shards: needCluster ? getInfo().SHARD_LIST : undefined,
     shardCount: needCluster ? getInfo().TOTAL_SHARDS : 1,

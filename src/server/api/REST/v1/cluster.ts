@@ -2,15 +2,13 @@ import express from 'express';
 import { HttpStatusCode } from 'axios';
 import { getInfo } from 'discord-hybrid-sharding'
 
-export const path = '/:guildId?';
-
-export function GET_PRIVATE(response: express.Response) {
+export function GET_PRIVATE(_: express.Request, response: express.Response) {
     try {
         const shardInfo = getInfo();
-        const lastShard = shardInfo.LAST_SHARD_ID;
-        const firstShard = shardInfo.FIRST_SHARD_ID;
-        const totalShards = shardInfo.TOTAL_SHARDS;
-        const shardList = shardInfo.SHARD_LIST;
+        const lastShard = shardInfo?.LAST_SHARD_ID;
+        const firstShard = shardInfo?.FIRST_SHARD_ID;
+        const totalShards = shardInfo?.TOTAL_SHARDS;
+        const shardList = shardInfo?.SHARD_LIST;
     
         return response.status(HttpStatusCode.Ok).json({
             message: 'OK',

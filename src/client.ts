@@ -23,7 +23,7 @@ import slashCommand from '@interfaces/command';
 import { lavaPlayer } from '@/interfaces/player';
 import { prefix as consolePrefix } from '@config/console'
 import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from '@utils/isPonaInVoiceChannel';
-import { BaseMessage, ClusterClient, messageType } from "discord-hybrid-sharding";
+import { BaseMessage, ClusterClient, getInfo, messageType } from "discord-hybrid-sharding";
 import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
 import { getWelcomeMessage } from '@utils/getWelcomeMessage';
 import GuildSettings from '@interfaces/guildSettings';
@@ -91,6 +91,27 @@ class Pona extends EventEmitter {
         }
     
         this.client.once(Events.ClientReady, async () => {
+            if ( needCluster )
+            {
+                try {
+                    const shardInfo = getInfo();
+                    const totalGuilds = await client.guilds.fetch().then(guilds => guilds.size); // Fetch total number of guilds
+                    const maxShards = Math.ceil(totalGuilds / 2500); // Calculate maximum shard count
+                    if ( shardInfo.TOTAL_SHARDS >= maxShards )
+                    {
+                        console.log(consolePrefix.discord + `\x1b[31mDiscord exited: Shard is not enabled or total guilds exceed maximum limit.\x1b[0m`);
+                        return this.client.destroy();
+                    }
+                } catch {
+                    console.log(consolePrefix.discord + ' An error occurred while fetching shard information OR Shard is not enabled.');
+                }
+            }
+            // else {
+            //     // check if discord bot is already logged in by another process or any then logout this session
+            //     if (this.client.user?.presence?.status === 'online') this.client.destroy();
+            //     console.log(consolePrefix.discord + `\x1b[31mDiscord exited: Bot is already logged in by another process or any!\x1b[0m`);
+            //     return;
+            // }
             this.client.user?.setStatus('idle');
             console.log(consolePrefix.discord + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
             this.heartbeatEvent(this.client);

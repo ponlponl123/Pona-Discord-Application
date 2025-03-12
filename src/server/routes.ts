@@ -33,9 +33,9 @@ export const rest_routes: RESTAPIRoute[] = [
     { name: 'socket', version: 'v1', controller: v1_socket_handshake, classname: 'socket' },
     { name: 'lavalink', version: 'v1', controller: v1_lavalink_handshake, classname: 'lavalink' },
     { name: 'music', version: 'v1', controller: v1_music_fetch, classname: 'music' },
-    { name: 'music', version: 'v1', controller: v1_music_history, classname: 'music' },
-    { name: 'music', version: 'v1', controller: v1_music_lyrics, classname: 'music' },
-    { name: 'music', version: 'v1', controller: v1_music_search, classname: 'music' },
+    { name: 'history', version: 'v1', controller: v1_music_history, classname: 'music' },
+    { name: 'lyrics', version: 'v1', controller: v1_music_lyrics, classname: 'music' },
+    { name: 'search', version: 'v1', controller: v1_music_search, classname: 'music' },
     { name: 'proxy', version: 'v1', controller: v1_proxy_ytThumbnail, classname: 'proxy' },
 
     { name: 'guilds', version: 'v2', controller: v2_guilds },

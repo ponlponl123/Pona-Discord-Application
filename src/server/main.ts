@@ -35,7 +35,10 @@ export class apiServer {
         const socket = new initializeSocket(httpServer);
     
         app.use(compression());
-        app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+        if ( process.env["AUTO_ROUTE"] === "production" )
+            app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+        else if ( process.env["AUTO_ROUTE"] === "development" )
+            app.use(favicon(path.join(__dirname, '..', '..', 'public', 'favicon.ico')));
         app.disable('x-powered-by');
         app.use(cors({
             origin: 'https://pona.ponlponl123.com',

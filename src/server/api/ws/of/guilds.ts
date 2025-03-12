@@ -274,6 +274,39 @@ export default async function dynamicGuildNamespace(io: Server) {
         )
         } catch { return; }
       });
+      socket.on("move", async (from: number, to: number, callback)=>{try{
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+        if ( !player ) return;
+        io_guild.emit("queue_updating");
+        setTimeout(async () => {
+          try {
+            player.player.queue.move(from, to);
+            if ( callback ) callback({
+              status: "ok"
+            });
+          } catch {
+            if ( callback ) callback({
+              status: "error"
+            });
+          }
+          io_guild.emit("track_moved", member);
+          const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+          await database.connection?.query(
+              `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
+              VALUES (?, ?, ?, ?, ?, ?)`
+          , [
+              member.id,
+              date,
+              'queue-move',
+              `from ${from} to ${to}`,
+              guildId,
+              player.voiceChannel.id
+            ]
+          )
+        }, 320);
+        } catch { return; }
+      });
       socket.on("pause", async (callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
         const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];

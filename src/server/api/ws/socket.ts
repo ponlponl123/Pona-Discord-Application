@@ -23,23 +23,23 @@ export class initialize {
         });
         this.server = socketServer;
 
-        if ( redisConfig && redisConfig.REDIS_ENABLED )
-        {
+        if (redisConfig && redisConfig.REDIS_ENABLED) {
             const redis_conf = redisConfig;
-            console.log(consolePrefix.socket + `🟠 Starting Pub Redis(type: standalone) Network (${redis_conf.pub.host}:${redis_conf.pub.port})`);
-            console.log(consolePrefix.socket + `🟠 Starting Sub Redis(type: ${redis_conf.sub.type}) Network (${redis_conf.sub.host}:${redis_conf.sub.port})`);
+
             const redis_pub_options: RedisOptions = {
-                host: redis_conf.pub.host,
-                port: redis_conf.pub.port,
+                sentinels: [{ host: "redis-sentinel", port: 26379 }],
                 name: "pona_master",
                 keyPrefix: "pona",
+                sentinelRetryStrategy(times) {
+                    return Math.min(times * 50, 2000);
+                },
                 lazyConnect: true,
                 keepAlive: 30 * 60 * 1000,
-                commandTimeout: 5 * 60 * 1000,
                 maxRetriesPerRequest: null, // disable the max retries per request limit
-            }
-            const redis_sub_options: RedisOptions = redis_conf.sub.type === 'sentinel' ? {
-                sentinels: [{ host: redis_conf.sub.host, port: redis_conf.sub.port }],
+            };
+
+            const redis_sub_options: RedisOptions = {
+                sentinels: [{ host: "redis-sentinel", port: 26379 }],
                 name: "pona_master",
                 keyPrefix: "pona",
                 sentinelRetryStrategy(times) {
@@ -51,15 +51,15 @@ export class initialize {
                 sentinelCommandTimeout: 5 * 60 * 1000, // 30 seconds
                 connectTimeout: 10 * 1000, // 10 seconds
                 maxRetriesPerRequest: null, // disable the max retries per request limit
-            } : redis_pub_options;
+            };
 
             this.redis_pub = new Redis(redis_pub_options);
             this.redis_sub = new Redis(redis_sub_options);
-            
+
             const onRedisReady = (type: 'pub' | 'sub') => {
                 console.log(consolePrefix.socket, `🟢 Redis Network is ready (${type})`);
-            }
-            
+            };
+
             const onRedisError = (err: { code: string; message: string }, type: 'pub' | 'sub') => {
                 if (err.code === 'ETIMEDOUT') {
                     console.error(consolePrefix.socket + `🔴 (${type}) Redis: Connection timed out. Retrying...`);
@@ -72,13 +72,13 @@ export class initialize {
                 } else {
                     console.error(consolePrefix.socket + `🔴 (${type}) Redis: Unknown Redis error occurred:`, err);
                 }
-            }
-            
-            this.redis_pub.on("ready", ()=>{onRedisReady('pub')});
-            this.redis_sub.on("ready", ()=>{onRedisReady('sub')});
-            
-            this.redis_pub.on("error", (err: { code: string; message: string })=>{onRedisError(err,'pub')});
-            this.redis_sub.on("error", (err: { code: string; message: string })=>{onRedisError(err,'sub')});
+            };
+
+            this.redis_pub.on("ready", () => { onRedisReady('pub') });
+            this.redis_sub.on("ready", () => { onRedisReady('sub') });
+
+            this.redis_pub.on("error", (err: { code: string; message: string }) => { onRedisError(err, 'pub') });
+            this.redis_sub.on("error", (err: { code: string; message: string }) => { onRedisError(err, 'sub') });
 
             this.server.adapter(createAdapter(this.redis_pub, this.redis_sub));
         }

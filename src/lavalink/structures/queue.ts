@@ -51,6 +51,15 @@ export class Queue extends Array<Track | UnresolvedTrack> {
 		this.manager.emit("playerStateUpdate", oldPlayer, this.manager.players.get(this.guild), "queueChange");
 	}
 
+	public move(from: number, to: number): void {
+		const oldPlayer = { ...this.manager.players.get(this.guild) };
+		if (isNaN(Number(from)) || isNaN(Number(to))) throw new RangeError(`Missing "from" or "to" parameter.`);
+		if (from <= 0 || to < 0 || from > this.length || to >= this.length) throw new RangeError("Invalid start or end values.");
+		const movedTrack = this.splice(from - 1, 1)[0];
+		this.splice(to - 1, 0, movedTrack);
+		this.manager.emit("playerStateUpdate", oldPlayer, this.manager.players.get(this.guild), "queueChange");
+	}
+
 	public remove(position?: number): (Track | UnresolvedTrack)[];
 	public remove(start: number, end: number): (Track | UnresolvedTrack)[];
 	public remove(startOrPosition = 0, end?: number): (Track | UnresolvedTrack)[] | undefined {

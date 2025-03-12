@@ -83,6 +83,9 @@ web_modules/
 .env.local
 application.yml
 
+# local files
+*.local
+
 # Local pona state file/directory
 ponaState/
 ponaState*/

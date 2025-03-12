@@ -1,4 +1,4 @@
-import { discordClient as self, lavalink } from '@/index';
+import { lavalink } from '@/index';
 import { TextBasedChannel, Guild, VoiceBasedChannel } from 'discord.js';
 import { Band } from '../lavalink/equalizers';
 import { Player } from '@/lavalink';

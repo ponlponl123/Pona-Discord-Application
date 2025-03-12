@@ -152,9 +152,11 @@ export class Node {
 		if (this.connected) return;
 
 		const headers: { [key: string]: string | undefined } = {
-				Authorization: this.options.password,
-				"User-Id": this.manager.options.clientId,
-				"Client-Name": this.manager.options.clientName,
+			Authorization: this.options.password,
+			"User-Id": this.manager.options.clientId,
+			"Client-Name": this.manager.options.clientName,
+			"Connection": "Upgrade",
+			"Upgrade": "websocket",
 		};
 
 		if (this.sessionId) {

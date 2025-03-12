@@ -9,6 +9,7 @@ import fs from 'fs'
 import cookieParser from 'cookie-parser'
 import { HttpStatusCode } from 'axios'
 import bodyParser from 'body-parser'
+import favicon from 'serve-favicon'
 
 import { prefix as consolePrefix } from '@config/console'
 
@@ -34,6 +35,7 @@ export class apiServer {
         const socket = new initializeSocket(httpServer);
     
         app.use(compression());
+        app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
         app.disable('x-powered-by');
         app.use(cors({
             origin: 'https://pona.ponlponl123.com',

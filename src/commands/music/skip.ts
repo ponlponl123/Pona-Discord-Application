@@ -11,7 +11,7 @@ import { discordClient as self } from "@/index";
 import warningEmbedBuilder from "@utils/embeds/warning";
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
-import { lavaPlayer, Track } from "@interfaces/player";
+import { Track } from "@interfaces/player";
 import color from "@/config/embedColor";
 import { getGuildLanguage } from "@/utils/i18n";
 
@@ -24,7 +24,7 @@ export default async function execute(interaction: CommandInteraction) {
     try {
         const member = interaction.member as GuildMember;
         const lang = getGuildLanguage(member.guild.id);
-        const voiceActionRequirement = isVoiceActionRequirement(member);
+        const voiceActionRequirement = await isVoiceActionRequirement(member);
 
         if ( !voiceActionRequirement.isPonaInVoiceChannel ) {
             return interaction.reply({
@@ -40,12 +40,12 @@ export default async function execute(interaction: CommandInteraction) {
             });
         }
 
-        const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
+        const playback = await isPonaInVoiceChannel( member.guild.id );
 
-        if ( playback.length > 0 && playback[0].player.queue.current ) {
-            const currentTrack = playback[0].player.queue.current as Track;
+        if ( playback && playback.queue.current ) {
+            const currentTrack = playback.queue.current as Track;
             const skip = async (voted: boolean) => {
-                playback[0].player.seek(currentTrack.duration as number);
+                playback.seek(currentTrack.duration as number);
                 const skipEmbed = new EmbedBuilder()
                     .setTitle(`<:Rightarrow:1299943204287938600> · ${lang.data.music.play.skipped}!`)
                     .setColor(color('light'))

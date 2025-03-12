@@ -39,7 +39,7 @@ export const rest_routes: RESTAPIRoute[] = [
     { name: 'proxy', version: 'v1', controller: v1_proxy_ytThumbnail, classname: 'proxy' },
 
     { name: 'guilds', version: 'v2', controller: v2_guilds },
-    { name: 'music', version: 'v2', controller: v2_music_fetch },
+    { name: 'fetch', version: 'v2', controller: v2_music_fetch, classname: 'music' },
 ]
 
 export default rest_routes;

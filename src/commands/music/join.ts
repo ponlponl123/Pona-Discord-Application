@@ -28,7 +28,7 @@ export async function execute(interaction: CommandInteraction) {
       });
     }
 
-    if ( member.voice.channel && isPonaInVoiceChannel(member.voice.channel?.guildId) )
+    if ( member.voice.channel && await isPonaInVoiceChannel(member.voice.channel?.guildId) )
     {
       const embed = new EmbedBuilder()
         .setDescription('<:X_:1298270493639446548> · **Pona is already in voice channel**!')

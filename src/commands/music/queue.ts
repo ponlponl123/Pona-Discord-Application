@@ -8,7 +8,6 @@ import { discordClient as self } from "@/index";
 import warningEmbedBuilder from "@utils/embeds/warning";
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
-import { lavaPlayer } from "@interfaces/player";
 import { getGuildLanguage } from "@/utils/i18n";
 
 export const data = new SlashCommandBuilder()
@@ -20,7 +19,7 @@ export default async function execute(interaction: CommandInteraction) {
     try {
         const member = interaction.member as GuildMember;
         const lang = getGuildLanguage(member.guild.id);
-        const voiceActionRequirement = isVoiceActionRequirement(member);
+        const voiceActionRequirement = await isVoiceActionRequirement(member);
 
         if ( !voiceActionRequirement.isPonaInVoiceChannel ) {
             return interaction.reply({
@@ -36,10 +35,10 @@ export default async function execute(interaction: CommandInteraction) {
             });
         }
 
-        const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
+        const playback = await isPonaInVoiceChannel( member.guild.id );
 
-        if ( playback.length > 0 ) {
-            const queueInLength = playback[0].player.queue.slice(0, 7);
+        if ( playback ) {
+            const queueInLength = playback.queue.slice(0, 7);
             const queueEmbed = new EmbedBuilder()
                 .setAuthor({
                     name: lang.data.music.queue.title,
@@ -47,13 +46,13 @@ export default async function execute(interaction: CommandInteraction) {
                     iconURL: 'https://cdn.discordapp.com/emojis/1299943220301529118.webp?size=32&quality=lossless'
                 })
                 .setColor('#F9C5D5')
-                .setTitle(playback[0].player.queue.current && playback[0].player.queue.current.title)
-                .setURL(playback[0].player.queue.current?.uri || null)
-                .setThumbnail(playback[0].player.queue.current && playback[0].player.queue.current.thumbnail || null)
-                .setDescription(`${lang.data.music.play.author} ${playback[0].player.queue.current?.author}\n‎ `)
+                .setTitle(playback.queue.current && playback.queue.current.title)
+                .setURL(playback.queue.current?.uri || null)
+                .setThumbnail(playback.queue.current && playback.queue.current.thumbnail || null)
+                .setDescription(`${lang.data.music.play.author} ${playback.queue.current?.author}\n‎ `)
                 .setFooter({
-                    text: `${lang.data.music.queue.added_by} ${playback[0].player.queue.current?.requester?.username}` || '',
-                    iconURL: playback[0].player.queue.current?.requester && (await self.client.users.fetch(playback[0].player.queue.current.requester.id)).avatarURL() || undefined
+                    text: `${lang.data.music.queue.added_by} ${playback.queue.current?.requester?.username}` || '',
+                    iconURL: playback.queue.current?.requester && (await self.client.users.fetch(playback.queue.current.requester.id)).avatarURL() || undefined
                 })
                 .setFields(
                     queueInLength.map((track, index) => {

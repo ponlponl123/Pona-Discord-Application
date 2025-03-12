@@ -1,5 +1,4 @@
 import { CacheType, CommandInteraction, CommandInteractionOptionResolver, SlashCommandBuilder, GuildMember, CommandInteractionOption, EmbedBuilder } from "discord.js";
-import { lavaPlayer } from "@interfaces/player";
 import isAvailable from "@utils/player/isAvailable";
 import errorEmbedBuilder from "@utils/embeds/error";
 
@@ -196,8 +195,8 @@ export async function execute(interaction: CommandInteraction) {
             case 'pause':
             case 'resume':
                 {
-                    const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
-                    return pauseSubsystem(interaction, playback.length > 0 && !playback[0].player.paused);
+                    const playback = await isPonaInVoiceChannel( member.guild.id );
+                    return pauseSubsystem(interaction, playback && !playback.paused);
                 }
             case 'queue':
                 return queueSubsystem(interaction);

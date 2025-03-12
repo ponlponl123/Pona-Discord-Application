@@ -11,6 +11,7 @@ export default async function joinChannel(channel: TextBasedChannel, voiceChanne
         voiceChannel: voiceChannel.id,
         textChannel: channel.id,
         volume: 100,
+        lastActive: new Date().getTime()
     });
     
     player.connect();
@@ -19,13 +20,6 @@ export default async function joinChannel(channel: TextBasedChannel, voiceChanne
         player.state === "CONNECTED"
     )
     {
-        self.playerConnections.push({
-            player: player,
-            voiceChannel: voiceChannel,
-            textChannel: channel,
-            guild: guild
-        });
-
         const defaultBand: Band[] = [
             { band: 0, gain: 0.034 },
             { band: 1, gain: 0.038 },

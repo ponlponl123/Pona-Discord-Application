@@ -1,29 +1,19 @@
 import { GuildMember } from "discord.js";
-import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from "../isPonaInVoiceChannel";
+import isPonaInVoiceChannel from "../isPonaInVoiceChannel";
 import voiceActionRequirement from "@interfaces/voiceActionRequirement";
-import { lavaPlayer } from "@interfaces/player";
-import { VoiceConnection } from "@discordjs/voice";
 
-export default function isVoiceActionRequirement(member: GuildMember): voiceActionRequirement {
+export default async function isVoiceActionRequirement(member: GuildMember): Promise<voiceActionRequirement> {
 
-    const isPonaIsInVoiceChannel = isPonaInVoiceChannel(
-        member.guild.id,
-        false
-    ) as IsPonaInVoiceChannel[];
+    const isPonaIsInVoiceChannel = await isPonaInVoiceChannel(member.guild.id);
 
-    if ( isPonaIsInVoiceChannel.length === 0 )
+    if ( !isPonaIsInVoiceChannel )
         return {
             isPonaInVoiceChannel: false,
             isUserInSameVoiceChannel: false,
             isUserInVoiceChannel: false
         }
 
-    const currentPonaVoiceChannelId =
-        isPonaIsInVoiceChannel[0][1] === 'player' ?
-            (isPonaIsInVoiceChannel[0][0] as lavaPlayer).voiceChannel.id :
-        isPonaIsInVoiceChannel[0][1] === 'voice' ?
-            (isPonaIsInVoiceChannel[0][0] as VoiceConnection).joinConfig.channelId :
-        undefined;
+    const currentPonaVoiceChannelId = isPonaIsInVoiceChannel.voiceChannel;
 
     if ( !currentPonaVoiceChannelId )
         return {

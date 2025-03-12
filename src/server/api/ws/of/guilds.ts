@@ -15,6 +15,7 @@ import getSongs from "@/utils/player/getSongs";
 import { SearchPlatform } from "@/interfaces/manager";
 import addToQueue from "@/utils/player/addToQueue";
 import { parseYouTubeAuthorTitle } from "@/utils/parser";
+import isPonaInVoiceChannel from "@/utils/isPonaInVoiceChannel";
 
 export type GuildEvents =
   'player_created'      |
@@ -212,7 +213,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       const guildId = socket.nsp.name.split('/')[2];
       socket.join("pona! music");
       socket.join(`stream:${socket.data.member.id}`);
-      const playerState = getHTTP_PlayerState(guildId);
+      const playerState = await getHTTP_PlayerState(guildId);
       let newPlayerState: HTTP_PonaCommonStateWithTracks | undefined
       if ( playerState?.current && playerState?.queue )
       {
@@ -239,20 +240,20 @@ export default async function dynamicGuildNamespace(io: Server) {
       });
       socket.on("repeat", async (type: 'none' | 'track' | 'queue', callback)=>{ try{
         if ( !member || !type || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+        const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
         let repeatType: typeof type = 'none';
         switch ( type ) {
           case 'track':
-            player.player.setTrackRepeat(true);
+            player.setTrackRepeat(true);
             repeatType = 'track';
             break;
           case 'queue':
-            player.player.setQueueRepeat(true);
+            player.setQueueRepeat(true);
             repeatType = 'queue';
             break;
           default:
-            player.player.setTrackRepeat(false);
+            player.setTrackRepeat(false);
             repeatType = 'none';
             break;
         }
@@ -269,19 +270,19 @@ export default async function dynamicGuildNamespace(io: Server) {
             'repeat',
             repeatType,
             guildId,
-            player.voiceChannel.id
+            player.voiceChannel
           ]
         )
         } catch { return; }
       });
       socket.on("move", async (from: number, to: number, callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+        const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
         io_guild.emit("queue_updating");
         setTimeout(async () => {
           try {
-            player.player.queue.move(from, to);
+            player.queue.move(from, to);
             if ( callback ) callback({
               status: "ok"
             });
@@ -289,6 +290,7 @@ export default async function dynamicGuildNamespace(io: Server) {
             if ( callback ) callback({
               status: "error"
             });
+            io_guild.to("pona! music").emit('queue_updated' as GuildEvents, player.queue);
           }
           io_guild.emit("track_moved", member);
           const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
@@ -301,7 +303,7 @@ export default async function dynamicGuildNamespace(io: Server) {
               'queue-move',
               `from ${from} to ${to}`,
               guildId,
-              player.voiceChannel.id
+              player.voiceChannel
             ]
           )
         }, 320);
@@ -309,9 +311,9 @@ export default async function dynamicGuildNamespace(io: Server) {
       });
       socket.on("pause", async (callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+        const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
-        player.player.pause(true);
+        player.pause(true);
         if ( callback ) callback({
           status: "ok"
         });
@@ -325,17 +327,17 @@ export default async function dynamicGuildNamespace(io: Server) {
             'pause',
             'true',
             guildId,
-            player.voiceChannel.id
+            player.voiceChannel
           ]
         )
         } catch { return; }
       });
       socket.on("seek", async (position: number, callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+        const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
-        player.player.seek(position);
-        player.player.pause(false);
+        player.seek(position);
+        player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
@@ -349,17 +351,17 @@ export default async function dynamicGuildNamespace(io: Server) {
             'seek',
             position,
             guildId,
-            player.voiceChannel.id
+            player.voiceChannel
           ]
         )
         } catch { return; }
       });
       socket.on("skipto", async (index: number, callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !Number(index) ) return;
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+        const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
-        player.player.skipto(index);
-        player.player.pause(false);
+        player.skipto(index);
+        player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
@@ -373,16 +375,16 @@ export default async function dynamicGuildNamespace(io: Server) {
             'skipto',
             index,
             guildId,
-            player.voiceChannel.id
+            player.voiceChannel
           ]
         )
         } catch { return; }
       });
       socket.on("play", async (callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+        const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
-        player.player.pause(false);
+        player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
@@ -396,14 +398,14 @@ export default async function dynamicGuildNamespace(io: Server) {
             'pause',
             'false',
             guildId,
-            player.voiceChannel.id
+            player.voiceChannel
           ]
         )
         } catch { return; }
       });
       socket.on("add", async (uri: string, searchengine: SearchPlatform, callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !uri || !searchengine ) return;
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
+        const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
           const track = await getSongs(uri, searchengine, member);
           if ( typeof track === 'string' ) return;
@@ -421,7 +423,7 @@ export default async function dynamicGuildNamespace(io: Server) {
               'add',
               JSON.stringify(track),
               guildId,
-              player.voiceChannel.id
+              player.voiceChannel
             ]
           )
         } catch { return; }
@@ -430,10 +432,10 @@ export default async function dynamicGuildNamespace(io: Server) {
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback({
           status: "error"
         });
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
-        if ( !player || !player.player.queue.previous ) return;
-        player.player.previous();
-        player.player.pause(false);
+        const player = await isPonaInVoiceChannel(guildId);
+        if ( !player || !player.queue.previous ) return;
+        player.previous();
+        player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
@@ -447,19 +449,19 @@ export default async function dynamicGuildNamespace(io: Server) {
             'previous',
             'true',
             guildId,
-            player.voiceChannel.id
+            player.voiceChannel
           ]
         )
         } catch { return; }
       });
       socket.on("next", async (callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
-        const player = self.playerConnections.filter(connection => connection.guild.id === guildId)[0];
-        if ( !player || !(player.player.queue.length > 0) ) return callback({
+        const player = await isPonaInVoiceChannel(guildId);
+        if ( !player || !(player.queue.length > 0) ) return callback({
           status: "error"
         });
-        player.player.skipto(0);
-        player.player.pause(false);
+        player.skipto(0);
+        player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
@@ -473,7 +475,7 @@ export default async function dynamicGuildNamespace(io: Server) {
             'next',
             'true',
             guildId,
-            player.voiceChannel.id
+            player.voiceChannel
           ]
         )
         } catch { return; }

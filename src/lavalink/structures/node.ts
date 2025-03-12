@@ -231,7 +231,7 @@ export class Node {
 		if (!payload.op) return;
 		this.manager.emit("nodeRaw", payload);
 
-		let player: Player;
+		let player: Player | undefined;
 
 		switch (payload.op) {
 			case "stats":
@@ -240,7 +240,8 @@ export class Node {
 				break;
 			case "playerUpdate":
 				player = this.manager.players.get(payload.guildId) as Player;
-				if (player) {
+				if ( player ) {
+					player.options.lastActive = new Date().getTime();
 					player.position = payload.state.position || 0;
 					this.manager.emit("trackPos", player.guild, player.position);
 				}
@@ -277,7 +278,8 @@ export class Node {
 	protected async handleEvent(payload: PlayerEvent & PlayerEvents): Promise<void> {
 		if (!payload.guildId) return;
 
-		const player = this.manager.players.get(payload.guildId);
+		let player = this.manager.players.get(payload.guildId);
+		// if (!player) player = await this.manager.loadPlayerState(payload.guildId);
 		if (!player) return;
 
 		const track = player.queue.current;

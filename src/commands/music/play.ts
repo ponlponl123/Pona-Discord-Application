@@ -8,12 +8,12 @@ import {
     ButtonStyle,
     Interaction
 } from "discord.js";
-import isPonaInVoiceChannel, { IsPonaInVoiceChannel } from "@utils/isPonaInVoiceChannel";
+import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import joinVoiceChannel from "@utils/player/joinVoiceChannelAsPlayer";
 import { prefix as consolePrefix } from "@config/console";
 import errorEmbedBuilder from "@utils/embeds/error";
 import addToQueue from "@utils/player/addToQueue";
-import { lavaPlayer, Track } from "@interfaces/player";
+import { Track } from "@interfaces/player";
 import getSongs from "@utils/player/getSongs";
 
 import { getGuildLanguage } from "@utils/i18n";
@@ -57,10 +57,10 @@ export default async function execute(interaction: CommandInteraction) {
             });
         }
 
-        const isPonaInVoiceConnection = isPonaInVoiceChannel(member.voice.channel.guildId, false) as IsPonaInVoiceChannel[];
+        let isPonaInVoiceConnection = await isPonaInVoiceChannel(member.voice.channel.guildId);
 
         if (
-            isPonaInVoiceConnection.length === 0
+            !isPonaInVoiceConnection
         )
         {
             const player = await joinVoiceChannel(
@@ -75,12 +75,12 @@ export default async function execute(interaction: CommandInteraction) {
                     ephemeral: true
                 });
             }
+
+            isPonaInVoiceConnection = player;
         }
 
-        const currentVoiceConnectionInGuild = isPonaInVoiceChannel(member.voice.channel.guildId, 'player') as lavaPlayer[];
-
         if (
-            currentVoiceConnectionInGuild[0].voiceChannel.id !== member.voice.channel.id
+            isPonaInVoiceConnection && isPonaInVoiceConnection.voiceChannel !== member.voice.channel.id
         )
         {
             return interaction.reply({
@@ -206,7 +206,7 @@ export default async function execute(interaction: CommandInteraction) {
                                 text: `${lang.data.music.play.author} ${result.tracks[0].author}`
                             })
                             .setColor('#F9C5D5');
-                        await addToQueue(result.tracks[0], currentVoiceConnectionInGuild[0]);
+                        await addToQueue(result.tracks[0], isPonaInVoiceConnection);
                     } else if ( result.type === 'playlist' ) {
                         const fields = result.tracks.slice(0, 24);
                         embed = new EmbedBuilder()
@@ -232,7 +232,7 @@ export default async function execute(interaction: CommandInteraction) {
                                 })
                             )
                             .setColor('#F9C5D5');
-                        await addToQueue(result.tracks, currentVoiceConnectionInGuild[0]);
+                        await addToQueue(result.tracks, isPonaInVoiceConnection);
                     } else {
                         return confirmation.reply({
                             embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)],

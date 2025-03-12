@@ -85,6 +85,7 @@ application.yml
 
 # Local pona state file/directory
 ponaState/
+ponaState*/
 data/
 
 # Build output directory

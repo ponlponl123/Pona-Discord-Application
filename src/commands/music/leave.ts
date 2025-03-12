@@ -6,7 +6,6 @@ import {
 } from "discord.js";
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
-import { lavaPlayer } from "@interfaces/player";
 import { getGuildLanguage } from "@/utils/i18n";
 
 export const data = new SlashCommandBuilder()
@@ -34,10 +33,10 @@ export default async function execute(interaction: CommandInteraction) {
             });
         }
 
-        const currentConnectionInGuild = isPonaInVoiceChannel(userVoiceChannel.guildId, 'player') as lavaPlayer[];
+        const currentConnectionInGuild = await isPonaInVoiceChannel(userVoiceChannel.guildId);
 
-        if ( currentConnectionInGuild.length > 0 ) {
-            if ( currentConnectionInGuild[0].voiceChannel.id !== userVoiceChannel.id ) {
+        if ( currentConnectionInGuild ) {
+            if ( currentConnectionInGuild.voiceChannel !== userVoiceChannel.id ) {
                 const embed = new EmbedBuilder()
                     .setDescription(`<:X_:1298270493639446548> · **${lang.data.reasons.invalid_voice_channel}**!`)
                     .setFooter({
@@ -51,7 +50,7 @@ export default async function execute(interaction: CommandInteraction) {
                 });
             }
 
-            if ( await leaveVoiceChannelAsPlayer(currentConnectionInGuild[0].guild.id) )
+            if ( await leaveVoiceChannelAsPlayer(currentConnectionInGuild.guild) )
             {
                 const embed = new EmbedBuilder()
                     .setDescription(`<:Check:1298270444150980619> · **${lang.data.music.play.leaved}**!`)

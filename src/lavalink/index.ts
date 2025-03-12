@@ -70,7 +70,6 @@ class LavalinkServer extends EventEmitter {
             clientName: 'Pona Discord Application',
             clientId: discordConf.DISCORD_CLIENT_ID,
             defaultSearchPlatform: 'youtube music',
-            plugins: [],
             trackPartial: ['authorURL', 'authorId'],
             // replaceYouTubeCredentials: true,
             send: (id, payload) => {
@@ -84,7 +83,6 @@ class LavalinkServer extends EventEmitter {
 
         this.manager.on('trackStart', async (player, track) => {
             try {
-                self.saveSessionOnFile();
                 // set voice channel status to current playing track
                 if ( !player.voiceChannel ) return false;
                 const lang = getGuildLanguage(player.guild);

@@ -19,6 +19,7 @@ export interface PlayerOptions {
 	volume?: number;
 	selfMute?: boolean;
 	selfDeafen?: boolean;
+	lastActive: number;
 }
 
 export interface TimestampLyrics {

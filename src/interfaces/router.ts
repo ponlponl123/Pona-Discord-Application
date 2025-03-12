@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express from "express";
 
 export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
 export type PRIVATE_HTTPMethod = 'GET_PRIVATE' | 'POST_PRIVATE' | 'PUT_PRIVATE' | 'PATCH_PRIVATE' | 'DELETE_PRIVATE' | 'HEAD_PRIVATE' | 'OPTIONS_PRIVATE'
@@ -16,9 +16,9 @@ export const HTTPMethods: HTTPMethod[] = [
 ]
 
 export type RequestParameters =
-    ((request: Express.Request | express.Request | any) => void | Promise<void> | any) |
-    ((response: Express.Response | express.Response | any) => void | Promise<void> | any) |
-    ((request: Express.Request | express.Request | any, response: Express.Response | express.Response | any) => void | Promise<void> | any);
+    ((request: express.Request | express.Request | any) => void | Promise<void> | any) |
+    ((response: express.Response | express.Response | any) => void | Promise<void> | any) |
+    ((request: express.Request | express.Request | any, response: express.Response | express.Response | any) => void | Promise<void> | any);
 
 export default interface PublicRouter {
     GET?: RequestParameters;

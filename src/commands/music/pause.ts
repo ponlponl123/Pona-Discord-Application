@@ -7,7 +7,6 @@ import {
 import warningEmbedBuilder from "@utils/embeds/warning";
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
-import { lavaPlayer } from "@interfaces/player";
 import { getGuildLanguage } from "@/utils/i18n";
 import color from "@/config/embedColor";
 
@@ -20,7 +19,7 @@ export default async function execute(interaction: CommandInteraction, value: bo
     try {
         const member = interaction.member as GuildMember;
         const lang = getGuildLanguage(member.guild.id);
-        const voiceActionRequirement = isVoiceActionRequirement(member);
+        const voiceActionRequirement = await isVoiceActionRequirement(member);
 
         if ( !voiceActionRequirement.isPonaInVoiceChannel ) {
             return interaction.reply({
@@ -36,10 +35,10 @@ export default async function execute(interaction: CommandInteraction, value: bo
             });
         }
 
-        const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
+        const playback = await isPonaInVoiceChannel( member.guild.id );
 
-        if ( playback.length > 0 ) {
-            playback[0].player.pause(value);
+        if ( playback ) {
+            playback.pause(value);
             const repeatStateEmbed = new EmbedBuilder()
                 .setTitle(`<:Revertarrow:1299947479571107942> · ${value ? lang.data.music.state.paused.true : lang.data.music.state.paused.false}`)
                 .setColor(color('focus'));

@@ -1,4 +1,4 @@
-import { discordClient as self } from "..";
+import { lavalink, discordClient as self } from "..";
 import { config } from "@/config/discord";
 import { prefix as consolePrefix } from "@/config/console";
 import * as discord from "discord.js";
@@ -10,10 +10,10 @@ export default async function setVoiceChannelStatus(voiceChannelRef: VoiceBasedC
     if ( typeof voiceChannelRef === 'string' )
         if ( voiceChannelRef.startsWith('guild-') )
         {
-            const getPlayer = self.playerConnections.filter(player => player.player.guild === voiceChannelRef.replace('guild-',''));
-            if ( getPlayer.length > 0 )
+            const getExistPlayer = lavalink.manager.players.filter( rootPlayer => rootPlayer.guild === voiceChannelRef );
+            if ( getExistPlayer.size > 0 )
             {
-                voiceChannel = await self.client.channels.fetch(getPlayer[0].voiceChannel.id) as VoiceBasedChannel;
+                voiceChannel = await self.client.channels.fetch(getExistPlayer.at(0)?.voiceChannel as string) as VoiceBasedChannel;
             }
             else
             {

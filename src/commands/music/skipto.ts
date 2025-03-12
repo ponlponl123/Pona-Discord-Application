@@ -16,7 +16,7 @@ import { discordClient as self } from "@/index";
 import warningEmbedBuilder from "@utils/embeds/warning";
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
-import { lavaPlayer, Track } from "@interfaces/player";
+import { Track } from "@interfaces/player";
 import color from "@/config/embedColor";
 import { getGuildLanguage } from "@/utils/i18n";
 
@@ -29,7 +29,7 @@ export default async function execute(interaction: CommandInteraction) {
     try {
         const member = interaction.member as GuildMember;
         const lang = getGuildLanguage(member.guild.id);
-        const voiceActionRequirement = isVoiceActionRequirement(member);
+        const voiceActionRequirement = await isVoiceActionRequirement(member);
 
         if ( !voiceActionRequirement.isPonaInVoiceChannel ) {
             return interaction.reply({
@@ -45,25 +45,25 @@ export default async function execute(interaction: CommandInteraction) {
             });
         }
 
-        const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
+        const playback = await isPonaInVoiceChannel( member.guild.id );
 
-        if ( playback.length > 0 && playback[0].player.queue.current ) {
-            if ( playback[0].player.queue.length <= 0 ) {
+        if ( playback && playback.queue.current ) {
+            if ( playback.queue.length <= 0 ) {
                 return interaction.reply({
                     embeds: [warningEmbedBuilder(lang.data.music.queue.skip.requirement)],
                     ephemeral: true
                 });
             }
-            const currentTrack = playback[0].player.queue.current as Track;
+            const currentTrack = playback.queue.current as Track;
             const actionRows: ActionRowBuilder<StringSelectMenuBuilder>[] = [];
-            const total_pages = Math.ceil(playback[0].player.queue.length / 24);
+            const total_pages = Math.ceil(playback.queue.length / 24);
 
             for (let i = 0; i < total_pages; i++) {
                 const selector = new StringSelectMenuBuilder()
                     .setCustomId(`skipto_track_${i}`)
                     .setPlaceholder(`${lang.data.music.queue.skip.selector_placeholder}${total_pages > 1 && `(${lang.data.music.queue.skip.page_num} #${i+1})`}`)
                     .addOptions(
-                        playback[0].player.queue.slice(i * 24, (i + 1) * 24).filter(track => track.uniqueId !== currentTrack.uniqueId).map((track, index) => {
+                        playback.queue.slice(i * 24, (i + 1) * 24).filter(track => track.uniqueId !== currentTrack.uniqueId).map((track, index) => {
                             return new StringSelectMenuOptionBuilder()
                                 .setValue(String(index + i * 24))
                                 .setLabel(`${(index + i * 24) + 1}. ${track.title}`.slice(0, 100));
@@ -84,7 +84,7 @@ export default async function execute(interaction: CommandInteraction) {
             const collector = response.createMessageComponentCollector({ filter: (i) => i.user.id === interaction.user.id, time: 60_000 });
 
             const skipto = async (index: number, voted: boolean) => {
-                playback[0].player.skipto(index);
+                playback.skipto(index);
                 const skipEmbed = new EmbedBuilder()
                     .setTitle(`<:Rightarrow:1299943204287938600> · ${lang.data.music.play.skipped}!`)
                     .setColor(color('light'))
@@ -115,7 +115,7 @@ export default async function execute(interaction: CommandInteraction) {
 
             collector.on('collect', async (collected: StringSelectMenuInteraction<CacheType>) => {
                 const selectedIndex = Number(collected.values[0]);
-                const selected = playback[0].player.queue.at(selectedIndex);
+                const selected = playback.queue.at(selectedIndex);
                 if ( collected.user.id !== member.id ) return;
                 if ( selected ) {
                     interaction.deleteReply();

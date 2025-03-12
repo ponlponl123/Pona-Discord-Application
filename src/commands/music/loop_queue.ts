@@ -6,7 +6,6 @@ import {
 import warningEmbedBuilder from "@utils/embeds/warning";
 import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
 import isVoiceActionRequirement from "@utils/player/isVoiceActionRequirement";
-import { lavaPlayer } from "@interfaces/player";
 
 export const data = new SlashCommandBuilder()
     .setName('loop_queue')
@@ -16,7 +15,7 @@ export const data = new SlashCommandBuilder()
 export default async function execute(interaction: CommandInteraction, value: boolean = true, reply: boolean = true) {
     try {
         const member = interaction.member as GuildMember;
-        const voiceActionRequirement = isVoiceActionRequirement(member);
+        const voiceActionRequirement = await isVoiceActionRequirement(member);
 
         if ( !voiceActionRequirement.isPonaInVoiceChannel ) {
             return interaction.reply({
@@ -32,10 +31,10 @@ export default async function execute(interaction: CommandInteraction, value: bo
             });
         }
 
-        const playback = isPonaInVoiceChannel( member.guild.id, 'player' ) as lavaPlayer[];
+        const playback = await isPonaInVoiceChannel( member.guild.id );
 
-        if ( playback.length > 0 ) {
-            playback[0].player.setQueueRepeat(value);
+        if ( playback ) {
+            playback.setQueueRepeat(value);
             return reply ? interaction.reply({
                 content: value ? 'Queue repeated.' : 'Queue stop repeated.'
             }) : true;

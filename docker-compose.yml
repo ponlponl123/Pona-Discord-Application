@@ -28,7 +28,7 @@ services:
     build: .
     container_name: pona
     volumes:
-      - ./.env:/pona/.env.production
+      - ./.env.production:/pona/.env.production
       - ./ponaState/:/pona/ponaState/
     environment:
       # ... other environment variables

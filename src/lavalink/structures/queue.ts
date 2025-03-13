@@ -30,10 +30,17 @@ export class Queue extends Array<Track | UnresolvedTrack> {
 	public add(track: (Track | UnresolvedTrack) | (Track | UnresolvedTrack)[], offset?: number): void {
 		const oldPlayer = { ...this.manager.players.get(this.guild) };
 		if (!TrackUtils.validate(track)) throw new RangeError('Track must be a "Track" or "Track[]".');
+
+		const addTrack = (t: Track | UnresolvedTrack) => {
+			if (!this.some(existingTrack => existingTrack.uniqueId === t.uniqueId)) {
+				this.push(t);
+			}
+		};
+
 		if (!this.current) {
 			if (Array.isArray(track)) {
 				this.current = track.shift() || null;
-				this.push(...track);
+				track.forEach(addTrack);
 			} else {
 				this.current = track;
 			}
@@ -41,11 +48,11 @@ export class Queue extends Array<Track | UnresolvedTrack> {
 			if (typeof offset !== "undefined" && typeof offset === "number") {
 				if (isNaN(offset)) throw new RangeError("Offset must be a number.");
 				if (offset < 0 || offset > this.length) throw new RangeError(`Offset must be between 0 and ${this.length}.`);
-				if (Array.isArray(track)) this.splice(offset, 0, ...track);
+				if (Array.isArray(track)) track.forEach(t => this.splice(offset, 0, t));
 				else this.splice(offset, 0, track);
 			} else {
-				if (Array.isArray(track)) this.push(...track);
-				else this.push(track);
+				if (Array.isArray(track)) track.forEach(addTrack);
+				else addTrack(track);
 			}
 		}
 		this.manager.emit("playerStateUpdate", oldPlayer, this.manager.players.get(this.guild), "queueChange");
@@ -54,7 +61,7 @@ export class Queue extends Array<Track | UnresolvedTrack> {
 	public move(from: number, to: number): void {
 		const oldPlayer = { ...this.manager.players.get(this.guild) };
 		if (isNaN(Number(from)) || isNaN(Number(to))) throw new RangeError(`Missing "from" or "to" parameter.`);
-		if (from <= 0 || to < 0 || from > this.length || to >= this.length) throw new RangeError("Invalid start or end values.");
+		if (from < 1 || to < 1 || from > this.length || to > this.length) throw new RangeError("Invalid start or end values.");
 		const movedTrack = this.splice(from - 1, 1)[0];
 		this.splice(to - 1, 0, movedTrack);
 		this.manager.emit("playerStateUpdate", oldPlayer, this.manager.players.get(this.guild), "queueChange");

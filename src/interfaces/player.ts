@@ -72,6 +72,7 @@ export interface TrackPluginInfo {
 export interface UnresolvedTrack extends Partial<Track> {
 	[key: string]: any;
 	title: string;
+	uniqueId: string;
 	author?: string;
 	duration?: number;
 	resolve(): Promise<void>;

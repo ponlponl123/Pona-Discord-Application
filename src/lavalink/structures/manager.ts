@@ -37,6 +37,9 @@ import {
 } from "@/interfaces/manager";
 import randomString from "@/utils/randomString";
 import { parseYouTubeTitle } from "@/utils/parser";
+import { discordClient } from "@/index";
+import { fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
+import { createTrackData } from "@/utils/lavalink/track";
 
 interface LavaPlayer {
 	guildId: string;
@@ -85,228 +88,114 @@ export class Manager extends EventEmitter {
 	private initiated = false;
 
 	public async loadPlayerStates(nodeId: string): Promise<void> {
-		Promise.resolve(async ()=>{
-			const node = this.nodes.get(nodeId);
-			if (!node) throw new Error(`Could not find node: ${nodeId}`);
-	
-			const info = (await node.rest.getAllPlayers()) as LavaPlayer[];
-	
-			const playerStatesDir = path.join(process.cwd(), "ponaState", "lavalink", "players");
-	
-			if (!fs.existsSync(playerStatesDir)) {
-				fs.mkdirSync(playerStatesDir, { recursive: true });
-				console.log(consolePrefix.lavalink + `Created lavalink states directory at ${playerStatesDir}`);
-			}
-	
-			const playerFiles = fs.readdirSync(playerStatesDir);
-	
-			const createTrackData = ( song: any ): TrackData => ({
-				encoded: song.track,
-				info: {
-					timestamp: song.timestamp,
-					uniqueId: song.uniqueId,
-					identifier: song.identifier,
-					isSeekable: song.isSeekable,
-					author: song.author,
-					cleanAuthor: song.cleanAuthor,
-					length: song.duration,
-					isrc: song.isrc,
-					isStream: song.isStream,
-					title: song.title,
-					cleanTitle: song.cleanTitle,
-					uri: song.uri,
-					artworkUrl: song.artworkUrl,
-					hightResArtworkUrl: song.highResArtworkUrl,
-					accentColor: song.accentColor,
-					lyrics: song.lyrics,
-					sourceName: song.sourceName,
-				},
-				pluginInfo: (song.pluginInfo as Record<string, string>),
-			});
-	
-			// Clear current memory
-			this.players.clear();
-			this.latestPlayerStates.clear();
-			this.lastSaveTimes.clear();
-	
-			for (const file of playerFiles) {
-				const filePath = path.join(playerStatesDir, file);
-				const data = fs.readFileSync(filePath, "utf-8");
-				const state = JSON.parse(data);
-	
-				if (state && typeof state === "object" && state.guild && state.node.options.identifier === nodeId) {
-					const lavaPlayer = info.find((player) => player.guildId === state.guild);
-					if (!lavaPlayer) {
-						this.destroy(state.guild);
+		const node = this.nodes.get(nodeId);
+		if (!node) throw new Error(`Could not find node: ${nodeId}`);
+
+		const info = (await node.rest.getAllPlayers()) as LavaPlayer[];
+
+		const playerStatesDir = path.join(process.cwd(), "ponaState", "lavalink", "players");
+
+		if (!fs.existsSync(playerStatesDir)) {
+			fs.mkdirSync(playerStatesDir, { recursive: true });
+			console.log(consolePrefix.lavalink + `Created lavalink states directory at ${playerStatesDir}`);
+		}
+
+		const playerFiles = fs.readdirSync(playerStatesDir);
+
+		// clear current memory before adding new state
+		this.players.clear();
+		this.latestPlayerStates.clear();
+		this.lastSaveTimes.clear();
+
+		for (const file of playerFiles) {
+			const filePath = path.join(playerStatesDir, file);
+			const data = fs.readFileSync(filePath, "utf-8");
+			const state = JSON.parse(data);
+
+			if (state && typeof state === "object" && state.guild && state.node.options.identifier === nodeId) {
+				const lavaPlayer = info.find((player) => player.guildId === state.guild);
+				if (!lavaPlayer) {
+					this.destroy(state.guild);
+					continue;
+				}
+				const playerOptions: PlayerOptions = {
+					guild: state.options.guild,
+					textChannel: state.options.textChannel,
+					voiceChannel: state.options.voiceChannel,
+					selfDeafen: state.options.selfDeafen,
+					volume: lavaPlayer.volume || state.options.volume,
+					lastActive: state.options.lastActive,
+				};
+
+				this.create(playerOptions);
+
+				const player = this.get(state.options.guild) as Player;
+				if (!lavaPlayer.state.connected) {
+					try {
+						player.connect();
+					} catch (error) {
+						console.log(consolePrefix.lavalink + error);
 						continue;
 					}
-					const playerOptions: PlayerOptions = {
-						guild: state.options.guild,
-						textChannel: state.options.textChannel,
-						voiceChannel: state.options.voiceChannel,
-						selfDeafen: state.options.selfDeafen,
-						volume: lavaPlayer.volume || state.options.volume,
-						lastActive: state.options.lastActive,
-					};
-	
-					this.create(playerOptions);
-	
-					const player = this.get(state.options.guild) as Player;
-					if (!lavaPlayer.state.connected) {
-						try {
-							player.connect();
-						} catch (error) {
-							console.log(consolePrefix.lavalink + error);
-							continue;
+				}
+
+				const tracks = [];
+
+				if (!lavaPlayer.track) {
+					if (state.queue.current !== null) {
+						for (const key in state.queue) {
+							if (!isNaN(Number(key)) && key !== "current" && key !== "previous" && key !== "manager") {
+								const song = state.queue[key];
+								tracks.push(TrackUtils.build(createTrackData(song), song.requester));
+							}
 						}
-					}
-	
-					const tracks = [];
-	
-					if (!lavaPlayer.track) {
-						if (state.queue.current !== null) {
-							for (const key in state.queue) {
-								if (!isNaN(Number(key)) && key !== "current" && key !== "previous" && key !== "manager") {
-									const song = state.queue[key];
-									tracks.push(TrackUtils.build(createTrackData(song), song.requester));
-								}
-							}
-	
-							if (tracks.length > 0) {
-								if (player.state !== "CONNECTED") player.connect();
-								player.queue.add(tracks);
-								if (!state.paused && player.state === "CONNECTED") player.play();
-								else console.log(consolePrefix.lavalink + player.state);
-							} else {
-								const payload = {
-									reason: "finished",
-								};
-								node.queueEnd(player, state.queue.current, payload as TrackEndEvent);
-								continue;
-							}
-						} else {
-							if (state.queue.previous !== null) {
-								const payload = {
-									reason: "finished",
-								};
-								node.queueEnd(player, state.queue.previous, payload as TrackEndEvent);
-							} else this.destroy(state.guild);
-						}
-					} else {
-						const currentTrack = state.queue.current;
-						if ( currentTrack ) {
-							tracks.push(TrackUtils.build(createTrackData(currentTrack), currentTrack.requester));
-	
-							for (const key in state.queue) {
-								if (!isNaN(Number(key)) && key !== "current" && key !== "previous" && key !== "manager") {
-									const song = state.queue[key];
-									tracks.push(TrackUtils.build(createTrackData(song), song.requester));
-								}
-							}
+
+						if (tracks.length > 0) {
 							if (player.state !== "CONNECTED") player.connect();
 							player.queue.add(tracks);
+							if (!state.paused && player.state === "CONNECTED") player.play();
+							else console.log(consolePrefix.lavalink + player.state);
+						} else {
+							const payload = {
+								reason: "finished",
+							};
+							node.queueEnd(player, state.queue.current, payload as TrackEndEvent);
+							continue;
 						}
+					} else {
+						if (state.queue.previous !== null) {
+							const payload = {
+								reason: "finished",
+							};
+							node.queueEnd(player, state.queue.previous, payload as TrackEndEvent);
+						} else this.destroy(state.guild);
 					}
-	
-					if (state.paused) player.pause(true);
-					player.setTrackRepeat(state.trackRepeat);
-					player.setQueueRepeat(state.queueRepeat);
-					if (state.dynamicRepeat) {
-						player.setDynamicRepeat(state.dynamicRepeat, state.dynamicLoopInterval._idleTimeout);
-					}
-					if (state.isAutoplay) {
-						player.setAutoplay(state.isAutoplay, state.data.Internal_BotUser);
-					}
-					console.log(consolePrefix.lavalink + `Loaded lavalink player state for ${state.options.guild}.`);
-				}
-			}
-	
-			console.log(consolePrefix.lavalink + "Restored lavalink states from player files.");
-		})
-	}
-
-	public async loadPlayerState(guildId: string): Promise<Player | undefined> {
-		const playerStateFilePath = this.getPlayerFilePath(guildId);
-
-		if (!fs.existsSync(playerStateFilePath)) {
-			this.destroy(guildId);
-			return;
-		}
-
-		const data = fs.readFileSync(playerStateFilePath, "utf-8");
-		const state = JSON.parse(data);
-
-		if (state && typeof state === "object" && state.guild) {
-			const playerOptions: PlayerOptions = {
-				guild: state.options.guild,
-				textChannel: state.options.textChannel,
-				voiceChannel: state.options.voiceChannel,
-				selfDeafen: state.options.selfDeafen,
-				volume: state.options.volume,
-				lastActive: state.lastActive,
-			};
-
-			this.create(playerOptions);
-
-			const player = this.get(state.options.guild) as Player;
-
-			const createTrackData = (song: any): TrackData => ({
-				encoded: song.track,
-				info: {
-					timestamp: song.timestamp,
-					uniqueId: song.uniqueId,
-					identifier: song.identifier,
-					isSeekable: song.isSeekable,
-					author: song.author,
-					cleanAuthor: song.cleanAuthor,
-					length: song.duration,
-					isrc: song.isrc,
-					isStream: song.isStream,
-					title: song.title,
-					cleanTitle: song.cleanTitle,
-					uri: song.uri,
-					artworkUrl: song.artworkUrl,
-					hightResArtworkUrl: song.highResArtworkUrl,
-					accentColor: song.accentColor,
-					lyrics: song.lyrics,
-					sourceName: song.sourceName,
-				},
-				pluginInfo: (song.pluginInfo as Record<string, string>),
-			});
-
-			const tracks = [];
-
-			if (state.queue.current !== null) {
-				for (const key in state.queue) {
-					if (!isNaN(Number(key)) && key !== "current" && key !== "previous" && key !== "manager") {
-						const song = state.queue[key];
-						tracks.push(TrackUtils.build(createTrackData(song), song.requester));
-					}
-				}
-
-				if (tracks.length > 0) {
-					if (player.state !== "CONNECTED") player.connect();
-					player.queue.add(tracks);
-					if (!state.paused && player.state === "CONNECTED") player.play();
 				} else {
-					this.destroy(state.guild);
-				}
-			} else {
-				this.destroy(state.guild);
-			}
+					const currentTrack = state.queue.current;
+					if ( currentTrack ) {
+						tracks.push(TrackUtils.build(createTrackData(currentTrack), currentTrack.requester));
 
-			if (state.paused) player.pause(true);
-			player.setTrackRepeat(state.trackRepeat);
-			player.setQueueRepeat(state.queueRepeat);
-			if (state.dynamicRepeat) {
-				player.setDynamicRepeat(state.dynamicRepeat, state.dynamicLoopInterval._idleTimeout);
+						for (const key in state.queue) {
+							if (!isNaN(Number(key)) && key !== "current" && key !== "previous" && key !== "manager") {
+								const song = state.queue[key];
+								tracks.push(TrackUtils.build(createTrackData(song), song.requester));
+							}
+						}
+						if (player.state !== "CONNECTED") player.connect();
+						player.queue.add(tracks);
+					}
+				}
+
+				if (state.paused) player.pause(true);
+				player.setTrackRepeat(state.trackRepeat);
+				player.setQueueRepeat(state.queueRepeat);
+				if (state.dynamicRepeat) player.setDynamicRepeat(state.dynamicRepeat, state.dynamicLoopInterval._idleTimeout);
+				if (state.isAutoplay) player.setAutoplay(state.isAutoplay, state.data.Internal_BotUser);
+				console.log(consolePrefix.lavalink + `Loaded lavalink player state for ${state.options.guild}.`);
 			}
-			if (state.isAutoplay) {
-				player.setAutoplay(state.isAutoplay, state.data.Internal_BotUser);
-			}
-			console.log(consolePrefix.lavalink + `Loaded lavalink player state for ${state.options.guild}.`);
-			return player;
 		}
+
+		console.log(consolePrefix.lavalink + "Restored lavalink states from player files.");
 	}
 
 	public async readPlayerState(guildId: string): Promise<Player | undefined> {
@@ -331,30 +220,6 @@ export class Manager extends EventEmitter {
 
 			const player = new (Structure.get("Player"))(playerOptions);
 
-			const createTrackData = (song: any): TrackData => ({
-				encoded: song.track,
-				info: {
-					timestamp: song.timestamp,
-					uniqueId: song.uniqueId,
-					identifier: song.identifier,
-					isSeekable: song.isSeekable,
-					author: song.author,
-					cleanAuthor: song.cleanAuthor,
-					length: song.duration,
-					isrc: song.isrc,
-					isStream: song.isStream,
-					title: song.title,
-					cleanTitle: song.cleanTitle,
-					uri: song.uri,
-					artworkUrl: song.artworkUrl,
-					hightResArtworkUrl: song.highResArtworkUrl,
-					accentColor: song.accentColor,
-					lyrics: song.lyrics,
-					sourceName: song.sourceName,
-				},
-				pluginInfo: (song.pluginInfo as Record<string, string>),
-			});
-
 			const tracks = [];
 
 			if (state.queue.current !== null) {
@@ -365,20 +230,14 @@ export class Manager extends EventEmitter {
 					}
 				}
 
-				if (tracks.length > 0) {
-					player.queue.add(tracks);
-				}
+				player.queue.add(tracks);
 			}
 
 			if (state.paused) player.pause(true);
 			player.setTrackRepeat(state.trackRepeat);
 			player.setQueueRepeat(state.queueRepeat);
-			if (state.dynamicRepeat) {
-				player.setDynamicRepeat(state.dynamicRepeat, state.dynamicLoopInterval._idleTimeout);
-			}
-			if (state.isAutoplay) {
-				player.setAutoplay(state.isAutoplay, state.data.Internal_BotUser);
-			}
+			if (state.dynamicRepeat)player.setDynamicRepeat(state.dynamicRepeat, state.dynamicLoopInterval._idleTimeout);
+			if (state.isAutoplay) player.setAutoplay(state.isAutoplay, state.data.Internal_BotUser);
 			console.log(consolePrefix.lavalink + `Read lavalink player state for ${state.options.guild}.`);
 			return player;
 		}
@@ -451,29 +310,42 @@ export class Manager extends EventEmitter {
 
 		const activeGuildIds = new Set(this.players.keys());
 
+		const deleteInactivePlayer = (file: string) => {
+			const filePath = path.join(playerStatesDir, file);
+            fs.unlinkSync(filePath);
+            console.log(consolePrefix.lavalink + `Deleted inactive player file: ${filePath}`);
+		}
+
 		for (const file of playerFiles) {
 			const guildId = path.basename(file, ".json");
 
 			if (!activeGuildIds.has(guildId)) {
-				const data = fs.readFileSync(file, "utf-8");
+				const filePath = path.join(playerStatesDir, file);
+				const data = fs.readFileSync(filePath, "utf-8");
 				const state = JSON.parse(data);
 		
 				if (state && typeof state === "object" && state.guild) {
-					const playerOptions: PlayerOptions = {
-						guild: state.options.guild,
-						textChannel: state.options.textChannel,
-						voiceChannel: state.options.voiceChannel,
-						selfDeafen: state.options.selfDeafen,
-						volume: state.options.volume,
-						lastActive: state.lastActive,
-					};
-					// if player not active than 5 minutes (lastActive is unix timestamp)
-					if (!((new Date().getTime() - (playerOptions.lastActive || 0)) >= 5 * 60 * 1000)) continue;
+					if ( !discordClient.client.user?.id ) continue;
+					const isPonaInVoiceChannel = Promise.all([fetchIsUserInVoiceChannel(guildId, discordClient.client.user?.id)]);
+					isPonaInVoiceChannel.then((value) => {
+						if ( value[0] )
+						{
+							const playerOptions: PlayerOptions = {
+								guild: state.options.guild,
+								textChannel: state.options.textChannel,
+								voiceChannel: state.options.voiceChannel,
+								selfDeafen: state.options.selfDeafen,
+								volume: state.options.volume,
+								lastActive: state.lastActive,
+							};
+							// if player not active than 5 minutes (lastActive is unix timestamp)
+							if ((new Date().getTime() - (playerOptions.lastActive || 0)) > 5 * 60 * 1000)
+								deleteInactivePlayer(file);
+						}
+						else deleteInactivePlayer(file);
+					});
 				}
-
-				const filePath = path.join(playerStatesDir, file);
-				fs.unlinkSync(filePath);
-				console.log(consolePrefix.lavalink + `Deleted inactive player file: ${filePath}`);
+				else deleteInactivePlayer(file);
 			}
 		}
 	}
@@ -750,6 +622,7 @@ export class Manager extends EventEmitter {
 		if (!update || (!("token" in update) && !("session_id" in update))) return;
 		const player = this.players.get(update.guild_id);
 		if (!player) return;
+		player.options.lastActive = new Date().getTime();
 		if ("token" in update) {
 			player.voiceState.event = update;
 			const {

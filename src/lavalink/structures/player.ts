@@ -23,6 +23,7 @@ import { ClientUser, Message, User } from "discord.js";
 export class Player {
 	public readonly queue!: Queue;
 	public filters!: Filters;
+	public ticks = 0;
 	public trackRepeat = false;
 	public queueRepeat = false;
 	public dynamicRepeat = false;

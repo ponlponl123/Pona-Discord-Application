@@ -8,7 +8,7 @@ services:
     # image: pona-discord-application:latest
     # 
     volumes:
-      - ./.env:/pona/.env.production
+      - ./.env.production:/pona/.env.production
       - ./ponaState/:/pona/ponaState/
     environment:
       # ... other environment variables

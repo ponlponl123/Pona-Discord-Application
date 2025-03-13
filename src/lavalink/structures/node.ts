@@ -52,6 +52,7 @@ export class Node {
 	private reconnectTimeout?: NodeJS.Timeout;
 	private reconnectAttempts = 1;
 	public info: LavalinkInfo | null = null;
+	private tickSpeed = 12;
 	
 	public get connected(): boolean {
 		if (!this.socket) return false;
@@ -244,6 +245,12 @@ export class Node {
 					player.options.lastActive = new Date().getTime();
 					player.position = payload.state.position || 0;
 					this.manager.emit("trackPos", player.guild, player.position);
+					
+					player.ticks++;
+					if (player.ticks >= this.tickSpeed) {
+						this.manager.savePlayerState(player.guild);
+						player.ticks = 0;
+					}
 				}
 				break;
 			case "event":

@@ -219,7 +219,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       {
         newPlayerState = {
           ...playerState,
-          queue: ([ playerState.current, ...playerState.queue ] as Queue),
+          queue: ([ playerState.queue.current, ...playerState.queue ] as Queue),
         }
       }
       const member = await self.client.guilds.cache.get(guildId)?.members.fetch(socket.data.member.id);
@@ -279,18 +279,25 @@ export default async function dynamicGuildNamespace(io: Server) {
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
         const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
-        io_guild.emit("queue_updating");
+        console.log("Moving!", from, to);
+        io_guild.to("pona! music").emit("queue_updating");
         setTimeout(async () => {
           try {
             player.queue.move(from, to);
             if ( callback ) callback({
               status: "ok"
             });
-          } catch {
+          } catch (e) {
+            console.log("Error While moving track: ", e);
             if ( callback ) callback({
               status: "error"
             });
-            io_guild.to("pona! music").emit('queue_updated' as GuildEvents, player.queue);
+            try {
+              io_guild.to("pona! music").emit('queue_updated' as GuildEvents, player.queue);
+            } catch (e) {
+              console.error("Failed to emit queue_updated", e);
+              return;
+            }
           }
           io_guild.emit("track_moved", member);
           const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));

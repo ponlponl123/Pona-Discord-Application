@@ -2,6 +2,7 @@ services:
   pona:
     image: pona-discord-application:latest
     volumes:
+      - ./.env.production:/pona/.env.production
       - ./ponaState/:/pona/ponaState/
     ports:
       - "3000:3000"

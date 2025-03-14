@@ -96,6 +96,9 @@ export default async function execute(interaction: CommandInteraction) {
             });
         }
 
+        const letsthink = await interaction.deferReply({
+            ephemeral: true
+        });
         const result = await getSongs(input, searchEngine, member);
 
         if ( typeof result === 'string' && result.startsWith('Pona!Share') ) {
@@ -154,9 +157,8 @@ export default async function execute(interaction: CommandInteraction) {
                     )
                     .setColor('#F9C5D5');
             } else {
-                return interaction.reply({
-                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)],
-                    ephemeral: true
+                return interaction.editReply({
+                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)]
                 });
             }
 
@@ -172,11 +174,10 @@ export default async function execute(interaction: CommandInteraction) {
                         .setCustomId('addtoqueue')
                 );
             
-            const response = (interaction && interaction.isRepliable()) ? await interaction.reply({
+            const response = (interaction && interaction.isRepliable()) ? await interaction.editReply({
                 content: `<:Question:1298270472428978217> · ${lang.data.music.play.confirmation.title}`,
                 embeds: [embed],
-                components: [row],
-                ephemeral: true
+                components: [row]
             }) : false;
 
             if ( !response )
@@ -190,7 +191,7 @@ export default async function execute(interaction: CommandInteraction) {
                 const confirmation = await response.awaitMessageComponent({ filter: collectorFilter, time: 60_000 });
 
                 if (confirmation.customId === 'addtoqueue') {
-                    await response.delete();
+                    await letsthink.delete();
                     let embed: EmbedBuilder;
                     if ( result.type === 'track' ) {
                         embed = new EmbedBuilder()
@@ -241,27 +242,27 @@ export default async function execute(interaction: CommandInteraction) {
                     }
                     await confirmation.reply({ content: `<:Check:1298270444150980619> · **${lang.data.music.queue.added}**`, embeds: [embed] });
                 } else if (confirmation.customId === 'abort') {
-                    await response.delete();
+                    await letsthink.delete();
                 }
             } catch (e) {
-                await response.edit({ content: lang.data.components.errors.timeout, embeds: [], components: [] }).catch(() => {
+                await letsthink.edit({ content: lang.data.components.errors.timeout, embeds: [], components: [] }).catch(() => {
                     interaction.followUp({ content: lang.data.components.errors.timeout, ephemeral: true });
                 });
                 console.log( consolePrefix.discord + 'Error when listening add queue confirmation:', e );
             }
 
-            return response;
+            return letsthink;
         }
 
         const embed = new EmbedBuilder()
             .setDescription(`<:Check:1298270444150980619> · **${lang.data.music.errors.not_found}** :(`)
             .setColor('#F9C5D5');
         
-        return interaction.reply({
-            embeds: [embed],
-            ephemeral: true
+        return interaction.editReply({
+            embeds: [embed]
         });
-    } catch {
+    } catch(err) {
+        console.error("play discord command error", err);
         return;
     }
 }

@@ -4,6 +4,10 @@ import * as Interface from '@interfaces/lavaUtils';
 import { ClientUser, User } from "discord.js";
 import { Manager } from "./manager";
 import { Buffer } from "buffer";
+import YTMusicAPI from '@/utils/ytmusic-api/request';
+import { parseYouTubeTitle } from "@/utils/parser";
+import randomString from "@/utils/randomString";
+import { ytmusic } from "@/index";
 
 const structures = {
 	Player: require('./player').Player,
@@ -239,6 +243,44 @@ export class Plugin {
 
 	// public unload(manager: Manager): void {}
 	public unload(_manager: Manager): void {}
+}
+
+export async function constructTrack<T = User | ClientUser>(track: Interface.TrackData, requester?: T, version: (1 | 2) = 1): Promise<Track> {
+	if (
+		!track.info.uniqueId ||
+		!track.info.timestamp
+	)
+	{
+		const parsed = parseYouTubeTitle(track.info.title, track.info.author);
+		track.info.timestamp = new Date().getTime();
+		track.info.uniqueId = randomString(32);
+		track.info.cleanTitle = parsed.cleanTitle;
+		track.info.cleanAuthor = parsed.cleanAuthor;
+		switch ( version )
+		{
+			case 1:
+				const searchResult = await ytmusic.client.getVideo(track.info.identifier);
+				if ( !searchResult ) break;
+				track.info.artist = [{
+					id: searchResult.artist.artistId || '',
+					name: searchResult.artist.name
+				}]
+				break;
+			case 2:
+				const fetchVideoDetail = await YTMusicAPI('GET', `song/${track.info.identifier}`);
+				if ( fetchVideoDetail && fetchVideoDetail.status === 200 )
+				{
+					track.info.artist = [{
+						id: (fetchVideoDetail?.data?.result?.videoDetails?.channelId as unknown) as string,
+						name: (fetchVideoDetail?.data?.result?.videoDetails?.author as unknown) as string
+					}]
+				}
+				break;
+			default:
+				break;
+		}
+	}
+	return TrackUtils.build(track, requester);
 }
 
 export class LavalinkTrackEncoder {

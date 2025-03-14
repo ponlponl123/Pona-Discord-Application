@@ -1,6 +1,6 @@
 /* eslint-disable no-async-promise-executor */
 import {
-	LavalinkTrackEncoder,
+	constructTrack,
 	Plugin,
 	Structure,
 	TrackUtils
@@ -8,11 +8,9 @@ import {
 import { Node } from "./node";
 import { Player } from "./player";
 import managerCheck from "@utils/lavalink/managerCheck";
-import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { Collection } from "@discordjs/collection";
 import { ClientUser, User } from "discord.js";
 import { EventEmitter } from "events";
-import * as base64 from 'base64-js';
 import fs from "fs";
 import path from "path";
 
@@ -25,8 +23,7 @@ import {
 	VoicePacket,
 	VoiceServer,
 	TrackData,
-	TrackEndEvent,
-	TrackDataInfo
+	TrackEndEvent
 } from "@interfaces/lavaUtils";
 import { NodeOptions } from "@interfaces/node";
 import {
@@ -39,8 +36,7 @@ import {
 	SearchQuery,
 	SearchResult
 } from "@/interfaces/manager";
-import randomString from "@/utils/randomString";
-import { combineArtistName, parseYouTubeTitle } from "@/utils/parser";
+import { parseYouTubeTitle } from "@/utils/parser";
 import { discordClient } from "@/index";
 import { fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
 import { createTrackData } from "@/utils/lavalink/track";
@@ -515,64 +511,11 @@ export class Manager extends EventEmitter {
 		const _source = _query.source ? Manager.DEFAULT_SOURCES[this.options.defaultSearchPlatform as SearchPlatform] : _query.source as string;
 		let search = _query.query;
 		if (!/^https?:\/\//.test(search)) {
-			search = `${_source}:${search}`;
+			search = `${_source === 'pona! search'?'ytmsearch':_source}:${search}`;
 		}
 
 		try {
 			let res;
-			if ( _source === 'pona! search' )
-			{
-				const searchResult = await YTMusicAPI('GET', `search?query=${encodeURIComponent(_query.query)}&filter=songs`);
-				if ( searchResult && searchResult.status === 200 )
-				{
-					const tracks: Track[] = [];
-					(searchResult.data.result as any[]).map(track => {
-						const artist = combineArtistName(track.artists);
-						const trackInfo: TrackDataInfo = {
-							title: track.title,
-							author: artist,
-							cleanAuthor: artist,
-							cleanTitle: track.title,
-							identifier: track.videoId,
-							uniqueId: randomString(32),
-							length: track.duration_seconds * 1000,
-							duration: track.duration_seconds * 1000,
-							isStream: false,
-							isSeekable: true,
-							artist: track.artists,
-							timestamp: new Date().getTime(),
-							position: 0,
-							uri: 'https://www.youtube.com/watch?v=' + track.videoId,
-							sourceName: 'youtube',
-							artworkUrl: `https://img.youtube.com/vi/${track.videoId}/default.jpg`,
-							isrc: undefined
-						}
-						// Function to encode JSON data to base64
-						const encodedTrack = LavalinkTrackEncoder.encodeTrack({
-							title: trackInfo.title,
-							author: trackInfo.author,
-							length: trackInfo.length || trackInfo.duration || 0,
-							identifier: trackInfo.identifier,
-							uri: trackInfo.uri || 'https://www.youtube.com/watch?v=' + track.videoId,
-							isStream: trackInfo.isStream,
-							position: 0,
-							source: 'youtube'
-						});
-						// encoded base64 track info
-						const builded_track: TrackData = {
-                            encoded: encodedTrack,
-                            info: trackInfo,
-                            pluginInfo: { source: 'pona! search' },
-                        }
-						tracks.push(TrackUtils.build(builded_track, requester));
-					})
-					return {
-						loadType: "track",
-						tracks: tracks,
-						playlist: undefined,
-					} as SearchResult
-				}
-			}
 			if (!res) res = (await node.rest.get(`/v4/loadtracks?identifier=${encodeURIComponent(search)}`)) as LavalinkResponse;
 			if (!res) throw new Error("Query not found.");
 			let searchData: any[] = [];
@@ -588,46 +531,23 @@ export class Manager extends EventEmitter {
 					playlistData = res.data as PlaylistRawData;
 					break;
 			}
-			const tracks = searchData.map((track: TrackData) => {
-				if (
-					!track.info.uniqueId ||
-					!track.info.timestamp
-				)
-				{
-					const parsed = parseYouTubeTitle(track.info.title, track.info.author);
-					track.info.timestamp = new Date().getTime();
-					track.info.uniqueId = randomString(32);
-					track.info.cleanTitle = parsed.cleanTitle;
-					track.info.cleanAuthor = parsed.cleanAuthor;
-				}
-				return TrackUtils.build(track, requester)
-			});
+			// const tracks = searchData.map(async (track: TrackData) => await constructTrack(track, requester));
+			let tracks: Track[] = [];
+			if ( searchData.length > 0 )
+				tracks.push(await constructTrack(searchData[0], requester));
 			let playlist = null;
 			if (res.loadType === "playlist") {
 				playlist = {
 					name: playlistData!.info.name,
-					tracks: playlistData!.tracks.map((track) => {
-						if (
-							!track.info.uniqueId ||
-							!track.info.timestamp
-						)
-						{
-							const parsed = parseYouTubeTitle(track.info.title, track.info.author);
-							track.info.timestamp = new Date().getTime();
-							track.info.uniqueId = randomString(32);
-							track.info.cleanTitle = parsed.cleanTitle;
-							track.info.cleanAuthor = parsed.cleanAuthor;
-						}
-						return TrackUtils.build(track, requester)
-					}),
+					tracks: playlistData!.tracks.map(async (track: TrackData) => await constructTrack(track, requester)),
 					duration: playlistData!.tracks.reduce((acc, cur) => acc + (cur.info.length || 0), 0),
 				};
 			}
 
 			const result: SearchResult = {
 				loadType: res.loadType,
-				tracks: tracks, // for async function: await Promise.all(tracks)
-				playlist: (playlist as PlaylistData), // for async function: playlist ? { ...playlist, tracks: await Promise.all(playlist.tracks) } : undefined
+				tracks: await Promise.all(tracks),
+				playlist: playlist ? { ...playlist, tracks: await Promise.all(playlist.tracks) } as PlaylistData : undefined,
 			}
 			if (this.options.replaceYouTubeCredentials) {
 				// const replaceCreditsURLs = ["youtube.com", "youtu.be"];

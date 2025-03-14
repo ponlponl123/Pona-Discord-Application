@@ -69,8 +69,8 @@ class LavalinkServer extends EventEmitter {
             nodes: this.lavanodes,
             clientName: 'Pona Discord Application',
             clientId: discordConf.DISCORD_CLIENT_ID,
-            defaultSearchPlatform: 'youtube music',
-            trackPartial: ['authorURL', 'authorId'],
+            defaultSearchPlatform: 'pona! search',
+            // trackPartial: ['authorURL', 'authorId'],
             // replaceYouTubeCredentials: true,
             send: (id, payload) => {
                 const guild = self.client.guilds.cache.get(id);

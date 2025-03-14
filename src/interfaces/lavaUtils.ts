@@ -3,6 +3,7 @@ import { Queue } from '@lavalink/structures/queue'
 import { Node } from '@lavalink/structures/node';
 import { NodeStats } from "./node";
 import { Lyric } from './player';
+import { SongDetailed, VideoDetailed } from 'ytmusic-api';
 
 export type LoadType = "track" | "playlist" | "search" | "empty" | "error";
 export type State = "CONNECTED" | "CONNECTING" | "DISCONNECTED" | "DISCONNECTING" | "DESTROYING";
@@ -22,7 +23,7 @@ export type PlayerEventType =
 	| "ChaptersLoaded"
 	| "ChapterStarted";
 export type TrackEndReason = "finished" | "loadFailed" | "stopped" | "replaced" | "cleanup";
-export type TrackSourceName = "deezer" | "spotify" | "soundcloud" | "youtube";
+export type TrackSourceName = "deezer" | "spotify" | "soundcloud" | "youtube" | "pona";
 export type Severity = "common" | "suspicious" | "fault";
 
 export interface UnresolvedQuery {
@@ -37,21 +38,29 @@ export interface TrackData {
 	pluginInfo: Record<string, string>;
 }
 
+export interface ArtistBasic {
+	id: string;
+	name: string;
+}
+
 export interface TrackDataInfo {
 	identifier: string;
 	isSeekable: boolean;
 	author: string;
+	artist?: ArtistBasic[];
 	cleanAuthor: string;
 	timestamp: number;
 	uniqueId: string;
 	length: number;
+	position: number;
 	isrc?: string;
 	isStream: boolean;
 	title: string;
 	cleanTitle: string;
 	uri?: string;
 	artworkUrl?: string;
-	hightResArtworkUrl?: string;
+	duration?: number;
+	videoInfo?: VideoDetailed | SongDetailed;
 	accentColor?: string;
 	lyrics?: Lyric;
 	sourceName?: TrackSourceName;

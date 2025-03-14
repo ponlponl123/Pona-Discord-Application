@@ -17,12 +17,13 @@ import {
 import { Player } from "@lavalink/structures/player";
 import { Plugin } from '@/lavalink';
 
-export type SearchPlatform = "deezer" | "soundcloud" | "youtube music" | "youtube" | "spotify" | "jiosaavn" | "tidal" | "applemusic" | "bandcamp";
+export type SearchPlatform = "deezer" | "soundcloud" | "pona! search" | "youtube music" | "youtube" | "spotify" | "jiosaavn" | "tidal" | "applemusic" | "bandcamp";
 export const SearchPlatforms = [
 	"deezer",
 	"soundcloud",
 	"youtube music",
 	"youtube",
+	"pona! search",
 	"spotify",
 	"jiosaavn",
 	"tidal",

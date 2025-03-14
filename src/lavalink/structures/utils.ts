@@ -3,6 +3,7 @@ import { Track as PlayerTrack, UnresolvedTrack as PlayerUnresolvedTrack } from "
 import * as Interface from '@interfaces/lavaUtils';
 import { ClientUser, User } from "discord.js";
 import { Manager } from "./manager";
+import { Buffer } from "buffer";
 
 const structures = {
 	Player: require('./player').Player,
@@ -108,6 +109,7 @@ export abstract class TrackUtils {
 				cleanTitle: data.info.cleanTitle,
 				identifier: data.info.identifier,
 				author: data.info.author,
+				artist: data.info.artist,
 				cleanAuthor: data.info.cleanAuthor,
 				duration: data.info.length,
 				isrc: data.info?.isrc || '',
@@ -115,7 +117,7 @@ export abstract class TrackUtils {
 				isStream: data.info.isStream,
 				uri: data.info.uri || '',
 				artworkUrl: data.info?.artworkUrl || '',
-				highResArtworkUrl: data.info?.hightResArtworkUrl || '',
+				videoInfo: data.info?.videoInfo || undefined,
 				accentColor: data.info?.accentColor || '',
 				lyrics: data.info?.lyrics || undefined,
 				sourceName: data.info?.sourceName as Interface.TrackSourceName,
@@ -237,4 +239,62 @@ export class Plugin {
 
 	// public unload(manager: Manager): void {}
 	public unload(_manager: Manager): void {}
+}
+
+export class LavalinkTrackEncoder {
+    static encodeTrack(track: {
+        title: string;
+        author: string;
+        length: number;
+        identifier: string;
+        uri: string;
+        source: string;
+        isStream: boolean;
+        position?: number;
+    }): string {
+        const buffers: Uint8Array[] = [];
+        
+        // 1. Version (4 bits) + Flags (4 bits)
+        const version = 3; // Lavalink v3/v4 compatible
+        const flags = track.isStream ? 0b0001 : 0;
+        const versionByte = new Uint8Array([(version << 4) | flags]);
+        buffers.push(versionByte);
+
+        // 2. Strings with UTF-8 and BIG-ENDIAN length
+        const writeString = (str: string) => {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(str);
+            const lengthBuffer = new Uint8Array(2);
+            new DataView(lengthBuffer.buffer).setUint16(0, data.length, false); // Big-endian
+            return Uint8Array.from([...lengthBuffer, ...data]);
+        };
+
+        buffers.push(
+            writeString(track.title),
+            writeString(track.author),
+            writeString(track.identifier),
+            writeString(track.uri),
+            writeString(track.source)
+        );
+
+        // 3. Numbers as BIG-ENDIAN
+        const writeLong = (value: number) => {
+            const buffer = new Uint8Array(8);
+            new DataView(buffer.buffer).setBigUint64(0, BigInt(value), false);
+            return buffer;
+        };
+
+        buffers.push(
+            writeLong(track.length),
+            writeLong(track.position || 0)
+        );
+
+        // 4. Combine and encode
+        const combined = buffers.reduce(
+            (acc, buf) => Uint8Array.from([...acc, ...buf]),
+            new Uint8Array(0)
+        );
+
+        return Buffer.from(combined).toString('base64');
+    }
 }

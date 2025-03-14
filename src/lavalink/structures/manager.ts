@@ -1,5 +1,6 @@
 /* eslint-disable no-async-promise-executor */
 import {
+	LavalinkTrackEncoder,
 	Plugin,
 	Structure,
 	TrackUtils
@@ -7,9 +8,11 @@ import {
 import { Node } from "./node";
 import { Player } from "./player";
 import managerCheck from "@utils/lavalink/managerCheck";
+import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { Collection } from "@discordjs/collection";
 import { ClientUser, User } from "discord.js";
 import { EventEmitter } from "events";
+import * as base64 from 'base64-js';
 import fs from "fs";
 import path from "path";
 
@@ -22,7 +25,8 @@ import {
 	VoicePacket,
 	VoiceServer,
 	TrackData,
-	TrackEndEvent
+	TrackEndEvent,
+	TrackDataInfo
 } from "@interfaces/lavaUtils";
 import { NodeOptions } from "@interfaces/node";
 import {
@@ -36,7 +40,7 @@ import {
 	SearchResult
 } from "@/interfaces/manager";
 import randomString from "@/utils/randomString";
-import { parseYouTubeTitle } from "@/utils/parser";
+import { combineArtistName, parseYouTubeTitle } from "@/utils/parser";
 import { discordClient } from "@/index";
 import { fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
 import { createTrackData } from "@/utils/lavalink/track";
@@ -71,6 +75,7 @@ export class Manager extends EventEmitter {
 	}
 
 	public static readonly DEFAULT_SOURCES: Record<SearchPlatform, string> = {
+		"pona! search": "pona! search",
 		"youtube music": "ytmsearch",
 		youtube: "ytsearch",
 		spotify: "spsearch",
@@ -338,8 +343,11 @@ export class Manager extends EventEmitter {
 								volume: state.options.volume,
 								lastActive: state.lastActive,
 							};
-							// if player not active than 5 minutes (lastActive is unix timestamp)
-							if ((new Date().getTime() - (playerOptions.lastActive || 0)) > 5 * 60 * 1000)
+							// if player not active than 5 minutes (lastActive is unix timestamp) && no current playing
+							if (
+									state.queue.current === null &&
+									(new Date().getTime() - (playerOptions.lastActive || 0)) > 5 * 60 * 1000
+								)
 								deleteInactivePlayer(file);
 						}
 						else deleteInactivePlayer(file);
@@ -449,7 +457,7 @@ export class Manager extends EventEmitter {
 		}
 
 		this.options = {
-			plugins: [],
+			// plugins: [],
 			nodes: [
 				{
 					identifier: "default",
@@ -511,7 +519,61 @@ export class Manager extends EventEmitter {
 		}
 
 		try {
-			const res = (await node.rest.get(`/v4/loadtracks?identifier=${encodeURIComponent(search)}`)) as LavalinkResponse;
+			let res;
+			if ( _source === 'pona! search' )
+			{
+				const searchResult = await YTMusicAPI('GET', `search?query=${encodeURIComponent(_query.query)}&filter=songs`);
+				if ( searchResult && searchResult.status === 200 )
+				{
+					const tracks: Track[] = [];
+					(searchResult.data.result as any[]).map(track => {
+						const artist = combineArtistName(track.artists);
+						const trackInfo: TrackDataInfo = {
+							title: track.title,
+							author: artist,
+							cleanAuthor: artist,
+							cleanTitle: track.title,
+							identifier: track.videoId,
+							uniqueId: randomString(32),
+							length: track.duration_seconds * 1000,
+							duration: track.duration_seconds * 1000,
+							isStream: false,
+							isSeekable: true,
+							artist: track.artists,
+							timestamp: new Date().getTime(),
+							position: 0,
+							uri: 'https://www.youtube.com/watch?v=' + track.videoId,
+							sourceName: 'youtube',
+							artworkUrl: `https://img.youtube.com/vi/${track.videoId}/default.jpg`,
+							isrc: undefined
+						}
+						// Function to encode JSON data to base64
+						const encodedTrack = LavalinkTrackEncoder.encodeTrack({
+							title: trackInfo.title,
+							author: trackInfo.author,
+							length: trackInfo.length || trackInfo.duration || 0,
+							identifier: trackInfo.identifier,
+							uri: trackInfo.uri || 'https://www.youtube.com/watch?v=' + track.videoId,
+							isStream: trackInfo.isStream,
+							position: 0,
+							source: 'youtube'
+						});
+						// encoded base64 track info
+						const builded_track: TrackData = {
+                            encoded: encodedTrack,
+                            info: trackInfo,
+                            pluginInfo: { source: 'pona! search' },
+                        }
+						tracks.push(TrackUtils.build(builded_track, requester));
+					})
+					return {
+						loadType: "track",
+						tracks: tracks,
+						playlist: undefined,
+					} as SearchResult
+				}
+			}
+			if (!res) res = (await node.rest.get(`/v4/loadtracks?identifier=${encodeURIComponent(search)}`)) as LavalinkResponse;
 			if (!res) throw new Error("Query not found.");
 			let searchData: any[] = [];
 			let playlistData: PlaylistRawData | undefined;
@@ -526,13 +588,18 @@ export class Manager extends EventEmitter {
 					playlistData = res.data as PlaylistRawData;
 					break;
 			}
-
 			const tracks = searchData.map((track: TrackData) => {
-				const parsed = parseYouTubeTitle(track.info.title, track.info.author);
-				track.info.timestamp = new Date().getTime();
-				track.info.uniqueId = randomString(32);
-				track.info.cleanTitle = parsed.cleanTitle;
-				track.info.cleanAuthor = parsed.cleanAuthor;
+				if (
+					!track.info.uniqueId ||
+					!track.info.timestamp
+				)
+				{
+					const parsed = parseYouTubeTitle(track.info.title, track.info.author);
+					track.info.timestamp = new Date().getTime();
+					track.info.uniqueId = randomString(32);
+					track.info.cleanTitle = parsed.cleanTitle;
+					track.info.cleanAuthor = parsed.cleanAuthor;
+				}
 				return TrackUtils.build(track, requester)
 			});
 			let playlist = null;
@@ -540,11 +607,17 @@ export class Manager extends EventEmitter {
 				playlist = {
 					name: playlistData!.info.name,
 					tracks: playlistData!.tracks.map((track) => {
-						const parsed = parseYouTubeTitle(track.info.title, track.info.author);
-						track.info.timestamp = new Date().getTime();
-						track.info.uniqueId = randomString(32);
-						track.info.cleanTitle = parsed.cleanTitle;
-						track.info.cleanAuthor = parsed.cleanAuthor;
+						if (
+							!track.info.uniqueId ||
+							!track.info.timestamp
+						)
+						{
+							const parsed = parseYouTubeTitle(track.info.title, track.info.author);
+							track.info.timestamp = new Date().getTime();
+							track.info.uniqueId = randomString(32);
+							track.info.cleanTitle = parsed.cleanTitle;
+							track.info.cleanAuthor = parsed.cleanAuthor;
+						}
 						return TrackUtils.build(track, requester)
 					}),
 					duration: playlistData!.tracks.reduce((acc, cur) => acc + (cur.info.length || 0), 0),

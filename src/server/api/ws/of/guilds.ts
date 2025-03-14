@@ -414,7 +414,7 @@ export default async function dynamicGuildNamespace(io: Server) {
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !uri || !searchengine ) return;
         const player = await isPonaInVoiceChannel(guildId);
         if ( !player ) return;
-          const track = await getSongs(uri, searchengine, member);
+          const track = await getSongs(uri, 'youtube music', member);
           if ( typeof track === 'string' ) return;
           addToQueue(track.tracks, player);
           if ( callback ) callback({

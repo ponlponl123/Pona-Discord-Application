@@ -1,8 +1,9 @@
 import { Player } from "@lavalink/structures/player";
 import { ClientUser, Guild, TextBasedChannel, User, VoiceBasedChannel } from "discord.js";
-import { Sizes, TrackSourceName } from "./lavaUtils";
+import { ArtistBasic, Sizes, TrackSourceName } from "./lavaUtils";
 import { Queue } from "@/lavalink";
 import { Band } from "@/utils/lavalink/equalizers";
+import { SongDetailed, VideoDetailed } from "ytmusic-api";
 
 export interface lavaPlayer {
     player: Player;
@@ -39,12 +40,13 @@ export interface Track {
 	readonly timestamp: number;
 	readonly uniqueId: string;
 	readonly artworkUrl: string;
-	highResArtworkUrl?: string;
+	videoInfo?: VideoDetailed | SongDetailed;
 	readonly sourceName: TrackSourceName;
 	title: string;
 	cleanTitle: string;
 	readonly identifier: string;
 	author: string;
+	artist?: ArtistBasic[];
 	cleanAuthor: string;
 	readonly duration: number;
 	readonly isrc: string;
@@ -56,17 +58,8 @@ export interface Track {
 	readonly requester?: User | ClientUser;
 	accentColor?: string;
 	displayThumbnail(size?: Sizes): string;
-	pluginInfo: TrackPluginInfo;
+	pluginInfo: any;
 	customData: Record<string, unknown>;
-}
-
-export interface TrackPluginInfo {
-	albumName?: string;
-	albumUrl?: string;
-	artistArtworkUrl?: string;
-	artistUrl?: string;
-	isPreview?: string;
-	previewUrl?: string;
 }
 
 export interface UnresolvedTrack extends Partial<Track> {
@@ -74,6 +67,7 @@ export interface UnresolvedTrack extends Partial<Track> {
 	title: string;
 	uniqueId: string;
 	author?: string;
+	artist?: ArtistBasic[];
 	duration?: number;
 	resolve(): Promise<void>;
 }

@@ -12,7 +12,7 @@ export interface trackResult {
     type: 'track' | 'playlist'
 }
 
-export default async function getSongs(search: string, searchEngine: SearchPlatform = 'youtube', author: GuildMember): Promise<string | trackResult> {
+export default async function getSongs(search: string, searchEngine: SearchPlatform = 'pona! search', author: GuildMember): Promise<string | trackResult> {
     let res: SearchResult;
 
     if ( search.startsWith('https://pona.ponlponl123.com/share/') ) {

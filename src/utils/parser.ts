@@ -1,4 +1,5 @@
 import { blockedWords } from "@/config/blockedWords";
+import { ArtistBasic } from "@/interfaces/lavaUtils";
 import { Lyric, NonTimestampLyrics, TimestampLyrics } from "@/interfaces/player";
 
 // List of noise words/phrases to remove
@@ -145,4 +146,17 @@ export function parseLyrics(input: string): Lyric {
       isTimestamp: parsedLyrics.length > 0,
       lyrics: parsedLyrics.length > 0 ? parsedLyrics : nonTimestampLyrics
   };
+}
+
+export function combineArtistName(artists: ArtistBasic[]): string {
+  let artist: string = '';
+  if ( !artists ) return artist;
+  for (let i = 0; i < artists.length; i++) {
+    if (artists[i].name) {
+      if ( i > 0 )
+        artist = artist + ' & ' + artists[i].name;
+      else artist = artists[i].name;
+    }
+  }
+  return artist;
 }

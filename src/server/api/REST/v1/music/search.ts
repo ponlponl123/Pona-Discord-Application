@@ -2,7 +2,7 @@ import express from 'express';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
-import { ytmusic } from '@/index';
+import { redisClient, ytmusic } from '@/index';
 
 export async function GET(request: express.Request, response: express.Response) {
   try {
@@ -16,13 +16,27 @@ export async function GET(request: express.Request, response: express.Response) 
     if ( !user ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
     
     if ( is_suggestion === "true" ) {
+      if ( redisClient?.redis )
+      {
+        const value = await redisClient.redis.get(`yt:search:suggestions:${String(q)}`);
+        if ( value ) 
+          return response.status(HttpStatusCode.Ok).json({message: 'Ok', searchSuggestions: JSON.parse(value)});
+      }
       const searchSuggestions = await ytmusic.client.getSearchSuggestions(String(q));
+      redisClient?.redis.setex(`yt:search:suggestions:${String(q)}`, 1800, JSON.stringify(searchSuggestions));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', searchSuggestions: searchSuggestions});
     } else {
+      if ( redisClient?.redis )
+      {
+        const value = await redisClient.redis.get(`yt:search:query:${filter || 'all'}:${String(q)}`);
+        if ( value ) 
+          return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
+      }
       let URL = `search?query=${encodeURIComponent(String(q))}`;
       URL += filter ? `&filter=${filter}` : "";
       const searchResult = await YTMusicAPI('GET', URL.toString());
       if ( !searchResult ) return response.status(HttpStatusCode.ServiceUnavailable).json({message: 'Service Unavailable'});
+      redisClient?.redis.setex(`yt:search:query:${filter || 'all'}:${String(q)}`, 300, JSON.stringify(searchResult.data.result));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
     }
   } catch (err) {

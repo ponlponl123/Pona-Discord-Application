@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import eventManager from '@/events';
-import { database, lavalink, discordClient as self } from '@/index';
+import { database, lavalink, redisClient, discordClient as self } from '@/index';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
 import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState, Lyric } from "@/interfaces/player";
@@ -36,17 +36,17 @@ async function connectToVoiceChannelBySocket(guildId: string, voiceBasedChannelI
   try {
     if ( guildId && voiceBasedChannelId ) {
       const guild = self.client.guilds.cache.get(guildId);
-      if (!guild ) return;
+      if (!guild ) throw new Error("Guild not found");
       const textChannel = guild.systemChannel;
-      if (!textChannel ) return;
+      if (!textChannel ) throw new Error("TextChannel not found");
       const voiceChannel = guild.channels.cache.get(voiceBasedChannelId) as VoiceBasedChannel;
-      if (!voiceChannel ) return;
+      if (!voiceChannel ) throw new Error("VoiceChannel not found");
       await joinChannel(textChannel, voiceChannel, guild);
     }
-} catch { return; }
+  } catch (e: any) {
+    throw new Error("Failed to connect to voice channel\n\tReason:", e);
+  }
 }
-
-
 
 export default async function dynamicGuildNamespace(io: Server) {
   const io_guild = io.of(/^\/guild\/\d+$/);
@@ -67,6 +67,15 @@ export default async function dynamicGuildNamespace(io: Server) {
       track,
       ...player.queue
     ]);
+    if ( redisClient?.redis)
+    {
+      const value = await redisClient.redis.get(`yt:lyrics:${track.identifier}`);
+      if ( value )
+      {
+        track.lyrics = JSON.parse(value) as Lyric;
+        return namespace_io.to("pona! music").emit('track_updated' as GuildEvents, track);
+      }
+    }
     const endpoint = `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics`;
     const fetchLyric = new URL(endpoint);
     fetchLyric.searchParams.append('engine', 'dynamic');
@@ -84,7 +93,11 @@ export default async function dynamicGuildNamespace(io: Server) {
       {
         track.lyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
         namespace_io.to("pona! music").emit('track_updated' as GuildEvents, track);
+        if ( redisClient?.redis )
+          redisClient.redis.setex(`yt:lyrics:${track.identifier}`, 10800, JSON.stringify(track.lyrics));
       }
+      else if ( fetchLyricByInternalAPI.status === 404 && redisClient?.redis )
+        redisClient.redis.setex(`yt:lyrics:${track.identifier}`, 3600, '');
     } catch {
       console.log('failed to fetch lyrics')
     }
@@ -239,9 +252,9 @@ export default async function dynamicGuildNamespace(io: Server) {
         } catch { return; }
       });
       socket.on("repeat", async (type: 'none' | 'track' | 'queue', callback)=>{ try{
-        if ( !member || !type || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+        if ( !member || !type || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback?callback({status: "error"}):false;
         const player = await isPonaInVoiceChannel(guildId);
-        if ( !player ) return;
+        if ( !player ) return callback?callback({status: "error"}):false;
         let repeatType: typeof type = 'none';
         switch ( type ) {
           case 'track':
@@ -260,25 +273,13 @@ export default async function dynamicGuildNamespace(io: Server) {
         if ( callback ) callback({
           status: "ok"
         });
-        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-        await database.connection?.query(
-            `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-            VALUES (?, ?, ?, ?, ?, ?)`
-        , [
-            member.id,
-            date,
-            'repeat',
-            repeatType,
-            guildId,
-            player.voiceChannel
-          ]
-        )
-        } catch { return; }
+        events.pona_action('repeat', member.id, repeatType, guildId, player.voiceChannel || '');
+        } catch { return callback?callback({status: "error"}):false; }
       });
       socket.on("move", async (from: number, to: number, callback)=>{try{
-        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback?callback({status: "error"}):false;
         const player = await isPonaInVoiceChannel(guildId);
-        if ( !player ) return;
+        if ( !player ) return callback?callback({status: "error"}):false;
         console.log("Moving!", from, to);
         io_guild.to("pona! music").emit("queue_updating");
         setTimeout(async () => {
@@ -296,173 +297,119 @@ export default async function dynamicGuildNamespace(io: Server) {
               io_guild.to("pona! music").emit('queue_updated' as GuildEvents, player.queue);
             } catch (e) {
               console.error("Failed to emit queue_updated", e);
-              return;
+              return callback?callback({status: "error"}):false;
             }
           }
           io_guild.emit("track_moved", member);
-          const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-          await database.connection?.query(
-              `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-              VALUES (?, ?, ?, ?, ?, ?)`
-          , [
-              member.id,
-              date,
-              'queue-move',
-              `from ${from} to ${to}`,
-              guildId,
-              player.voiceChannel
-            ]
-          )
+          events.pona_action('queue-move', member.id, `from ${from} to ${to}`, guildId, player.voiceChannel || '');
         }, 320);
-        } catch { return; }
+        } catch { return callback?callback({status: "error"}):false; }
       });
       socket.on("pause", async (callback)=>{try{
-        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback?callback({status: "error"}):false;
         const player = await isPonaInVoiceChannel(guildId);
-        if ( !player ) return;
+        if ( !player ) return callback?callback({status: "error"}):false;
         player.pause(true);
         if ( callback ) callback({
           status: "ok"
         });
-        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-        await database.connection?.query(
-            `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-            VALUES (?, ?, ?, ?, ?, ?)`
-        , [
-            member.id,
-            date,
-            'pause',
-            'true',
-            guildId,
-            player.voiceChannel
-          ]
-        )
-        } catch { return; }
+        events.pona_action('pause', member.id, 'true', guildId, player.voiceChannel || '');
+        } catch { return callback?callback({status: "error"}):false; }
       });
       socket.on("seek", async (position: number, callback)=>{try{
-        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback?callback({status: "error"}):false;
         const player = await isPonaInVoiceChannel(guildId);
-        if ( !player ) return;
+        if ( !player ) return callback?callback({status: "error"}):false;
         player.seek(position);
         player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
-        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-        await database.connection?.query(
-            `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-            VALUES (?, ?, ?, ?, ?, ?)`
-        , [
-            member.id,
-            date,
-            'seek',
-            position,
-            guildId,
-            player.voiceChannel
-          ]
-        )
-        } catch { return; }
+        events.pona_action('seek', member.id, position, guildId, player.voiceChannel || '');
+        } catch { return callback?callback({status: "error"}):false; }
       });
       socket.on("skipto", async (index: number, callback)=>{try{
-        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !Number(index) ) return;
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !Number(index) ) return callback?callback({status: "error"}):false;
         const player = await isPonaInVoiceChannel(guildId);
-        if ( !player ) return;
+        if ( !player ) return callback?callback({status: "error"}):false;
         player.skipto(index);
         player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
-        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-        await database.connection?.query(
-            `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-            VALUES (?, ?, ?, ?, ?, ?)`
-        , [
-            member.id,
-            date,
-            'skipto',
-            index,
-            guildId,
-            player.voiceChannel
-          ]
-        )
-        } catch { return; }
+        events.pona_action('skipto', member.id, index, guildId, player.voiceChannel || '');
+        } catch { return callback?callback({status: "error"}):false; }
+      });
+      socket.on("rm", async (uniqueId: string, callback)=>{try{
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !String(uniqueId) ) return callback?callback({status: "error"}):false;
+        const player = await isPonaInVoiceChannel(guildId);
+        if ( !player ) return callback?callback({status: "error"}):false;
+        const index = player.queue.findIndex((track) => track.uniqueId === uniqueId);
+        if ( index === -1 ) return callback?callback({status: "error"}):false;
+        io_guild.to("pona! music").emit("queue_updating");
+        setTimeout(async () => {
+          try {
+            player.queue.remove(index);
+            if ( callback ) callback({
+              status: "ok"
+            });
+          } catch (e) {
+            console.log("Error While removing track: ", e);
+            if ( callback ) callback({
+              status: "error"
+            });
+            try {
+              io_guild.to("pona! music").emit('queue_updated' as GuildEvents, player.queue);
+            } catch (e) {
+              console.error("Failed to emit queue_updated", e);
+              return callback?callback({status: "error"}):false;
+            }
+          }
+          io_guild.emit("track_removed", member);
+          events.pona_action('trackremove', member.id, uniqueId, guildId, player.voiceChannel || '');
+        }, 320);
+        } catch { return callback?callback({status: "error"}):false; }
       });
       socket.on("play", async (callback)=>{try{
-        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback?callback({status: "error"}):false;
         const player = await isPonaInVoiceChannel(guildId);
-        if ( !player ) return;
+        if ( !player ) return callback?callback({status: "error"}):false;
         player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
-        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-        await database.connection?.query(
-            `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-            VALUES (?, ?, ?, ?, ?, ?)`
-        , [
-            member.id,
-            date,
-            'pause',
-            'false',
-            guildId,
-            player.voiceChannel
-          ]
-        )
-        } catch { return; }
+        events.pona_action('pause', member.id, 'false', guildId, player.voiceChannel || '');
+        } catch { return callback?callback({status: "error"}):false; }
       });
       socket.on("add", async (uri: string, searchengine: SearchPlatform, callback)=>{try{
-        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !uri || !searchengine ) return;
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) || !uri || !searchengine ) return callback?callback({status: "error"}):false;
         const player = await isPonaInVoiceChannel(guildId);
-        if ( !player ) return;
+        if ( !player ) return callback?callback({status: "error"}):false;
           const track = await getSongs(uri, 'youtube music', member);
-          if ( typeof track === 'string' ) return;
+          if ( typeof track === 'string' ) return callback?callback({status: "error"}):false;
           addToQueue(track.tracks, player);
           if ( callback ) callback({
             status: "ok"
           });
-          const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-          await database.connection?.query(
-              `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-              VALUES (?, ?, ?, ?, ?, ?)`
-          , [
-              member.id,
-              date,
-              'add',
-              JSON.stringify(track),
-              guildId,
-              player.voiceChannel
-            ]
-          )
-        } catch { return; }
+          events.pona_action('trackadd', member.id, JSON.stringify(track), guildId, player.voiceChannel || '');
+        } catch { return callback?callback({status: "error"}):false; }
       });
       socket.on("previous", async (callback)=>{try{
         if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback({
           status: "error"
         });
         const player = await isPonaInVoiceChannel(guildId);
-        if ( !player || !player.queue.previous ) return;
+        if ( !player || !player.queue.previous ) return callback?callback({status: "error"}):false;
         player.previous();
         player.pause(false);
         if ( callback ) callback({
           status: "ok"
         });
-        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-        await database.connection?.query(
-            `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-            VALUES (?, ?, ?, ?, ?, ?)`
-        , [
-            member.id,
-            date,
-            'previous',
-            'true',
-            guildId,
-            player.voiceChannel
-          ]
-        )
-        } catch { return; }
+        events.pona_action('previous', member.id, 'true', guildId, player.voiceChannel || '');
+        } catch { return callback?callback({status: "error"}):false; }
       });
       socket.on("next", async (callback)=>{try{
-        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return;
+        if ( !member || !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ) return callback?callback({status: "error"}):false;
         const player = await isPonaInVoiceChannel(guildId);
         if ( !player || !(player.queue.length > 0) ) return callback({
           status: "error"
@@ -472,20 +419,8 @@ export default async function dynamicGuildNamespace(io: Server) {
         if ( callback ) callback({
           status: "ok"
         });
-        const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-        await database.connection?.query(
-            `INSERT INTO player_action_history (actionby, timestamp, action_name, data, guild, channel)
-            VALUES (?, ?, ?, ?, ?, ?)`
-        , [
-            member.id,
-            date,
-            'next',
-            'true',
-            guildId,
-            player.voiceChannel
-          ]
-        )
-        } catch { return; }
+        events.pona_action('next', member.id, 'true', guildId, player.voiceChannel || '');
+        } catch { return callback?callback({status: "error"}):false; }
       });
     } catch { return; }
   });

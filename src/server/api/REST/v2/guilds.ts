@@ -1,7 +1,8 @@
 import express from 'express';
 import axios, { HttpStatusCode } from 'axios';
-import { discordClient as self } from '@/index';
+import { redisClient, discordClient as self } from '@/index';
 import { Guild, type OAuth2Guild } from 'discord.js';
+import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 
 export async function GET_PRIVATE(request: express.Request, response: express.Response) {
   try {
@@ -19,6 +20,14 @@ export async function GET_PRIVATE(request: express.Request, response: express.Re
       })
       if ( user.status === 200 )
       {
+        const userInfo = await fetchUserByOAuthAccessToken(authorization_type, authorization_key);
+        if ( !userInfo ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
+        if ( redisClient?.redis )
+        {
+          const value = await redisClient.redis.get(`user:${userInfo.id}:guilds`);
+          if ( value ) 
+            return response.status(HttpStatusCode.Ok).json({message: 'Ok', guilds: JSON.parse(value)});
+        }
         const guilds = user.data.map((guild: OAuth2Guild) => guild.id);
 
         const guildWithPona: Guild[] = [];
@@ -32,7 +41,7 @@ export async function GET_PRIVATE(request: express.Request, response: express.Re
           return response.status(HttpStatusCode.NotFound).json({
             message: 'Not Found'
           });
-    
+        redisClient?.redis.setex(`user:${userInfo.id}:guilds`, 300, JSON.stringify(guildWithPona));
         return response.status(HttpStatusCode.Ok).json({
           message: 'OK',
           guilds: guildWithPona

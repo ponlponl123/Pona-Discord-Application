@@ -1,6 +1,7 @@
 import { HttpStatusCode } from 'axios';
-import { database, discordClient as self } from '@/index';
+import { database, redisClient, discordClient as self } from '@/index';
 import { Router } from '@/interfaces/router';
+import JSONBig from 'json-bigint';
 
 export const path = '/:guildId?/:query?';
 
@@ -31,6 +32,13 @@ export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
     switch ( query ) {
       case 'stats':
         {
+          if ( redisClient?.redis )
+          {
+            const active = await redisClient.redis.get(`guild:${guildId}:stats:active`);
+            const history = await redisClient.redis.get(`guild:${guildId}:stats:history`);
+            if ( active && history ) 
+              return response.status(HttpStatusCode.Ok).json({message: 'Ok', active: JSONBig.parse(active), history: JSONBig.parse(history)});
+          }
           if ( !database.connection ) {
             return response.status(HttpStatusCode.ServiceUnavailable).json({
               message: 'Service Unavailable'
@@ -122,15 +130,16 @@ export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
             GROUP BY \`from\`, \`to\`
             ORDER BY \`from\`;`
 
-          const [rows] = await database.connection.query(sql_query, [guildId]);
-          const [rows2] = await database.connection.query(sql_query2, [guildId]);
+          const rows = await database.connection.query(sql_query, [guildId]);
+          const rows2 = await database.connection.query(sql_query2, [guildId]);
 
           (rows2 as memberInChannelHistory[]).map(timeline => {
             timeline.channels.map(channel => {
               channel.name = guild.channels.cache.get(channel.id)?.name;
             })
           })
-          
+          redisClient?.redis.setex(`guild:${guildId}:stats:active`, 300, JSONBig.stringify(rows));
+          redisClient?.redis.setex(`guild:${guildId}:stats:history`, 300, JSONBig.stringify(rows2));
           return response.status(HttpStatusCode.Ok).json({
             message: 'OK',
             active: rows,

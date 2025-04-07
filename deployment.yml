@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pona-discord-application
+  namespace: pona-discord-application
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pona-discord-application
+  template:
+    metadata:
+      labels:
+        app: pona-discord-application
+    spec:
+      containers:
+        - name: pona-discord-application
+          image: hub.ponlponl123.local.registry:5000/pona-discord-application:latest
+          ports:
+            - containerPort: 3000
+          imagePullPolicy: Always
+      imagePullSecrets:
+        - name: regcred

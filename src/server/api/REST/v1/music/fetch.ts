@@ -1,7 +1,7 @@
 import express from 'express';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
-import { database, ytmusic } from '@/index';
+import { database, redisClient, ytmusic } from '@/index';
 
 export async function GET(request: express.Request, response: express.Response) {
   try {
@@ -18,37 +18,91 @@ export async function GET(request: express.Request, response: express.Response) 
 
     switch ( type ) {
       case "album": {
-        const searchResult = await ytmusic.client.getAlbum(queryId);
+        if ( redisClient?.redis)
+        {
+          const value = await redisClient.redis.get(`yt:album:v1:${queryId}`);
+          if ( value ) 
+            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
+        }
+        const searchResult = await ytmusic.client.getAlbum(queryId).catch(() => {
+          redisClient?.redis.setex(`yt:album:v1:${queryId}`, 600, '');
+        });
         if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+        redisClient?.redis.setex(`yt:album:v1:${queryId}`, 5400, JSON.stringify(searchResult));
         return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
       }
       case "song": {
-        const searchResult = await ytmusic.client.getSong(queryId);
+        if ( redisClient?.redis)
+        {
+          const value = await redisClient.redis.get(`yt:song:v1:${queryId}`);
+          if ( value ) 
+            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
+        }
+        const searchResult = await ytmusic.client.getSong(queryId).catch(() => {
+          redisClient?.redis.setex(`yt:song:v1:${queryId}`, 600, '');
+        });
         if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+        redisClient?.redis.setex(`yt:song:v1:${queryId}`, 5400, JSON.stringify(searchResult));
         return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
       }
       case "video": {
-        const searchResult = await ytmusic.client.getVideo(queryId);
+        if ( redisClient?.redis)
+        {
+          const value = await redisClient.redis.get(`yt:video:v1:${queryId}`);
+          if ( value ) 
+            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
+        }
+        const searchResult = await ytmusic.client.getVideo(queryId).catch(() => {
+          redisClient?.redis.setex(`yt:video:v1:${queryId}`, 600, '');
+        });
         if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+        redisClient?.redis.setex(`yt:video:v1:${queryId}`, 5400, JSON.stringify(searchResult));
         return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
       }
       case "artist": {
         if ( !query ) {
+          if ( redisClient?.redis)
+          {
+            const value = await redisClient.redis.get(`yt:artist:v1:info:${queryId}`).catch(() => {
+              redisClient?.redis.setex(`yt:artist:v1:info:${queryId}`, 600, '');
+            });
+            if ( value ) 
+              return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
+          }
           const searchResult = await ytmusic.client.getArtist(queryId);
           if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+          redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 1800, JSON.stringify(searchResult));
           return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
         }
         else
         {
           switch ( query ) {
             case "albums": {
-              const searchResult = await ytmusic.client.getArtistAlbums(queryId);
+              if ( redisClient?.redis)
+              {
+                const value = await redisClient.redis.get(`yt:artist:v1:albums:${queryId}`);
+                if ( value ) 
+                  return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
+              }
+              const searchResult = await ytmusic.client.getArtistAlbums(queryId).catch(() => {
+                redisClient?.redis.setex(`yt:artist:v1:albums:${queryId}`, 600, '');
+              });
               if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+              redisClient?.redis.setex(`yt:artist:v1:albums:${queryId}`, 1800, JSON.stringify(searchResult));
               return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
             }
             case "songs": {
-              const searchResult = await ytmusic.client.getArtistSongs(queryId);
+              if ( redisClient?.redis)
+              {
+                const value = await redisClient.redis.get(`yt:artist:v1:songs:${queryId}`);
+                if ( value ) 
+                  return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
+              }
+              const searchResult = await ytmusic.client.getArtistSongs(queryId).catch(() => {
+                redisClient?.redis.setex(`yt:artist:v1:songs:${queryId}`, 600, '');
+              });
               if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+              redisClient?.redis.setex(`yt:artist:v1:songs:${queryId}`, 1800, JSON.stringify(searchResult));
               return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult});
             }
             default: {
@@ -58,9 +112,18 @@ export async function GET(request: express.Request, response: express.Response) 
         }
       }
       case "playlist": {
-        const searchResult = await ytmusic.client.getPlaylist(queryId);
+        if ( redisClient?.redis)
+        {
+          const value = await redisClient.redis.get(`yt:playlist:v1:${queryId}`);
+          if ( value ) 
+            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
+        }
+        const searchResult = await ytmusic.client.getPlaylist(queryId).catch(() => {
+          redisClient?.redis.setex(`yt:playlist:v1:${queryId}`, 600, '');
+        });
         if ( !searchResult ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
         const videos = await ytmusic.client.getPlaylistVideos(queryId);
+        redisClient?.redis.setex(`yt:playlist:v1:${queryId}`, 1800, JSON.stringify({...searchResult, videos}));
         return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: {...searchResult, videos}});
       }
       default: {

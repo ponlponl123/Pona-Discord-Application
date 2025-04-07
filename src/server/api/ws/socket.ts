@@ -29,7 +29,8 @@ export class initialize {
             const redis_pub_options: RedisOptions = {
                 host: redis_conf.pub.host,
                 port: redis_conf.pub.port,
-                keyPrefix: "pona",
+                password: redis_conf.pub.auth?.password,
+                keyPrefix: "pona-ws:",
                 retryStrategy(times) {
                     return Math.min(times * 50, 2000);
                 },
@@ -41,13 +42,15 @@ export class initialize {
             const redis_sub_options: RedisOptions = {
                 host: redis_conf.sub.host,
                 port: redis_conf.sub.port,
+                password: redis_conf.pub.auth?.password,
+                keyPrefix: "pona-ws:",
                 retryStrategy(times) {
                     return Math.min(times * 50, 2000);
                 },
                 lazyConnect: true,
                 keepAlive: 30 * 60 * 1000,
                 maxRetriesPerRequest: null,
-            };                   
+            };
 
             this.redis_pub = new Redis(redis_pub_options);
             this.redis_sub = new Redis(redis_sub_options);

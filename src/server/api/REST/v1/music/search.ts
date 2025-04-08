@@ -39,7 +39,8 @@ export async function GET(request: express.Request, response: express.Response) 
       redisClient?.redis.setex(`yt:search:query:${filter || 'all'}:${String(q)}`, 300, JSON.stringify(searchResult.data.result));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});
     }
-  } catch (err) {
+  } catch (err: any) {
+    if ( err?.status === 404 ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', result: []});
     if ( process.env.NODE_ENV === "development" ) return response.status(HttpStatusCode.InternalServerError).json({error: 'Internal Server Error', debug: err});
     return response.status(HttpStatusCode.InternalServerError).json({error: 'Internal Server Error'});
   }

@@ -7,9 +7,6 @@ import JSONBig from 'json-bigint';
 
 export async function GET(request: express.Request, response: express.Response) {
   try {
-    if (!database || !database.connection) {
-      return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
-    }
     const { authorization } = request.headers;
     const { l } = request.query;
     if (!authorization) {
@@ -27,9 +24,12 @@ export async function GET(request: express.Request, response: express.Response) 
     }
     if ( redisClient?.redis && limit === 14)
     {
-      const value = await redisClient.redis.get(`user:history:track:${user.id}`);
+      const value = await redisClient.redis.get(`user:${user.id}:history:track`);
       if ( value ) 
         return response.status(HttpStatusCode.Ok).json({message: 'Ok', tracks: JSONBig.parse(value)});
+    }
+    if (!database || !database.connection) {
+      return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
     }
     const sql_query = `SELECT id, track
       FROM (
@@ -47,7 +47,7 @@ export async function GET(request: express.Request, response: express.Response) 
       return response.status(HttpStatusCode.NotFound).json({ error: 'Not Found' });
     }
     if ( redisClient?.redis && limit === 14 )
-      redisClient?.redis.setex(`user:history:track:${user.id}`, 15, JSONBig.stringify(res));
+      redisClient?.redis.setex(`user:${user.id}:history:track`, 15, JSONBig.stringify(res));
     return response.status(HttpStatusCode.Ok).json({
       message: 'OK',
       tracks: JSONBig.parse(JSONBig.stringify(res))

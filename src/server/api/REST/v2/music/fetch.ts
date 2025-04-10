@@ -67,87 +67,124 @@ export async function GET(request: express.Request, response: express.Response) 
             return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', result});
         }
         case "channel": {
-            if ( redisClient?.redis )
+            if ( !query )
             {
-                let redis_artist_detail_v1 = await redisClient.redis.get(`yt:artist:v1:${queryId}`);
-                let redis_artist_detail_v2 = await redisClient.redis.get(`yt:artist:v2:${queryId}:info`);
-                let redis_user_detail = await redisClient.redis.get(`yt:user:${queryId}:info`);
-                if ( redis_artist_detail_v1 || redis_artist_detail_v2 || redis_user_detail )
+                if ( redisClient?.redis )
                 {
-                    if ( !redis_artist_detail_v1&&redis_artist_detail_v1!=='' )
+                    let redis_artist_detail_v1 = await redisClient.redis.get(`yt:artist:v1:${queryId}`);
+                    let redis_artist_detail_v2 = await redisClient.redis.get(`yt:artist:v2:${queryId}:info`);
+                    let redis_user_detail = await redisClient.redis.get(`yt:user:${queryId}:info`);
+                    if ( redis_artist_detail_v1 || redis_artist_detail_v2 || redis_user_detail )
                     {
-                        const fetch = await ytmusic.client.getArtist(queryId).catch(()=>{
-                            redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 600, '');
-                        });
-                        if ( fetch )
+                        if ( !redis_artist_detail_v1&&redis_artist_detail_v1!=='' )
                         {
-                            redis_artist_detail_v1 = JSON.stringify(fetch);
-                            redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 1800, redis_artist_detail_v1);
+                            const fetch = await ytmusic.client.getArtist(queryId).catch(()=>{
+                                redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 600, '');
+                            });
+                            if ( fetch )
+                            {
+                                redis_artist_detail_v1 = JSON.stringify(fetch);
+                                redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 1800, redis_artist_detail_v1);
+                            }
                         }
-                    }
-                    if ( !redis_artist_detail_v2&&redis_artist_detail_v2!=='' )
-                    {
-                        const fetch = await YTMusicAPI('GET', `artist/${encodeURIComponent(queryId)}`).catch(()=>{
-                            redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 600, '');
-                        });
-                        if ( fetch )
+                        if ( !redis_artist_detail_v2&&redis_artist_detail_v2!=='' )
                         {
-                            redis_artist_detail_v2 = JSON.stringify(fetch.data.result);
-                            redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 1800, redis_artist_detail_v2);
+                            const fetch = await YTMusicAPI('GET', `artist/${encodeURIComponent(queryId)}`).catch(()=>{
+                                redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 600, '');
+                            });
+                            if ( fetch )
+                            {
+                                redis_artist_detail_v2 = JSON.stringify(fetch.data.result);
+                                redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 1800, redis_artist_detail_v2);
+                            }
                         }
-                    }
-                    if ( !redis_user_detail&&redis_user_detail!=='' )
-                    {
-                        const fetch = await YTMusicAPI('GET', `user/${encodeURIComponent(queryId)}`).catch(()=>{
-                            redisClient?.redis.setex(`yt:user:${queryId}:info`, 600, '');
-                        });
-                        if ( fetch )
+                        if ( !redis_user_detail&&redis_user_detail!=='' )
                         {
-                            redis_user_detail = JSON.stringify(fetch.data.result);
-                            redisClient?.redis.setex(`yt:user:${queryId}:info`, 1800, redis_user_detail);
+                            const fetch = await YTMusicAPI('GET', `user/${encodeURIComponent(queryId)}`).catch(()=>{
+                                redisClient?.redis.setex(`yt:user:${queryId}:info`, 600, '');
+                            });
+                            if ( fetch )
+                            {
+                                redis_user_detail = JSON.stringify(fetch.data.result);
+                                redisClient?.redis.setex(`yt:user:${queryId}:info`, 1800, redis_user_detail);
+                            }
                         }
+                        const safeRedisArtistDetailV1 = redis_artist_detail_v1&&redis_artist_detail_v1!=='' ? JSON.parse(redis_artist_detail_v1) : null;
+                        const safeRedisArtistDetailV2 = redis_artist_detail_v2&&redis_artist_detail_v2!=='' ? JSON.parse(redis_artist_detail_v2) : null;
+                        const safeRedisUsrDetail = redis_user_detail&&redis_user_detail!=='' ? JSON.parse(redis_user_detail) : null;
+                        return response.status(HttpStatusCode.Ok).json({
+                            message: 'Ok',
+                            result: {
+                                v1: safeRedisArtistDetailV1,
+                                v2: safeRedisArtistDetailV2,
+                                user: safeRedisUsrDetail,
+                            },
+                        });
                     }
-                    const safeRedisArtistDetailV1 = redis_artist_detail_v1&&redis_artist_detail_v1!=='' ? JSON.parse(redis_artist_detail_v1) : null;
-                    const safeRedisArtistDetailV2 = redis_artist_detail_v2&&redis_artist_detail_v2!=='' ? JSON.parse(redis_artist_detail_v2) : null;
-                    const safeRedisUsrDetail = redis_user_detail&&redis_user_detail!=='' ? JSON.parse(redis_user_detail) : null;
-                    return response.status(HttpStatusCode.Ok).json({
-                        message: 'Ok',
-                        result: {
-                            v1: safeRedisArtistDetailV1,
-                            v2: safeRedisArtistDetailV2,
-                            user: safeRedisUsrDetail,
-                        },
-                    });
+                }
+    
+                const artist_detail_v1 = await ytmusic.client.getArtist(queryId).catch(() => {
+                    redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 600, '');
+                });
+                const usr_detail = await YTMusicAPI('GET', `user/${encodeURIComponent(queryId)}`).catch(() => {
+                    redisClient?.redis.setex(`yt:user:${queryId}:info`, 600, '');
+                });
+                const artist_detail_v2 = await YTMusicAPI('GET', `artist/${encodeURIComponent(queryId)}`).catch(() => {
+                    redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 600, '');
+                });
+    
+                // Extract only the necessary data to avoid circular references
+                const safeArtistDetailV1 = artist_detail_v1 ? { ...artist_detail_v1 } : null;
+                const safeArtistDetailV2 = artist_detail_v2 ? { ...artist_detail_v2.data.result } : null;
+                const safeUsrDetail = usr_detail ? { ...usr_detail.data.result } : null;
+    
+                if (safeArtistDetailV1) redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 1800, JSON.stringify(safeArtistDetailV1));
+                if (safeArtistDetailV2) redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 1800, JSON.stringify(safeArtistDetailV2));
+                if (safeUsrDetail) redisClient?.redis.setex(`yt:user:${queryId}:info`, 1800, JSON.stringify(safeUsrDetail));
+    
+                return response.status(HttpStatusCode.Ok).json({
+                    message: 'Ok',
+                    result: {
+                        v1: safeArtistDetailV1,
+                        v2: safeArtistDetailV2,
+                        user: safeUsrDetail,
+                    },
+                });
+            }
+            else
+            {
+                switch ( query )
+                {
+                    case "videos": {
+                        if ( redisClient?.redis )
+                        {
+                          const artist_videos = await redisClient.redis.get(`yt:artist:v2:${queryId}:videos`);
+                          if ( artist_videos ) 
+                            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(artist_videos)});
+                          const user_videos = await redisClient.redis.get(`yt:user:${queryId}:videos`);
+                          if ( user_videos ) 
+                            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(user_videos)});
+                        }
+                        const artist_Result = await YTMusicAPI('GET', `artist_videos/${encodeURIComponent(queryId)}`).catch(() => {
+                            redisClient?.redis.setex(`yt:artist:v2:${queryId}:videos`, 600, '');
+                        });
+                        if ( artist_Result )
+                        {
+                            redisClient?.redis.setex(`yt:artist:v2:${queryId}:videos`, 900, JSON.stringify(artist_Result.data.result));
+                            return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: artist_Result.data.result});
+                        }
+                        const user_Result = await YTMusicAPI('GET', `user_videos/${encodeURIComponent(queryId)}`).catch(() => {
+                            redisClient?.redis.setex(`yt:user:${queryId}:videos`, 600, '');
+                        });
+                        if ( !user_Result ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found'});
+                        redisClient?.redis.setex(`yt:user:${queryId}:videos`, 900, JSON.stringify(user_Result.data.result));
+                        return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: user_Result.data.result});
+                    }
+                    default: {
+                        return response.status(400).json({ error: "Invalid query" });
+                    }
                 }
             }
-
-            const artist_detail_v1 = await ytmusic.client.getArtist(queryId).catch(() => {
-                redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 600, '');
-            });
-            const usr_detail = await YTMusicAPI('GET', `user/${encodeURIComponent(queryId)}`).catch(() => {
-                redisClient?.redis.setex(`yt:user:${queryId}:info`, 600, '');
-            });
-            const artist_detail_v2 = await YTMusicAPI('GET', `artist/${encodeURIComponent(queryId)}`).catch(() => {
-                redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 600, '');
-            });
-
-            // Extract only the necessary data to avoid circular references
-            const safeArtistDetailV1 = artist_detail_v1 ? { ...artist_detail_v1 } : null;
-            const safeArtistDetailV2 = artist_detail_v2 ? { ...artist_detail_v2.data.result } : null;
-            const safeUsrDetail = usr_detail ? { ...usr_detail.data.result } : null;
-
-            if (safeArtistDetailV1) redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 1800, JSON.stringify(safeArtistDetailV1));
-            if (safeArtistDetailV2) redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 1800, JSON.stringify(safeArtistDetailV2));
-            if (safeUsrDetail) redisClient?.redis.setex(`yt:user:${queryId}:info`, 1800, JSON.stringify(safeUsrDetail));
-
-            return response.status(HttpStatusCode.Ok).json({
-                message: 'Ok',
-                result: {
-                    v1: safeArtistDetailV1,
-                    v2: safeArtistDetailV2,
-                    user: safeUsrDetail,
-                },
-            });
         }
         case "user": {
             if ( !query )

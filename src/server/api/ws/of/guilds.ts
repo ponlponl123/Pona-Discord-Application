@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import eventManager from '@/events';
-import { database, lavalink, redisClient, discordClient as self } from '@/index';
+import { lavalink, redisClient, discordClient as self } from '@/index';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from "@/utils/oauth";
 import trafficDebugger from "@/server/middlewares/socket/trafficDebugger";
 import { HTTP_PonaCommonStateWithTracks, HTTP_PonaRepeatState, Lyric } from "@/interfaces/player";
@@ -56,24 +56,24 @@ export default async function dynamicGuildNamespace(io: Server) {
     const guildId = player.guild;
     const namespace_io = io.of(`/guild/${guildId}`);
     const httpPlayer = convertTo_HTTPPlayerState(player);
-    namespace_io.to("pona! music").emit(event, httpPlayer);
+    namespace_io.to("pona! music").emit(event, Buffer.from(JSON.stringify(httpPlayer), 'utf-8').toString('base64'));
   }
 
   events.registerHandler("trackStart",async (player, track) => {
     const guildId = player.guild;
     const namespace_io = io.of(`/guild/${guildId}`);
-    namespace_io.to("pona! music").emit('track_started' as GuildEvents, track);
-    namespace_io.to("pona! music").emit('queue_updated' as GuildEvents, [
+    namespace_io.to("pona! music").emit('track_started' as GuildEvents, Buffer.from(JSON.stringify(track), 'utf-8').toString('base64'));
+    namespace_io.to("pona! music").emit('queue_updated' as GuildEvents, Buffer.from(JSON.stringify([
       track,
       ...player.queue
-    ]);
+    ]), 'utf-8').toString('base64'));
     if ( redisClient?.redis)
     {
       const value = await redisClient.redis.get(`yt:lyrics:${track.identifier}`);
       if ( value )
       {
         track.lyrics = JSON.parse(value) as Lyric;
-        return namespace_io.to("pona! music").emit('track_updated' as GuildEvents, track);
+        return namespace_io.to("pona! music").emit('track_updated' as GuildEvents, Buffer.from(JSON.stringify(track), 'utf-8').toString('base64'));
       }
     }
     const endpoint = `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics`;
@@ -92,7 +92,7 @@ export default async function dynamicGuildNamespace(io: Server) {
       if ( fetchLyricByInternalAPI.ok )
       {
         track.lyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
-        namespace_io.to("pona! music").emit('track_updated' as GuildEvents, track);
+        namespace_io.to("pona! music").emit('track_updated' as GuildEvents, Buffer.from(JSON.stringify(track), 'utf-8').toString('base64'));
         if ( redisClient?.redis )
           redisClient.redis.setex(`yt:lyrics:${track.identifier}`, 10800, JSON.stringify(track.lyrics));
       }
@@ -117,35 +117,35 @@ export default async function dynamicGuildNamespace(io: Server) {
       const namespace_io = io.of(`/guild/${guildId}`);
       switch (changeType) {
         case 'channelChange':
-          namespace_io.to("pona! music").emit('channel_updated' as GuildEvents, newPlayer.voiceChannel);
+          namespace_io.to("pona! music").emit('channel_updated' as GuildEvents, Buffer.from(JSON.stringify(newPlayer.voiceChannel), 'utf-8').toString('base64'));
           break;
         case 'queueChange':
-          namespace_io.to("pona! music").emit('queue_updated' as GuildEvents, [
+          namespace_io.to("pona! music").emit('queue_updated' as GuildEvents, Buffer.from(JSON.stringify([
             newPlayer.queue.current,
             ...newPlayer.queue
-          ]);
+          ]), 'utf-8').toString('base64'));
           break;
         case 'connectionChange':
           namespace_io.to("pona! music").emit('connection_updated' as GuildEvents);
           break;
         case 'trackChange':
-          namespace_io.to("pona! music").emit('track_updated' as GuildEvents, newPlayer.queue.current);
+          namespace_io.to("pona! music").emit('track_updated' as GuildEvents, Buffer.from(JSON.stringify(newPlayer.queue.current), 'utf-8').toString('base64'));
           break;
         case 'volumeChange':
           namespace_io.to("pona! music").emit('volume_updated' as GuildEvents, newPlayer.volume);
           break;
         case 'repeatChange':
-          namespace_io.to("pona! music").emit('repeat_updated' as GuildEvents, {
+          namespace_io.to("pona! music").emit('repeat_updated' as GuildEvents, Buffer.from(JSON.stringify({
             track: newPlayer.trackRepeat,
             queue: newPlayer.queueRepeat,
             dynamic: newPlayer.dynamicRepeat,
-          } as HTTP_PonaRepeatState);
+          } as HTTP_PonaRepeatState), 'utf-8').toString('base64'));
           break;
         case 'autoplayChange':
-          namespace_io.to("pona! music").emit('autoplay_updated' as GuildEvents, newPlayer.isAutoplay);
+          namespace_io.to("pona! music").emit('autoplay_updated' as GuildEvents, newPlayer.isAutoplay?1:0);
           break;
         case 'pauseChange':
-          namespace_io.to("pona! music").emit('pause_updated' as GuildEvents, newPlayer.paused);
+          namespace_io.to("pona! music").emit('pause_updated' as GuildEvents, newPlayer.paused?1:0);
           break;
         default:
           namespace_io.to("pona! music").emit('unknown_updated' as GuildEvents);
@@ -176,7 +176,7 @@ export default async function dynamicGuildNamespace(io: Server) {
         isUserLeaved,
         isSameVC
       }
-      namespace_io.to(`stream:${memberId}`).emit('member_state_updated', memberVoiceState);
+      namespace_io.to(`stream:${memberId}`).emit('member_state_updated', Buffer.from(JSON.stringify(memberVoiceState), 'utf-8').toString('base64'));
     } catch { return; }
   });
 
@@ -244,7 +244,7 @@ export default async function dynamicGuildNamespace(io: Server) {
         pona: newPlayerState || playerState,
         isMemberInVC: memberVC || null
       }
-      socket.emit("handshake", data);
+      socket.emit("handshake", Buffer.from(JSON.stringify(data), 'utf-8').toString('base64'));
       socket.on("join", async (guildId: string, voiceBasedChannelId: string)=>{ try {
           if ( !lavalink.manager.useableNodes.connected ) return;
           if ( member && (await fetchIsUserInVoiceChannel(guildId, member.id)) )
@@ -294,13 +294,13 @@ export default async function dynamicGuildNamespace(io: Server) {
               status: "error"
             });
             try {
-              io_guild.to("pona! music").emit('queue_updated' as GuildEvents, player.queue);
+              io_guild.to("pona! music").emit('queue_updated' as GuildEvents, Buffer.from(JSON.stringify(player.queue), 'utf-8').toString('base64'));
             } catch (e) {
               console.error("Failed to emit queue_updated", e);
               return callback?callback({status: "error"}):false;
             }
           }
-          io_guild.emit("track_moved", member);
+          io_guild.emit("track_moved", Buffer.from(JSON.stringify(member), 'utf-8').toString('base64'));
           events.pona_action('queue-move', member.id, `from ${from} to ${to}`, guildId, player.voiceChannel || '');
         }, 320);
         } catch { return callback?callback({status: "error"}):false; }
@@ -359,13 +359,13 @@ export default async function dynamicGuildNamespace(io: Server) {
               status: "error"
             });
             try {
-              io_guild.to("pona! music").emit('queue_updated' as GuildEvents, player.queue);
+              io_guild.to("pona! music").emit('queue_updated' as GuildEvents, Buffer.from(JSON.stringify(player.queue), 'utf-8').toString('base64'));
             } catch (e) {
               console.error("Failed to emit queue_updated", e);
               return callback?callback({status: "error"}):false;
             }
           }
-          io_guild.emit("track_removed", member);
+          io_guild.emit("track_removed", Buffer.from(JSON.stringify(member), 'utf-8').toString('base64'));
           events.pona_action('trackremove', member.id, uniqueId, guildId, player.voiceChannel || '');
         }, 320);
         } catch { return callback?callback({status: "error"}):false; }

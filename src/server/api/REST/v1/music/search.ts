@@ -2,7 +2,7 @@ import express from 'express';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
-import { redisClient, ytmusic } from '@/index';
+import { database, redisClient, ytmusic } from '@/index';
 
 export async function GET(request: express.Request, response: express.Response) {
   try {
@@ -35,6 +35,11 @@ export async function GET(request: express.Request, response: express.Response) 
       let URL = `search?query=${encodeURIComponent(String(q))}`;
       URL += filter ? `&filter=${filter}` : "";
       const searchResult = await YTMusicAPI('GET', URL.toString());
+      if ( database && database.connection )
+        database.connection.query(
+          `INSERT INTO search_history (uid, text) VALUES (?, ?)`,
+          [user.id, String(q)]
+        );
       if ( !searchResult ) return response.status(HttpStatusCode.ServiceUnavailable).json({message: 'Service Unavailable'});
       redisClient?.redis.setex(`yt:search:query:${filter || 'all'}:${String(q)}`, 300, JSON.stringify(searchResult.data.result));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});

@@ -30,8 +30,14 @@ export async function GET(request: express.Request, response: express.Response) 
       `SELECT uid, target FROM subscribe_artist WHERE uid=? AND target=?`,
       [user.id, channelId]
     );
-    if ( value )
+    if ( value && value.length > 0 )
+    {
+      if ( redisClient?.redis )
+        redisClient.redis.hset(`user:${user.id}:subscribe`,channelId,1),redisClient.redis.expire(`user:${user.id}:subscribe`,86400);
       return response.status(HttpStatusCode.Ok).json({ message: 'Subscribed', state: 1 });
+    }
+    if ( redisClient?.redis )
+      redisClient.redis.hset(`user:${user.id}:subscribe`,channelId,0),redisClient.redis.expire(`user:${user.id}:subscribe`,86400);
     return response.status(HttpStatusCode.Ok).json({ message: 'Unsubscribed', state: 0 });
   } catch (error) {
     if ( process.env.NODE_ENV === 'development' ) return response.status(HttpStatusCode.InternalServerError).json({ error: String(error) });
@@ -87,7 +93,7 @@ export async function DELETE(request: express.Request, response: express.Respons
     if ( redisClient?.redis )
       redisClient.redis.hset(`user:${user.id}:subscribe`,channelId,0),redisClient.redis.expire(`user:${user.id}:subscribe`,86400);
     database.connection.query(
-      `DELETE FROM subscribe_artist WHERE uid=? target=?`,
+      `DELETE FROM subscribe_artist WHERE uid=? AND target=?`,
       [user.id, channelId]
     );
     return response.status(HttpStatusCode.Ok).json({ message: 'Ok' });

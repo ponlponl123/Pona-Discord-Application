@@ -83,7 +83,7 @@ export async function GET(request: express.Request, response: express.Response) 
             if ( !getWatchPlaylist ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', var: 'WatchPlaylist'});
             if ( redisClient?.redis )
                 redisClient.redis.setex(`yt:watch_playlist:${queryId}`, 43200, JSON.stringify(getWatchPlaylist.data.result));
-            const getSongRelated = await YTMusicAPI('GET', `song_related/${encodeURIComponent(queryId)}`).catch(() => {
+            const getSongRelated = await YTMusicAPI('GET', `song_related/${encodeURIComponent(getWatchPlaylist.data.result.related)}`).catch(() => {
                 redisClient?.redis.setex(`yt:related:${queryId}`, 600, '');
             });
             if ( !getSongRelated ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', var: 'SongRelated'});

@@ -72,9 +72,9 @@ export async function GET(request: express.Request, response: express.Response) 
           }
           if ( redisClient?.redis )
           {
-            const value = await redisClient.redis.get(`user:${user.id}:history:search`);
-            if ( value ) 
-              return response.status(HttpStatusCode.Ok).json({message: 'Ok', results: JSON.parse(value)});
+            const value = await redisClient.redis.smembers(`user:${user.id}:history:search`);
+            if ( value && value.length > 0 ) 
+              return response.status(HttpStatusCode.Ok).json({message: 'Ok', results: value});
           }
           if ( !database || !database.connection )
             return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
@@ -94,7 +94,10 @@ export async function GET(request: express.Request, response: express.Response) 
             return response.status(HttpStatusCode.NotFound).json({ error: 'Not Found' });
           const parsed_to_array = search_history.map((item: { text: string }) => item.text);
           if ( redisClient?.redis )
-            redisClient?.redis.setex(`user:${user.id}:history:search`, 15, JSON.stringify(parsed_to_array));
+            await redisClient.redis.multi()
+              .sadd(`user:${user.id}:history:search`, ...parsed_to_array)
+              .expire(`user:${user.id}:history:search`, 600)
+              .exec();
           return response.status(HttpStatusCode.Ok).json({
             message: 'OK',
             results: parsed_to_array

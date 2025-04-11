@@ -26,8 +26,19 @@ export async function GET(request: express.Request, response: express.Response) 
       redisClient?.redis.setex(`yt:search:suggestions:${String(q)}`, 1800, JSON.stringify(searchSuggestions));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', searchSuggestions: searchSuggestions});
     } else {
+      if ( database && database.connection )
+        database.connection.query(
+          `INSERT INTO search_history (uid, text) VALUES (?, ?)`,
+          [user.id, String(q)]
+        );
       if ( redisClient?.redis )
       {
+        redisClient.redis.multi()
+          .lrem(`user:${user.id}:history:search`, 0, String(q))
+          .lpush(`user:${user.id}:history:search`, String(q))
+          .ltrim(`user:${user.id}:history:search`, 0, 7)
+          .expire(`user:${user.id}:history:search`, 600)
+          .exec();
         const value = await redisClient.redis.get(`yt:search:query:${filter || 'all'}:${String(q)}`);
         if ( value ) 
           return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
@@ -35,11 +46,6 @@ export async function GET(request: express.Request, response: express.Response) 
       let URL = `search?query=${encodeURIComponent(String(q))}`;
       URL += filter ? `&filter=${filter}` : "";
       const searchResult = await YTMusicAPI('GET', URL.toString());
-      if ( database && database.connection )
-        database.connection.query(
-          `INSERT INTO search_history (uid, text) VALUES (?, ?)`,
-          [user.id, String(q)]
-        );
       if ( !searchResult ) return response.status(HttpStatusCode.ServiceUnavailable).json({message: 'Service Unavailable'});
       redisClient?.redis.setex(`yt:search:query:${filter || 'all'}:${String(q)}`, 300, JSON.stringify(searchResult.data.result));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: searchResult.data.result});

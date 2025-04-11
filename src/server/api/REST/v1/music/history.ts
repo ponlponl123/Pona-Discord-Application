@@ -72,9 +72,19 @@ export async function GET(request: express.Request, response: express.Response) 
           }
           if ( redisClient?.redis )
           {
-            const value = await redisClient.redis.smembers(`user:${user.id}:history:search`);
-            if ( value && value.length > 0 ) 
-              return response.status(HttpStatusCode.Ok).json({message: 'Ok', results: value});
+            const keyType = await redisClient.redis.type(`user:${user.id}:history:search`);
+            if ( keyType === 'SET' )
+            {
+              const value = await redisClient.redis.smembers(`user:${user.id}:history:search`);
+              if ( value && value.length > 0 ) 
+                return response.status(HttpStatusCode.Ok).json({message: 'Ok', results: value});
+            }
+            else if ( keyType === 'LIST' )
+            {
+              const value = await redisClient.redis.lrange(`user:${user.id}:history:search`, 0, 7);
+              if ( value && value.length > 0 ) 
+                return response.status(HttpStatusCode.Ok).json({message: 'Ok', results: value});
+            }
           }
           if ( !database || !database.connection )
             return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });

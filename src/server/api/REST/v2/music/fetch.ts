@@ -66,6 +66,37 @@ export async function GET(request: express.Request, response: express.Response) 
             }
             return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', result});
         }
+        case "related": {
+            if ( redisClient?.redis )
+            {
+                const watch_playlist = await redisClient.redis.get(`yt:watch_playlist:${queryId}`);
+                const related = await redisClient.redis.get(`yt:related:${queryId}`);
+                if ( related ) 
+                return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: {
+                    watch_playlist: watch_playlist?JSON.parse(watch_playlist):null,
+                    related: related?JSON.parse(related):null
+                }});
+            }
+            const getWatchPlaylist = await YTMusicAPI('GET', `watch/${encodeURIComponent(queryId)}`).catch(() => {
+                redisClient?.redis.setex(`yt:watch_playlist:${queryId}`, 600, '');
+            });
+            if ( !getWatchPlaylist ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', var: 'WatchPlaylist'});
+            if ( redisClient?.redis )
+                redisClient.redis.setex(`yt:watch_playlist:${queryId}`, 43200, JSON.stringify(getWatchPlaylist.data.result));
+            const getSongRelated = await YTMusicAPI('GET', `song_related/${encodeURIComponent(queryId)}`).catch(() => {
+                redisClient?.redis.setex(`yt:related:${queryId}`, 600, '');
+            });
+            if ( !getSongRelated ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', var: 'SongRelated'});
+            if ( redisClient?.redis )
+                redisClient.redis.setex(`yt:related:${queryId}`, 43200, JSON.stringify(getSongRelated.data.result));
+            return response.status(HttpStatusCode.Ok).json({
+                message: 'Ok',
+                result: {
+                    watch_playlist: getWatchPlaylist?getWatchPlaylist.data.result:null,
+                    related: getSongRelated?getSongRelated.data.result:null
+                }
+            });
+        }
         case "channel": {
             if ( !query )
             {

@@ -1,5 +1,7 @@
 import { redisClient, ytmusic } from "@/index";
+import { ArtistFull as ArtistFullV2, ProfileFull } from "@/interfaces/ytmusic-api";
 import YTMusicAPI from '@/utils/ytmusic-api/request';
+import { ArtistFull } from "ytmusic-api";
 
 export async function IsValidChannel(channelId: string): Promise<boolean> {
     try {
@@ -24,7 +26,7 @@ export async function IsValidChannel(channelId: string): Promise<boolean> {
     }
 }
 
-export async function getChannel(channelId: string): Promise<false | any> {
+export async function getChannel(channelId: string): Promise<false | { message: string, result: {v1: ArtistFull | undefined, v2: ArtistFullV2 | undefined, user: ProfileFull | undefined} }> {
     if ( redisClient?.redis )
     {
         let redis_artist_detail_v1 = await redisClient.redis.get(`yt:artist:v1:${channelId}`);
@@ -89,9 +91,9 @@ export async function getChannel(channelId: string): Promise<false | any> {
         redisClient?.redis.setex(`yt:artist:v2:${channelId}:info`, 600, '');
     });
 
-    const safeArtistDetailV1 = artist_detail_v1 ? { ...artist_detail_v1 } : null;
-    const safeArtistDetailV2 = artist_detail_v2 ? { ...artist_detail_v2.data.result } : null;
-    const safeUsrDetail = usr_detail ? { ...usr_detail.data.result } : null;
+    const safeArtistDetailV1 = artist_detail_v1 ? { ...artist_detail_v1 } : undefined;
+    const safeArtistDetailV2 = artist_detail_v2 ? { ...artist_detail_v2.data.result } : undefined;
+    const safeUsrDetail = usr_detail ? { ...usr_detail.data.result } : undefined;
 
     if (safeArtistDetailV1) redisClient?.redis.setex(`yt:artist:v1:${channelId}`, 1800, JSON.stringify(safeArtistDetailV1));
     if (safeArtistDetailV2) redisClient?.redis.setex(`yt:artist:v2:${channelId}:info`, 1800, JSON.stringify(safeArtistDetailV2));

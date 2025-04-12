@@ -27,8 +27,8 @@ ENV NODE_ENV=production
 
 # Copy the build artifacts into the final image
 COPY --from=builder /pona-builder/dist ./dist
-COPY --from=builder /pona-builder/eslint.config.mjs ./eslint.config.mjs
-COPY --from=builder /pona-builder/tsconfig-paths.cjs ./tsconfig-paths.cjs
+COPY --from=builder /pona-builder/node_modules ./node_modules
+COPY --from=builder /pona-builder/tsconfig-paths.js ./tsconfig-paths.js
 COPY --from=builder /pona-builder/tsconfig.json ./tsconfig.json
 COPY --from=builder /pona-builder/package.json ./package.json
 COPY --from=builder /pona-builder/locates ./locates

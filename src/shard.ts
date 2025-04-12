@@ -6,7 +6,7 @@ import { ClusterManager, ReClusterManager, HeartbeatManager, BaseMessage, messag
 const manager = new ClusterManager(path.join(__dirname, 'index.js'), {
     token: discordConf.DISCORD_TOKEN,
     totalShards: 'auto',
-    execArgv: ['-r', './tsconfig-paths.js'],
+    execArgv: ['-r', './tsconfig-paths.cjs'],
     shardsPerClusters: 2,
     mode: 'process',
 });

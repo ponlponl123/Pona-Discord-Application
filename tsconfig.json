@@ -35,5 +35,5 @@
       "bun"
     ]
   },
-  "exclude": ["tsup.config.ts", "tsup.config.js", "tsconfig-paths.cjs", "eslint.config.mjs", "bun-build.js", "es-build.js", "dist", "build"]
+  "exclude": ["tsup.config.ts", "tsup.config.js", "tsconfig-paths.js", "eslint.config.mjs", "bun-build.js", "es-build.js", "dist", "build"]
 }

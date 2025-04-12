@@ -8,9 +8,9 @@ export async function IsValidChannel(channelId: string): Promise<boolean> {
         if (
             redisClient?.redis &&
             (
-                await redisClient.redis.get(`yt:artist:v1:${channelId}`) ||
-                await redisClient.redis.get(`yt:artist:v2:${channelId}:info`) ||
-                await redisClient.redis.get(`yt:user:${channelId}:info`)
+                await redisClient.redis_ReadOnly.get(`yt:artist:v1:${channelId}`) ||
+                await redisClient.redis_ReadOnly.get(`yt:artist:v2:${channelId}:info`) ||
+                await redisClient.redis_ReadOnly.get(`yt:user:${channelId}:info`)
             ) ||
             (
                 await ytmusic.client.getArtist(channelId) ||
@@ -29,9 +29,9 @@ export async function IsValidChannel(channelId: string): Promise<boolean> {
 export async function getChannel(channelId: string): Promise<false | { message: string, result: {v1: ArtistFull | undefined, v2: ArtistFullV2 | undefined, user: ProfileFull | undefined} }> {
     if ( redisClient?.redis )
     {
-        let redis_artist_detail_v1 = await redisClient.redis.get(`yt:artist:v1:${channelId}`);
-        let redis_artist_detail_v2 = await redisClient.redis.get(`yt:artist:v2:${channelId}:info`);
-        let redis_user_detail = await redisClient.redis.get(`yt:user:${channelId}:info`);
+        let redis_artist_detail_v1 = await redisClient.redis_ReadOnly.get(`yt:artist:v1:${channelId}`);
+        let redis_artist_detail_v2 = await redisClient.redis_ReadOnly.get(`yt:artist:v2:${channelId}:info`);
+        let redis_user_detail = await redisClient.redis_ReadOnly.get(`yt:user:${channelId}:info`);
         if ( redis_artist_detail_v1 || redis_artist_detail_v2 || redis_user_detail )
         {
             if ( !redis_artist_detail_v1&&redis_artist_detail_v1!=='' )

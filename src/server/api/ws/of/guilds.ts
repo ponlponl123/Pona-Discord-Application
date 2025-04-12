@@ -69,7 +69,7 @@ export default async function dynamicGuildNamespace(io: Server) {
     ]), 'utf-8').toString('base64'));
     if ( redisClient?.redis)
     {
-      const value = await redisClient.redis.get(`yt:lyrics:${track.identifier}`);
+      const value = await redisClient.redis_ReadOnly.get(`yt:lyrics:${track.identifier}`);
       if ( value )
       {
         track.lyrics = JSON.parse(value) as Lyric;

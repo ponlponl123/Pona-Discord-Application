@@ -25,7 +25,7 @@ export async function GET(request: express.Request, response: express.Response) 
     const promises = bulk_fetch.map(async (videoId) => {
       if (!videoId) return;
       if (redisClient?.redis) {
-        const value = await redisClient.redis.hget(`user:${user.id}:favorite`, videoId);
+        const value = await redisClient.redis_ReadOnly.hget(`user:${user.id}:favorite`, videoId);
         if (value) {
           fetched[videoId] = value !== '0';
           return;

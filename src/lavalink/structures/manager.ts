@@ -35,8 +35,7 @@ import {
 	SearchResult
 } from "@/interfaces/manager";
 import { parseYouTubeTitle } from "@/utils/parser";
-import { discordClient, redisClient } from "@/index";
-import { fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
+import { redisClient } from "@/index";
 import { createTrackData } from "@/utils/lavalink/track";
 
 interface LavaPlayer {
@@ -96,7 +95,7 @@ export class Manager extends EventEmitter {
 		let cursor = '0';
 		let playerKeys = [];
 		do {
-			const [nextCursor, foundKeys] = await redisClient.redis.scan(cursor, 'MATCH', 'state:*');
+			const [nextCursor, foundKeys] = await redisClient.redis_ReadOnly.scan(cursor, 'MATCH', 'state:*')
 			cursor = nextCursor;
     		playerKeys.push(...foundKeys);
 		} while ( cursor !== '0' );
@@ -107,7 +106,7 @@ export class Manager extends EventEmitter {
 		this.lastSaveTimes.clear();
 
 		for (const playerKey of playerKeys) {
-			const data = await redisClient.redis.get(playerKey);
+			const data = await redisClient.redis_ReadOnly.get(playerKey);
 			if ( !data ) return;
 			const state = JSON.parse(data);
 
@@ -200,7 +199,7 @@ export class Manager extends EventEmitter {
 	public async readPlayerState(guildId: string): Promise<Player | undefined> {
 		if ( !redisClient || !redisClient.redis ) throw new Error('Redis is not initialized.');
 
-		const raw_state = await redisClient.redis.get(`state:${guildId}`);
+		const raw_state = await redisClient.redis_ReadOnly.get(`state:${guildId}`);
 		if ( !raw_state ) return;
 		const state = JSON.parse(raw_state);
 

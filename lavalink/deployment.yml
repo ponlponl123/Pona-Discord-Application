@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lavalink-plugins-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lavalink-config
+data:
+  application.yml: |
+    # Paste your application.yml content here or mount from volume as needed
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lavalink
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lavalink
+  template:
+    metadata:
+      labels:
+        app: lavalink
+    spec:
+      containers:
+        - name: lavalink
+          image: ghcr.io/lavalink-devs/lavalink:4
+          ports:
+            - containerPort: 2333
+          env:
+            - name: _JAVA_OPTIONS
+              value: "-Xmx6G"
+            - name: SERVER_PORT
+              value: "2333"
+            - name: LAVALINK_SERVER_PASSWORD
+              value: "youshallnotpass"
+          volumeMounts:
+            - name: config-volume
+              mountPath: /opt/Lavalink/application.yml
+              subPath: application.yml
+            - name: plugins-volume
+              mountPath: /opt/Lavalink/plugins
+      volumes:
+        - name: config-volume
+          configMap:
+            name: lavalink-config
+        - name: plugins-volume
+          persistentVolumeClaim:
+            claimName: lavalink-plugins-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lavalink
+spec:
+  selector:
+    app: lavalink
+  ports:
+    - protocol: TCP
+      port: 2333
+      targetPort: 2333
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lavalink
+spec:
+  selector:
+    app: lavalink
+  ports:
+    - protocol: TCP
+      port: 2333
+      targetPort: 2333
+      NodePort: 30233
+  type: NodePort

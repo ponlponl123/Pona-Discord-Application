@@ -20,7 +20,7 @@ export async function GET(request: express.Request, response: express.Response) 
       case "album": {
         if ( redisClient?.redis)
         {
-          const value = await redisClient.redis.get(`yt:album:v1:${queryId}`);
+          const value = await redisClient.redis_ReadOnly.get(`yt:album:v1:${queryId}`);
           if ( value ) 
             return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
         }
@@ -34,7 +34,7 @@ export async function GET(request: express.Request, response: express.Response) 
       case "song": {
         if ( redisClient?.redis)
         {
-          const value = await redisClient.redis.get(`yt:song:v1:${queryId}`);
+          const value = await redisClient.redis_ReadOnly.get(`yt:song:v1:${queryId}`);
           if ( value ) 
             return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
         }
@@ -48,7 +48,7 @@ export async function GET(request: express.Request, response: express.Response) 
       case "video": {
         if ( redisClient?.redis)
         {
-          const value = await redisClient.redis.get(`yt:video:v1:${queryId}`);
+          const value = await redisClient.redis_ReadOnly.get(`yt:video:v1:${queryId}`);
           if ( value ) 
             return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
         }
@@ -63,7 +63,7 @@ export async function GET(request: express.Request, response: express.Response) 
         if ( !query ) {
           if ( redisClient?.redis)
           {
-            const value = await redisClient.redis.get(`yt:artist:v1:info:${queryId}`).catch(() => {
+            const value = await redisClient.redis_ReadOnly.get(`yt:artist:v1:info:${queryId}`).catch(() => {
               redisClient?.redis.setex(`yt:artist:v1:info:${queryId}`, 600, '');
             });
             if ( value ) 
@@ -80,7 +80,7 @@ export async function GET(request: express.Request, response: express.Response) 
             case "albums": {
               if ( redisClient?.redis)
               {
-                const value = await redisClient.redis.get(`yt:artist:v1:albums:${queryId}`);
+                const value = await redisClient.redis_ReadOnly.get(`yt:artist:v1:albums:${queryId}`);
                 if ( value ) 
                   return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
               }
@@ -94,7 +94,7 @@ export async function GET(request: express.Request, response: express.Response) 
             case "songs": {
               if ( redisClient?.redis)
               {
-                const value = await redisClient.redis.get(`yt:artist:v1:songs:${queryId}`);
+                const value = await redisClient.redis_ReadOnly.get(`yt:artist:v1:songs:${queryId}`);
                 if ( value ) 
                   return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
               }
@@ -114,7 +114,7 @@ export async function GET(request: express.Request, response: express.Response) 
       case "playlist": {
         if ( redisClient?.redis)
         {
-          const value = await redisClient.redis.get(`yt:playlist:v1:${queryId}`);
+          const value = await redisClient.redis_ReadOnly.get(`yt:playlist:v1:${queryId}`);
           if ( value ) 
             return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
         }

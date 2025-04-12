@@ -3,7 +3,6 @@ import { HttpStatusCode } from 'axios';
 import { database, redisClient } from '@/index';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { getChannel, IsValidChannel } from '@/utils/ytmusic-api/getChannel';
-import { ArtistDetailed } from '@/interfaces/ytmusic-api';
 
 export const path = "/:options?";
 
@@ -12,7 +11,7 @@ export async function GET(request: express.Request, response: express.Response) 
     if (!database || !database.connection)
       return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
     const { authorization } = request.headers;
-    const { c } = request.query;
+    const { c, limit } = request.query;
     const { options } = request.params;
     if (!authorization) 
       return response.status(HttpStatusCode.Unauthorized).json({ error: 'Unauthorized' });
@@ -28,7 +27,7 @@ export async function GET(request: express.Request, response: express.Response) 
         return response.status(HttpStatusCode.BadRequest).json({ error: 'Invalid channelId' });
       if ( redisClient?.redis )
       {
-        const value = await redisClient.redis.hget(`user:${user.id}:subscribe`,channelId);
+        const value = await redisClient.redis_ReadOnly.hget(`user:${user.id}:subscribe`,channelId);
         if ( value && Number(value) )
           return response.status(HttpStatusCode.Ok).json({message: value==='1'?'Subscribed':'Unsubscribed', state: Number(value)});
       }
@@ -50,48 +49,50 @@ export async function GET(request: express.Request, response: express.Response) 
     {
       switch (options) {
         case "s":
-            if ( redisClient?.redis )
-            {
-              const value = await redisClient.redis.get(`user:${user.id}:subscribe_cache`);
-              if ( value )
-                return response.status(HttpStatusCode.Ok).json({ message: 'Ok', result: JSON.parse(value) });
-            }
-            const channels = await database.connection.query(
-              `SELECT target, cache, cache_lastupdated FROM subscribe_artist WHERE uid=?`,
-              [user.id]
-            );
-            if ( channels && channels.length > 0 )
-            {
-              let subscribed_channels: { artistId: string; info: any }[] = [];
-              for (const channel of channels) {
-                if ( redisClient?.redis )
-                  redisClient.redis.multi().hset(`user:${user.id}:subscribe`,channel.target,1).expire(`user:${user.id}:subscribe`,86400);
-                if ( !channel.cache || channel.cache_lastupdated < new Date().getTime() - 86400000 )
-                {
-                  const fetchChannel = await getChannel(channel.target);
-                  if ( fetchChannel )
-                  {
-                    database.connection?.query(
-                      `UPDATE subscribe_artist SET cache=?, cache_lastupdated=? WHERE uid=? AND target=?`,
-                      [JSON.stringify(fetchChannel.result), new Date().toISOString().slice(0, 19).replace('T', ' '), user.id, channel.target]
-                    );
-                    subscribed_channels.push({
-                      artistId: channel.target,
-                      info: fetchChannel.result
-                    });
-                    continue;
-                  }
-                }
-                subscribed_channels.push({
-                  artistId: channel.target,
-                  info: JSON.parse(channel?.cache)
-                });
-              }
+          if ( limit && !Number(limit) ) return response.status(HttpStatusCode.BadRequest).json({error: 'limit parameter must be a number and not greater than 100'});
+          let q_limit = Number(limit) || 14;
+          if ( redisClient?.redis )
+          {
+            const value = await redisClient.redis_ReadOnly.get(`user:${user.id}:subscribe_cache`);
+            if ( value )
+              return response.status(HttpStatusCode.Ok).json({ message: 'Ok', result: JSON.parse(value) });
+          }
+          const channels = await database.connection.query(
+            `SELECT target, cache, cache_lastupdated FROM subscribe_artist WHERE uid=? LIMIT ?`,
+            [user.id, q_limit]
+          );
+          if ( channels && channels.length > 0 )
+          {
+            let subscribed_channels: { artistId: string; info: any }[] = [];
+            for (const channel of channels) {
               if ( redisClient?.redis )
-                redisClient.redis.setex(`user:${user.id}:subscribe_cache`,30,JSON.stringify(subscribed_channels))
-              return response.status(HttpStatusCode.Ok).json({ message: 'Ok', result: subscribed_channels });
+                redisClient.redis.multi().hset(`user:${user.id}:subscribe`,channel.target,1).expire(`user:${user.id}:subscribe`,86400);
+              if ( !channel.cache || channel.cache_lastupdated < new Date().getTime() - 86400000 )
+              {
+                const fetchChannel = await getChannel(channel.target);
+                if ( fetchChannel )
+                {
+                  database.connection?.query(
+                    `UPDATE subscribe_artist SET cache=?, cache_lastupdated=? WHERE uid=? AND target=?`,
+                    [JSON.stringify(fetchChannel.result), new Date().toISOString().slice(0, 19).replace('T', ' '), user.id, channel.target]
+                  );
+                  subscribed_channels.push({
+                    artistId: channel.target,
+                    info: fetchChannel.result
+                  });
+                  continue;
+                }
+              }
+              subscribed_channels.push({
+                artistId: channel.target,
+                info: JSON.parse(channel?.cache)
+              });
             }
-            return response.status(HttpStatusCode.NotFound).json({ error: 'Not Found' });
+            if ( redisClient?.redis )
+              redisClient.redis.setex(`user:${user.id}:subscribe_cache`,30,JSON.stringify(subscribed_channels))
+            return response.status(HttpStatusCode.Ok).json({ message: 'Ok', result: subscribed_channels });
+          }
+          return response.status(HttpStatusCode.NotFound).json({ error: 'Not Found' });
         default:
           return response.status(HttpStatusCode.MethodNotAllowed).json({ error: 'Method Not Allowed' });
       }

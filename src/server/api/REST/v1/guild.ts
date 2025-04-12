@@ -34,8 +34,8 @@ export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
         {
           if ( redisClient?.redis )
           {
-            const active = await redisClient.redis.get(`guild:${guildId}:stats:active`);
-            const history = await redisClient.redis.get(`guild:${guildId}:stats:history`);
+            const active = await redisClient.redis_ReadOnly.get(`guild:${guildId}:stats:active`);
+            const history = await redisClient.redis_ReadOnly.get(`guild:${guildId}:stats:history`);
             if ( active && history ) 
               return response.status(HttpStatusCode.Ok).json({message: 'Ok', active: JSONBig.parse(active), history: JSONBig.parse(history)});
           }

@@ -18,7 +18,7 @@ export async function GET(request: express.Request, response: express.Response) 
     if ( is_suggestion === "true" ) {
       if ( redisClient?.redis )
       {
-        const value = await redisClient.redis.get(`yt:search:suggestions:${String(q)}`);
+        const value = await redisClient.redis_ReadOnly.get(`yt:search:suggestions:${String(q)}`);
         if ( value ) 
           return response.status(HttpStatusCode.Ok).json({message: 'Ok', searchSuggestions: JSON.parse(value)});
       }
@@ -39,7 +39,7 @@ export async function GET(request: express.Request, response: express.Response) 
           .ltrim(`user:${user.id}:history:search`, 0, 7)
           .expire(`user:${user.id}:history:search`, 600)
           .exec();
-        const value = await redisClient.redis.get(`yt:search:query:${filter || 'all'}:${String(q)}`);
+        const value = await redisClient.redis_ReadOnly.get(`yt:search:query:${filter || 'all'}:${String(q)}`);
         if ( value ) 
           return response.status(HttpStatusCode.Ok).json({message: 'Ok', result: JSON.parse(value)});
       }

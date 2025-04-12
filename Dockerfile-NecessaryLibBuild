@@ -1,4 +1,4 @@
-FROM node:23.11.0-alpine AS base
+FROM node:22.4.1-alpine AS base
 RUN apk add python3 g++ make git
 
 FROM base AS ytmusic-api-builder

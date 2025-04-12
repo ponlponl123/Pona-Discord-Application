@@ -1,11 +1,9 @@
 import dotenv from 'dotenv';
-import fs from 'fs';
 dotenv.config();
 
 import th_TH from '@/../locates/th-TH.json'
 import en_US from '@/../locates/en-US.json'
 import { pona } from '@/index'
-import path from 'path';
 
 var default_lang = process.env["LANG"] || 'en_US';
 

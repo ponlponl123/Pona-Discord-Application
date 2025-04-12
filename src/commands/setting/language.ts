@@ -4,7 +4,6 @@ import informationEmbedBuilder from "@utils/embeds/infomation";
 import { getGuildLanguage, languageCode, langs } from "@utils/i18n";
 
 import {
-    Guild,
     GuildMember,
     CommandInteraction,
     SlashCommandBuilder,

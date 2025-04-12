@@ -26,7 +26,6 @@ import { getGuildLanguage } from './utils/i18n';
 import { database, lavalink } from "@/index";
 import { setInterval } from 'timers';
 import { EventEmitter } from 'events';
-import fs from 'fs';
 
 export type voiceStateChange = 'clientJoined' | 'clientLeaved' | 'clientSwitched' | 'memberJoined' | 'memberLeaved' | 'memberSwitched';
 

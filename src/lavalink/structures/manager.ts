@@ -11,8 +11,6 @@ import managerCheck from "@utils/lavalink/managerCheck";
 import { Collection } from "@discordjs/collection";
 import { ClientUser, User } from "discord.js";
 import { EventEmitter } from "events";
-import fs from "fs";
-import path from "path";
 
 import setVoiceChannelStatus from "@utils/setVoiceChannelStatus";
 import { prefix as consolePrefix } from "@/config/console";
@@ -37,7 +35,7 @@ import {
 	SearchResult
 } from "@/interfaces/manager";
 import { parseYouTubeTitle } from "@/utils/parser";
-import { discordClient } from "@/index";
+import { discordClient, redisClient } from "@/index";
 import { fetchIsUserInVoiceChannel } from "@/utils/isUserIsInVoiceChannel";
 import { createTrackData } from "@/utils/lavalink/track";
 
@@ -91,26 +89,26 @@ export class Manager extends EventEmitter {
 	public async loadPlayerStates(nodeId: string): Promise<void> {
 		const node = this.nodes.get(nodeId);
 		if (!node) throw new Error(`Could not find node: ${nodeId}`);
+		if ( !redisClient || !redisClient.redis ) throw new Error('Redis is not initialized.');
 
 		const info = (await node.rest.getAllPlayers()) as LavaPlayer[];
 
-		const playerStatesDir = path.join(process.cwd(), "ponaState", "lavalink", "players");
-
-		if (!fs.existsSync(playerStatesDir)) {
-			fs.mkdirSync(playerStatesDir, { recursive: true });
-			console.log(consolePrefix.lavalink + `Created lavalink states directory at ${playerStatesDir}`);
-		}
-
-		const playerFiles = fs.readdirSync(playerStatesDir);
+		let cursor = '0';
+		let playerKeys = [];
+		do {
+			const [nextCursor, foundKeys] = await redisClient.redis.scan(cursor, 'MATCH', 'state:*');
+			cursor = nextCursor;
+    		playerKeys.push(...foundKeys);
+		} while ( cursor !== '0' );
 
 		// clear current memory before adding new state
 		this.players.clear();
 		this.latestPlayerStates.clear();
 		this.lastSaveTimes.clear();
 
-		for (const file of playerFiles) {
-			const filePath = path.join(playerStatesDir, file);
-			const data = fs.readFileSync(filePath, "utf-8");
+		for (const playerKey of playerKeys) {
+			const data = await redisClient.redis.get(playerKey);
+			if ( !data ) return;
 			const state = JSON.parse(data);
 
 			if (state && typeof state === "object" && state.guild && state.node.options.identifier === nodeId) {
@@ -200,14 +198,11 @@ export class Manager extends EventEmitter {
 	}
 
 	public async readPlayerState(guildId: string): Promise<Player | undefined> {
-		const playerStateFilePath = this.getPlayerFilePath(guildId);
+		if ( !redisClient || !redisClient.redis ) throw new Error('Redis is not initialized.');
 
-		if (!fs.existsSync(playerStateFilePath)) {
-			return undefined;
-		}
-
-		const data = fs.readFileSync(playerStateFilePath, "utf-8");
-		const state = JSON.parse(data);
+		const raw_state = await redisClient.redis.get(`state:${guildId}`);
+		if ( !raw_state ) return;
+		const state = JSON.parse(raw_state);
 
 		if (state && typeof state === "object" && state.guild) {
 			const playerOptions: PlayerOptions = {
@@ -246,25 +241,29 @@ export class Manager extends EventEmitter {
 		return undefined;
 	}
 
-	private getPlayerFilePath(guildId: string): string {
-		const playerStateFilePath = path.join(process.cwd(), "ponaState", "lavalink", "players", `${guildId}.json`);
-		const configDir = path.dirname(playerStateFilePath);
-		if (!fs.existsSync(configDir)) {
-			fs.mkdirSync(configDir, { recursive: true });
-			console.log(consolePrefix.lavalink + `Created lavalink states directory at: ${configDir}`);
-		}
-		return playerStateFilePath;
-	}
-
-	public savePlayerState(guildId: string): void {
-		const playerStateFilePath = this.getPlayerFilePath(guildId);
+	public async savePlayerState(guildId: string): Promise<void> {
+		if ( !redisClient || !redisClient.redis ) throw new Error('Redis is not initialized.');
 
 		const player = this.players.get(guildId);
-		if (!player || player.state === "DISCONNECTED" || !player.voiceChannel) return this.cleanupInactivePlayers();
+		if (!player || player.state === "DISCONNECTED" || !player.voiceChannel)
+		{
+			await redisClient.redis.del([`state:${guildId}`]);
+			return;
+		}
 		const serializedPlayer = this.serializePlayer(player) as unknown as Player;
-		fs.writeFileSync(playerStateFilePath, JSON.stringify(serializedPlayer, null, 2), "utf-8");
+		await redisClient.redis.setex(`state:${guildId}`, 7200, JSON.stringify(serializedPlayer, null, 2))
 
-		console.log(consolePrefix.lavalink + `Saved player state to: ${playerStateFilePath} for ${guildId}`);
+		console.log(consolePrefix.lavalink + `Saved player state to "state:${guildId}" for ${guildId}`);
+	}
+
+	public async delPlayerState(guildId: string): Promise<void> {
+		if ( !redisClient || !redisClient.redis ) throw new Error('Redis is not initialized.');
+
+		const player = this.players.get(guildId);
+		if ( !player ) return;
+		await redisClient.redis.del([`state:${guildId}`]);
+
+		console.log(consolePrefix.lavalink + `Deleted player state from "state:${guildId}" for ${guildId}`);
 	}
 
 	private serializePlayer(player: Player): Record<string, unknown> {
@@ -297,61 +296,6 @@ export class Manager extends EventEmitter {
 		);
 
 		return serializedPlayer;
-	}
-
-	private cleanupInactivePlayers(): void {
-		const playerStatesDir = path.join(process.cwd(), "ponaState", "lavalink", "players");
-
-		if (!fs.existsSync(playerStatesDir)) {
-			fs.mkdirSync(playerStatesDir, { recursive: true });
-			console.log(consolePrefix.lavalink + `Created lavalink states directory at ${playerStatesDir}`);
-		}
-
-		const playerFiles = fs.readdirSync(playerStatesDir);
-
-		const activeGuildIds = new Set(this.players.keys());
-
-		const deleteInactivePlayer = (file: string) => {
-			const filePath = path.join(playerStatesDir, file);
-            fs.unlinkSync(filePath);
-            console.log(consolePrefix.lavalink + `Deleted inactive player file: ${filePath}`);
-		}
-
-		for (const file of playerFiles) {
-			const guildId = path.basename(file, ".json");
-
-			if (!activeGuildIds.has(guildId)) {
-				const filePath = path.join(playerStatesDir, file);
-				const data = fs.readFileSync(filePath, "utf-8");
-				const state = JSON.parse(data);
-		
-				if (state && typeof state === "object" && state.guild) {
-					if ( !discordClient.client.user?.id ) continue;
-					const isPonaInVoiceChannel = Promise.all([fetchIsUserInVoiceChannel(guildId, discordClient.client.user?.id)]);
-					isPonaInVoiceChannel.then((value) => {
-						if ( value[0] )
-						{
-							const playerOptions: PlayerOptions = {
-								guild: state.options.guild,
-								textChannel: state.options.textChannel,
-								voiceChannel: state.options.voiceChannel,
-								selfDeafen: state.options.selfDeafen,
-								volume: state.options.volume,
-								lastActive: state.lastActive,
-							};
-							// if player not active than 5 minutes (lastActive is unix timestamp) && no current playing
-							if (
-									state.queue.current === null &&
-									(new Date().getTime() - (playerOptions.lastActive || 0)) > 5 * 60 * 1000
-								)
-								deleteInactivePlayer(file);
-						}
-						else deleteInactivePlayer(file);
-					});
-				}
-				else deleteInactivePlayer(file);
-			}
-		}
 	}
 
 	private get leastLoadNode(): Collection<string, Node> {
@@ -415,7 +359,7 @@ export class Manager extends EventEmitter {
 			this.lastSaveTimes.delete(player.guild);
 			this.players.delete(player.guild);
 			await setVoiceChannelStatus(`guild-${player.guild}`);
-			this.cleanupInactivePlayers();
+			this.delPlayerState(player.guild);
 		} else if (event === "playerStateUpdate") {
 			this.latestPlayerStates.set(player.guild, player);
 		}
@@ -594,7 +538,7 @@ export class Manager extends EventEmitter {
 	public async destroy(guild: string): Promise<void> {
 		await setVoiceChannelStatus(`guild-${guild}`);
 		this.players.delete(guild);
-		this.cleanupInactivePlayers();
+		this.delPlayerState(guild);
 	}
 
 	public createNode(options: NodeOptions): Node {

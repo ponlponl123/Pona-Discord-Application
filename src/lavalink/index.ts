@@ -85,7 +85,7 @@ class LavalinkServer extends EventEmitter {
             try {
                 // set voice channel status to current playing track
                 if ( !player.voiceChannel ) return false;
-                const lang = getGuildLanguage(player.guild);
+                const lang = await getGuildLanguage(player.guild);
                 await setVoiceChannelStatus(player.voiceChannel, `${lang.data.music.state.voiceChannel.status} ${track.title} ${lang.data.music.play.author} ${track.author}`)
 
                 this.emit('trackStart', player, track);

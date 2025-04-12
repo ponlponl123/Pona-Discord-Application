@@ -16,7 +16,7 @@ export const data = new SlashCommandBuilder()
 export default async function execute(interaction: CommandInteraction) {
     try {
         const member = interaction.member as GuildMember;
-        const lang = getGuildLanguage(member.guild.id);
+        const lang = await getGuildLanguage(member.guild.id);
         const userVoiceChannel = member.voice.channel;
 
         if( !userVoiceChannel ) {

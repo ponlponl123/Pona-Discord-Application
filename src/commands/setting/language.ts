@@ -1,7 +1,7 @@
 import { discordClient as self } from "@/index";
 import successEmbedBuilder from "@utils/embeds/success";
 import informationEmbedBuilder from "@utils/embeds/infomation";
-import { getGuildLanguage, languageCode } from "@utils/i18n";
+import { getGuildLanguage, languageCode, langs } from "@utils/i18n";
 
 import {
     Guild,
@@ -18,22 +18,23 @@ export const data = new SlashCommandBuilder()
 export default async function execute(interaction: CommandInteraction, value: languageCode = "en-US") {
     try {
         const member = interaction.member as GuildMember;
-        const lang = getGuildLanguage(member.guild.id);
+        const lang = await getGuildLanguage(member.guild.id);
+        const defer = await interaction.deferReply({
+            ephemeral: true
+        })
         
-        if ( member.permissions.has("ManageGuild") ) {
-            self.saveGuildSettings(interaction.guild as Guild, {
+        if ( member.permissions.has("ManageGuild") && interaction.guild ) {
+            await self.saveGuildSettings(interaction.guild.id, {
                 language: value
             })
-            const lang = getGuildLanguage(member.guild.id);
-            return await interaction.reply({
-                embeds: [successEmbedBuilder(lang.data.settings.language.complete.replace("[value]", lang.label))],
-                ephemeral: true
+            const newlang = langs.filter(language=>language.code===value);
+            return await defer.edit({
+                embeds: [successEmbedBuilder(newlang[0].data.settings.language.complete.replace("[value]", newlang[0].label))]
             })
         }
 
-        return await interaction.reply({
-            embeds: [informationEmbedBuilder(lang.data.reasons.permission_denied, lang.data.settings.language.access_denied)],
-            ephemeral: true
+        return await defer.edit({
+            embeds: [informationEmbedBuilder(lang.data.reasons.permission_denied, lang.data.settings.language.access_denied)]
         })
     } catch {
         return;

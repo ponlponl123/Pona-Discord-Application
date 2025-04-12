@@ -4,6 +4,7 @@ dotenv.config();
 
 import th_TH from '@/../locates/th-TH.json'
 import en_US from '@/../locates/en-US.json'
+import { pona } from '@/index'
 import path from 'path';
 
 var default_lang = process.env["LANG"] || 'en_US';
@@ -23,22 +24,13 @@ export const langs: language[] = [
 
 export const lang = langs.filter(l => l.code === default_lang)[0];
 
-export function getGuildLanguage(guildId: string): language {
+export async function getGuildLanguage(guildId: string): Promise<language> {
     let code = default_lang;
 
-    const rootPath = path.join(__dirname, '..', '..', 'ponaState');
-    const guildSettingsPath = path.join(rootPath, 'guildSettings');
-    const targetGuildSettingPath = path.join(guildSettingsPath, `${guildId}.json`);
-    if ( !fs.existsSync(rootPath) )
-        fs.mkdirSync(rootPath);
-    if ( !fs.existsSync(guildSettingsPath) )
-        fs.mkdirSync(guildSettingsPath);
+    const guildSetting = await pona.loadGuildSettings(guildId);
 
-    if ( fs.existsSync(targetGuildSettingPath) )
-    {
-        const guildSettings = JSON.parse(fs.readFileSync(targetGuildSettingPath, 'utf8'));
-        code = guildSettings.language || default_lang;
-    }
+    if ( guildSetting )
+        code = guildSetting.language || default_lang;
 
     const getLang = langs.filter(l => l.code === code);
 

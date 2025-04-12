@@ -1,8 +1,8 @@
 import { EmbedBuilder } from "discord.js";
 import { getGuildLanguage } from "../i18n";
 
-export default function errorEmbedBuilder(guildId: string, reason: string = ""): EmbedBuilder {
-    const language = getGuildLanguage(guildId);
+export default async function errorEmbedBuilder(guildId: string, reason: string = ""): Promise<EmbedBuilder> {
+    const language = await getGuildLanguage(guildId);
     return new EmbedBuilder()
         .setDescription(`<:X_:1298270493639446548> · **${language.data.errors.error_occurred}**!`)
         .setFooter({

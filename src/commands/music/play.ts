@@ -46,13 +46,13 @@ export const data = new SlashCommandBuilder()
 export default async function execute(interaction: CommandInteraction) {
     try {
         const member = interaction.member as GuildMember;
-        const lang = getGuildLanguage(member.guild.id);
+        const lang = await getGuildLanguage(member.guild.id);
         const input = interaction.options.get("input")?.value as string;
         const searchEngine = (String(interaction.options.get("search_engine")?.value) || 'pona! search') as SearchPlatform;
 
         if ( !member.voice.channel || !interaction.channel ) {
             return interaction.reply({
-                embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_in_voice_channel)],
+                embeds: [await errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_in_voice_channel)],
                 ephemeral: true
             });
         }
@@ -71,7 +71,7 @@ export default async function execute(interaction: CommandInteraction) {
 
             if ( !player ) {
                 return interaction.reply({
-                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.cannot_join_voice_channel)],
+                    embeds: [await errorEmbedBuilder(member.guild.id, lang.data.music.errors.cannot_join_voice_channel)],
                     ephemeral: true
                 });
             }
@@ -84,14 +84,14 @@ export default async function execute(interaction: CommandInteraction) {
         )
         {
             return interaction.reply({
-                embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_same_voice_channel)],
+                embeds: [await errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_same_voice_channel)],
                 ephemeral: true
             });
         }
 
         if ( !input ) {
             return interaction.reply({
-                embeds: [errorEmbedBuilder(member.guild.id, lang.data.components.errors.not_valid)],
+                embeds: [await errorEmbedBuilder(member.guild.id, lang.data.components.errors.not_valid)],
                 ephemeral: true
             });
         }
@@ -105,22 +105,22 @@ export default async function execute(interaction: CommandInteraction) {
             const reason = result.replace('Pona!Share ','');
             if ( reason === 'not_found' )
                 return interaction.reply({
-                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_not_found)],
+                    embeds: [await errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_not_found)],
                     ephemeral: true
                 });
             else if ( reason === 'unauthorized' )
                 return interaction.reply({
-                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_unauthorized)],
+                    embeds: [await errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_unauthorized)],
                     ephemeral: true
                 });
             else if ( reason === 'no_tracks' )
                 return interaction.reply({
-                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_no_tracks)],
+                    embeds: [await errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_no_tracks)],
                     ephemeral: true
                 });
             else
                 return interaction.reply({
-                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_service_unavailable)],
+                    embeds: [await errorEmbedBuilder(member.guild.id, lang.data.errors.pona_share_service_unavailable)],
                     ephemeral: true
                 });
         }
@@ -158,7 +158,7 @@ export default async function execute(interaction: CommandInteraction) {
                     .setColor('#F9C5D5');
             } else {
                 return interaction.editReply({
-                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)]
+                    embeds: [await errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)]
                 });
             }
 
@@ -236,7 +236,7 @@ export default async function execute(interaction: CommandInteraction) {
                         await addToQueue(result.tracks, isPonaInVoiceConnection);
                     } else {
                         return confirmation.reply({
-                            embeds: [errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)],
+                            embeds: [await errorEmbedBuilder(member.guild.id, lang.data.music.errors.not_found)],
                             ephemeral: true
                         });
                     }

@@ -94,7 +94,6 @@ services:
     container_name: pona
     volumes:
       - ./.env.production:/pona/.env.production
-      - ./ponaState/:/pona/ponaState/
     environment:
       # ... other environment variables
       REDIS_ENABLED: true

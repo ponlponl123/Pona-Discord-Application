@@ -23,7 +23,7 @@ import { getWelcomeMessage } from '@utils/getWelcomeMessage';
 import GuildSettings from '@interfaces/guildSettings';
 import { Node } from '@/lavalink';
 import { getGuildLanguage } from './utils/i18n';
-import { lavalink } from "@/index";
+import { database, lavalink } from "@/index";
 import { setInterval } from 'timers';
 import { EventEmitter } from 'events';
 import fs from 'fs';
@@ -162,7 +162,7 @@ class Pona extends EventEmitter {
                         await setVoiceChannelStatus(getPreviousVoiceChannel);
                         const getExistPlayer = lavalink.manager.players.filter( rootPlayer => rootPlayer.guild === guildId );
                         if ( getExistPlayer.at(0)?.queue?.current ){
-                            const lang = getGuildLanguage(oldState.guild.id);
+                            const lang = await getGuildLanguage(oldState.guild.id);
                             await setVoiceChannelStatus(
                                 getCurrentVoiceChannel,
                                 `${lang.data.music.state.voiceChannel.status} ${getExistPlayer.at(0)?.queue.current?.title} ${lang.data.music.play.author} ${getExistPlayer.at(0)?.queue.current?.author}`
@@ -279,7 +279,7 @@ class Pona extends EventEmitter {
         if ( !lavalink ) return;
         const getExistPlayer = lavalink.manager.players.filter( rootPlayer => rootPlayer.guild === guildId );
         if ( getExistPlayer.size > 0 ) {
-            const lang = getGuildLanguage(guildId);
+            const lang = await getGuildLanguage(guildId);
             await setVoiceChannelStatus(
                 'guild-'+getExistPlayer.at(0)?.guild as string,
                 `${lang.data.music.state.voiceChannel.status} ${getExistPlayer.at(0)?.queue?.current?.title} ${lang.data.music.play.author} ${getExistPlayer.at(0)?.queue?.current?.author}`
@@ -287,60 +287,58 @@ class Pona extends EventEmitter {
         }
     }
 
-    public saveGuildSettings(guild: Guild, settings: GuildSettings): boolean {
-        if ( !guild.id ) return false;
-        console.log( consolePrefix.discord + '\x1b[33mSaving guild setting: ' + guild.id + '\x1b[0m');
-        // find ponaState directory in root directory
-        const ponaStateDir = path.join(__dirname, "..", "ponaState");
-        const guildSettingDir = path.join(ponaStateDir, "guildSettings");
-
-        // create directory if not exists
-        if (!fs.existsSync(ponaStateDir) )
-            fs.mkdirSync(ponaStateDir);
-        if (!fs.existsSync(guildSettingDir) )
-            fs.mkdirSync(guildSettingDir);
-
-        const settingsFilePath = path.join(guildSettingDir, `${guild.id}.json`);
-        let defaultSetting = {};
-        if ( fs.existsSync(settingsFilePath) )
-            defaultSetting = JSON.parse(fs.readFileSync(settingsFilePath, "utf-8"));
-
-        fs.writeFileSync(settingsFilePath, JSON.stringify({ ...defaultSetting, ...settings }));
+    public async saveGuildSettings(guildId: string, settings: GuildSettings): Promise<boolean> {
+        if (!guildId || !database || !database.connection) return false;
+        console.log(consolePrefix.discord + '\x1b[33mSaving guild setting: ' + guildId + '\x1b[0m');
         
-        if ( settings.language !== undefined && settings.language ) this.defaultGuildLanguageChangedEvent(guild.id);
+        try {
+            const fetchPrevGuildSettings = await database.connection.query(
+                `SELECT args FROM guilds WHERE guildid = ? LIMIT 1`,
+                [guildId]
+            );
 
-        console.log( consolePrefix.discord + '\x1b[32bSaved guild setting: ' + guild.id + '\x1b[0m');
+            let defaultSetting = {};
+            if (fetchPrevGuildSettings && fetchPrevGuildSettings[0]?.args) {
+                defaultSetting = JSON.parse(fetchPrevGuildSettings[0].args);
+            }
 
-        return true;
+            const newSetting = JSON.stringify({ ...defaultSetting, ...settings });
+            await database.connection.query(
+                `INSERT IGNORE INTO guilds (guildid, args) VALUES (?, ?) ON DUPLICATE KEY UPDATE args = ?`,
+                [guildId, newSetting, newSetting]
+            );
+
+            if (settings.language !== undefined && settings.language) {
+                await this.defaultGuildLanguageChangedEvent(guildId);
+            }
+
+            console.log(consolePrefix.discord + '\x1b[32mSaved guild setting: ' + guildId + '\x1b[0m');
+            return true;
+        } catch (error) {
+            console.error(consolePrefix.discord + '\x1b[31mFailed to save guild setting: ' + guildId + '\x1b[0m', error);
+            return false;
+        }
     }
 
-    public loadGuildSettings(guild: Guild): GuildSettings | undefined {
-        if ( !guild.id ) return;
-        console.log( consolePrefix.discord + '\x1b[33mLoading guild setting: ' + guild.id + '\x1b[0m');
-        // find ponaState directory in root directory
-        const ponaStateDir = path.join(__dirname, "..", "ponaState");
-        const guildSettingDir = path.join(ponaStateDir, "guildSettings");
+    public async loadGuildSettings(guildId: string): Promise<GuildSettings | undefined> {
+        if ( !guildId || !database || !database.connection ) return;
+        console.log( consolePrefix.discord + '\x1b[33mLoading guild setting: ' + guildId + '\x1b[0m');
 
-        // check if directory exists
-        if ( !fs.existsSync(ponaStateDir) || !fs.existsSync(guildSettingDir) )
-        {
-            console.log( consolePrefix.discord + '\x1b[33bLoaded guild setting: ' + guild.id + ' Failed.\nRoot state directory not exist\x1b[0m');
+        try {
+            const fetchPrevGuildSettings = await database.connection.query(
+                `SELECT args FROM guilds WHERE guildid = ? LIMIT 1`,
+                [guildId]
+            )
+
+            if ( fetchPrevGuildSettings && fetchPrevGuildSettings[0] && fetchPrevGuildSettings[0].args )
+                return JSON.parse(fetchPrevGuildSettings[0].args);
+    
+            console.log( consolePrefix.discord + '\x1b[32bLoaded guild setting: ' + guildId + '\x1b[0m');
+            return;
+        } catch (error) {
+            console.error(consolePrefix.discord + '\x1b[31mFailed to load guild setting: ' + guildId + '\x1b[0m', error);
             return;
         }
-
-        const settingsFilePath = path.join(guildSettingDir, `${guild.id}.json`);
-        if (!fs.existsSync(settingsFilePath) )
-        {
-            console.log( consolePrefix.discord + '\x1b[33bLoad guild setting: ' + guild.id + ' Failed.\nSettings file not exist\x1b[0m');
-            return;
-        }
-        
-        const settingsData = fs.readFileSync(settingsFilePath, "utf-8");
-        const settings: GuildSettings = JSON.parse(settingsData);
-
-        console.log( consolePrefix.discord + '\x1b[32bLoaded guild setting: ' + guild.id + '\x1b[0m');
-
-        return settings;
     }
 }
 

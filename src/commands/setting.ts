@@ -38,7 +38,7 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: CommandInteraction) {
     try {
-        const lang = getGuildLanguage(interaction.guildId as string);
+        const lang = await getGuildLanguage(interaction.guildId as string);
         const member = interaction.member as GuildMember;
         const subCommand = (interaction.options as CommandInteractionOptionResolver<CacheType>).getSubcommand();
 
@@ -50,7 +50,7 @@ export async function execute(interaction: CommandInteraction) {
                 }
             default:
                 return interaction.reply({
-                    embeds: [errorEmbedBuilder(member.guild.id, lang.data.errors.invalid_subcommand)]
+                    embeds: [await errorEmbedBuilder(member.guild.id, lang.data.errors.invalid_subcommand)]
                 });
         }
     } catch {

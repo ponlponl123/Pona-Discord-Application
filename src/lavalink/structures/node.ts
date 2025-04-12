@@ -155,9 +155,7 @@ export class Node {
 		const headers: { [key: string]: string | undefined } = {
 			Authorization: this.options.password,
 			"User-Id": this.manager.options.clientId,
-			"Client-Name": this.manager.options.clientName,
-			"Connection": "Upgrade",
-			"Upgrade": "websocket",
+			"Client-Name": this.manager.options.clientName
 		};
 
 		if (this.sessionId) {
@@ -168,7 +166,13 @@ export class Node {
 			console.log(consolePrefix.lavalink + `Resuming lavalink session with Id: ${this.sessionId}`);
 		}
 
-		this.socket = new WebSocket(`ws${this.options.secure ? "s" : ""}://${this.address}/v4/websocket`, { headers });
+		this.socket = new WebSocket(`ws${this.options.secure ? "s" : ""}://${this.address}/v4/websocket`, {
+			headers: {
+				...headers,
+				connection: "Upgrade",
+				upgrade: "websocket"
+			}
+		});
 		this.socket.on("open", this.open.bind(this));
 		this.socket.on("close", this.close.bind(this));
 		this.socket.on("message", this.message.bind(this));

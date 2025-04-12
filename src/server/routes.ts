@@ -12,6 +12,9 @@ import * as v1_music_lyrics from '@server/api/REST/v1/music/lyrics';
 import * as v1_music_search from '@server/api/REST/v1/music/search';
 import * as v1_proxy_ytThumbnail from '@server/api/REST/v1/proxy/yt-thumbnail';
 import * as v1_socket_handshake from '@server/api/REST/v1/socket/handshake';
+import * as v1_channel_subscribe from '@server/api/REST/v1/channel/subscribe';
+import * as v1_redis_handshake from '@server/api/REST/v1/redis/handshake';
+import * as v1_music_favorite from '@server/api/REST/v1/music/favorite';
 
 import * as v2_guilds from '@server/api/REST/v2/guilds';
 import * as v2_music_fetch from '@server/api/REST/v2/music/fetch';
@@ -30,13 +33,16 @@ export const rest_routes: RESTAPIRoute[] = [
     { name: 'player', version: 'v1', controller: v1_player },
     { name: 'playlist', version: 'v1', controller: v1_playlist },
     { name: 'queue', version: 'v1', controller: v1_queue },
-    { name: 'socket', version: 'v1', controller: v1_socket_handshake, classname: 'socket' },
-    { name: 'lavalink', version: 'v1', controller: v1_lavalink_handshake, classname: 'lavalink' },
-    { name: 'music', version: 'v1', controller: v1_music_fetch, classname: 'music' },
+    { name: 'handshake', version: 'v1', controller: v1_socket_handshake, classname: 'socket' },
+    { name: 'handshake', version: 'v1', controller: v1_lavalink_handshake, classname: 'lavalink' },
+    { name: 'fetch', version: 'v1', controller: v1_music_fetch, classname: 'music' },
     { name: 'history', version: 'v1', controller: v1_music_history, classname: 'music' },
     { name: 'lyrics', version: 'v1', controller: v1_music_lyrics, classname: 'music' },
     { name: 'search', version: 'v1', controller: v1_music_search, classname: 'music' },
     { name: 'proxy', version: 'v1', controller: v1_proxy_ytThumbnail, classname: 'proxy' },
+    { name: 'subscribe', version: 'v1', controller: v1_channel_subscribe, classname: 'channel' },
+    { name: 'handshake', version: 'v1', controller: v1_redis_handshake, classname: 'redis' },
+    { name: 'favorite', version: 'v1', controller: v1_music_favorite, classname: 'music' },
 
     { name: 'guilds', version: 'v2', controller: v2_guilds },
     { name: 'fetch', version: 'v2', controller: v2_music_fetch, classname: 'music' },

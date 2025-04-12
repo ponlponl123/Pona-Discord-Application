@@ -193,7 +193,7 @@ export class Manager extends EventEmitter {
 			}
 		}
 
-		console.log(consolePrefix.lavalink + "Restored lavalink states from player files.");
+		console.log(consolePrefix.lavalink + "Restored lavalink states from redis.");
 	}
 
 	public async readPlayerState(guildId: string): Promise<Player | undefined> {

@@ -14,10 +14,23 @@ import { getInfo } from 'discord-hybrid-sharding'
 import { PonaYTMusicAPI } from './ytmusic'
 import RedisClient from './redis'
 
-export const needCluster = process.env["CLUSTER"] === 'true' ? true : false;
+export const needCluster = process.env["CLUSTER"] === 'true'
+var shardList: number[] | undefined = undefined;
+var shardCount = 1;
+
+if (needCluster) {
+    try {
+        const info = getInfo();
+        shardList = info.SHARD_LIST;
+        shardCount = info.TOTAL_SHARDS;
+    } catch (e) {
+        console.info(prefix.shard, 'Cluster info not available.');
+    }
+}
+
 const client = new Client({
-    shards: needCluster ? getInfo().SHARD_LIST : undefined,
-    shardCount: needCluster ? getInfo().TOTAL_SHARDS : 1,
+    shards: shardList,
+    shardCount,
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,

@@ -49,7 +49,7 @@ class LavalinkServer extends EventEmitter {
         }
     }
 
-    public constructor(public readonly clientId: string) {
+    constructor(public readonly clientId: string) {
         super();
         console.log(consolePrefix.system + `\x1b[33mLogging in lavalink server with ${clientId}...\x1b[0m`);
 

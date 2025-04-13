@@ -150,22 +150,27 @@ export class apiServer {
     }
 
     private route(name: string, version: string, controller: PonaRouter, className?: string) {
-        const router = express.Router();
-        const endpoint = name + (controller.path ?? '');
+        const endpoint = name + (controller?.path ?? '');
         const endpointPath = className ? `/${className}/${endpoint}` : `/${endpoint}`;
-        for ( const method of HTTPMethods ) {
-            const handler = controller[method as HTTPMethod];
-            const privateHandler = controller[method+"_PRIVATE" as PRIVATE_HTTPMethod];
-            const friendlyMethod = method.toLowerCase();
-            if (handler && friendlyMethod in router) {
-                router[friendlyMethod as httpMethod](endpointPath, handler);
-                console.log(consolePrefix.express, `Routed [${method}] api endpoint:`, version, endpoint, endpointPath);
+        try {
+            const router = express.Router();
+            for ( const method of HTTPMethods ) {
+                const handler = controller[method as HTTPMethod];
+                const privateHandler = controller[method+"_PRIVATE" as PRIVATE_HTTPMethod];
+                const friendlyMethod = method.toLowerCase();
+                if (handler && friendlyMethod in router) {
+                    router[friendlyMethod as httpMethod](endpointPath, handler);
+                    console.log(consolePrefix.express, `Routed [${method}] api endpoint:`, version, endpoint, endpointPath);
+                }
+                if (privateHandler && friendlyMethod in router) {
+                    router[friendlyMethod as httpMethod](endpointPath, Middleware_apikeyHandler, privateHandler);
+                    console.log(consolePrefix.express, `Routed PRIVATE [${method}] api endpoint:`, version, endpoint, endpointPath);
+                }
             }
-            if (privateHandler && friendlyMethod in router) {
-                router[friendlyMethod as httpMethod](endpointPath, Middleware_apikeyHandler, privateHandler);
-                console.log(consolePrefix.express, `Routed PRIVATE [${method}] api endpoint:`, version, endpoint, endpointPath);
-            }
+            this.app.use(`/${version}`, router);
+        } catch (err: any)
+        {
+            console.error(consolePrefix.express, `Error routing ${endpointPath} endpoint:`, err?.message)
         }
-        this.app.use(`/${version}`, router);
     }
 }

@@ -39,7 +39,7 @@ export const rest_routes: RESTAPIRoute[] = [
     { name: 'history', version: 'v1', controller: v1_music_history, classname: 'music' },
     { name: 'lyrics', version: 'v1', controller: v1_music_lyrics, classname: 'music' },
     { name: 'search', version: 'v1', controller: v1_music_search, classname: 'music' },
-    { name: 'proxy', version: 'v1', controller: v1_proxy_ytThumbnail, classname: 'proxy' },
+    { name: 'yt-thumbnail', version: 'v1', controller: v1_proxy_ytThumbnail, classname: 'proxy' },
     { name: 'subscribe', version: 'v1', controller: v1_channel_subscribe, classname: 'channel' },
     { name: 'handshake', version: 'v1', controller: v1_redis_handshake, classname: 'redis' },
     { name: 'favorite', version: 'v1', controller: v1_music_favorite, classname: 'music' },

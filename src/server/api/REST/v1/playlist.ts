@@ -1,14 +1,14 @@
 import express from 'express';
 import { HttpStatusCode } from 'axios';
 
-export const path = '/:playlistId?';
+export const path = '/:playlistid?';
 
 export function GET_PRIVATE(request: express.Request, response: express.Response) {
     try {
-        const { playlistId } = request.params;
-        if (!playlistId)
+        const { playlistid } = request.params;
+        if (!playlistid)
         {
-            return response.status(HttpStatusCode.BadRequest).json({ error: 'Missing playlistId' });
+            return response.status(HttpStatusCode.BadRequest).json({ error: 'Missing playlistid' });
         }
         response.status(HttpStatusCode.ServiceUnavailable).json({
             message: 'ServiceUnavailable',

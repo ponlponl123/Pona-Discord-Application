@@ -3,7 +3,7 @@ import { database, redisClient, discordClient as self } from '@/index';
 import { Router } from '@/interfaces/router';
 import JSONBig from 'json-bigint';
 
-export const path = '/:guildId?/:query?';
+export const path = '/:guildid/:query?';
 
 export interface memberInChannelHistory {
   from: string;
@@ -17,13 +17,13 @@ export interface memberInChannelHistory {
 
 export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
   try {
-    const { guildId, query } = request.params;
+    const { guildid, query } = request.params;
 
-    if ( typeof guildId !== 'string' ) return response.status(HttpStatusCode.BadRequest).json({
+    if ( typeof guildid !== 'string' ) return response.status(HttpStatusCode.BadRequest).json({
       message: 'guildId is not a string',
     });
 
-    const guild = self.client.guilds.cache.get(guildId);
+    const guild = self.client.guilds.cache.get(guildid);
 
     if ( !guild ) return response.status(HttpStatusCode.NotFound).json({
       message: 'Not Found',
@@ -34,8 +34,8 @@ export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
         {
           if ( redisClient?.redis )
           {
-            const active = await redisClient.redis_ReadOnly.get(`guild:${guildId}:stats:active`);
-            const history = await redisClient.redis_ReadOnly.get(`guild:${guildId}:stats:history`);
+            const active = await redisClient.redis_ReadOnly.get(`guild:${guildid}:stats:active`);
+            const history = await redisClient.redis_ReadOnly.get(`guild:${guildid}:stats:history`);
             if ( active && history ) 
               return response.status(HttpStatusCode.Ok).json({message: 'Ok', active: JSONBig.parse(active), history: JSONBig.parse(history)});
           }
@@ -130,16 +130,16 @@ export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
             GROUP BY \`from\`, \`to\`
             ORDER BY \`from\`;`
 
-          const rows = await database.connection.query(sql_query, [guildId]);
-          const rows2 = await database.connection.query(sql_query2, [guildId]);
+          const rows = await database.connection.query(sql_query, [guildid]);
+          const rows2 = await database.connection.query(sql_query2, [guildid]);
 
           (rows2 as memberInChannelHistory[]).map(timeline => {
             timeline.channels.map(channel => {
               channel.name = guild.channels.cache.get(channel.id)?.name;
             })
           })
-          redisClient?.redis.setex(`guild:${guildId}:stats:active`, 300, JSONBig.stringify(rows));
-          redisClient?.redis.setex(`guild:${guildId}:stats:history`, 300, JSONBig.stringify(rows2));
+          redisClient?.redis.setex(`guild:${guildid}:stats:active`, 300, JSONBig.stringify(rows));
+          redisClient?.redis.setex(`guild:${guildid}:stats:history`, 300, JSONBig.stringify(rows2));
           return response.status(HttpStatusCode.Ok).json({
             message: 'OK',
             active: rows,

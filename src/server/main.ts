@@ -150,7 +150,7 @@ export class apiServer {
     }
 
     private route(name: string, version: string, controller: PonaRouter, className?: string) {
-        const endpoint = name + (controller?.path ?? '');
+        const endpoint = name + (controller?.path || '').toString();
         const endpointPath = className ? `/${className}/${endpoint}` : `/${endpoint}`;
         try {
             const router = express.Router();

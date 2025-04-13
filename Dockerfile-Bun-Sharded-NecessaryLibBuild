@@ -1,5 +1,5 @@
 # Use oven/bun:alpine as the base image for all stages
-FROM oven/bun:alpine AS base
+FROM oven/bun:1.2.5-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache python3 g++ make git
 
@@ -46,6 +46,7 @@ WORKDIR /pona
 ENV NODE_ENV=production
 
 # Copy only necessary files
+COPY --from=bun-builder /pona-builder/node_modules ./node_modules
 COPY --from=bun-builder /pona-builder/dist ./dist
 COPY --from=bun-builder /pona-builder/public ./dist/public
 COPY --from=bun-builder /pona-builder/package.json ./package.json

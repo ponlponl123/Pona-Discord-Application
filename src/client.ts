@@ -97,12 +97,6 @@ class Pona extends EventEmitter {
                     console.log(consolePrefix.discord + ' An error occurred while fetching shard information OR Shard is not enabled.');
                 }
             }
-            // else {
-            //     // check if discord bot is already logged in by another process or any then logout this session
-            //     if (this.client.user?.presence?.status === 'online') this.client.destroy();
-            //     console.log(consolePrefix.discord + `\x1b[31mDiscord exited: Bot is already logged in by another process or any!\x1b[0m`);
-            //     return;
-            // }
             this.client.user?.setStatus('idle');
             console.log(consolePrefix.discord + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
             this.heartbeatEvent(this.client);
@@ -182,17 +176,15 @@ class Pona extends EventEmitter {
                     oldState.channelId !== newState.channelId
                 ) 
                     this.emit('voiceStateUpdate', 'memberSwitched', oldState, newState);
+                const getExistPlayer = lavalink.manager.players.filter( rootPlayer => rootPlayer.guild === guildId );
                 if (
                     (oldState.channelId && !newState.channelId) &&
                     oldState.channel &&
-                    oldState.channel.members.size <= 1
-                ) {
-                    const getExistPlayer = lavalink.manager.players.filter( rootPlayer => rootPlayer.guild === guildId );
-                    if ( getExistPlayer.size > 0 ) {
-                        getExistPlayer.at(0)?.destroy();
-                        this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
-                    }
-                }
+                    oldState.channel.members.size <= 1 &&
+                    getExistPlayer && getExistPlayer.size > 0 &&
+                    getExistPlayer.at(0)?.voiceChannel === oldState.channelId
+                ) 
+                    getExistPlayer.at(0)?.destroy(),this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
             }
         });
     

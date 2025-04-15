@@ -34,6 +34,13 @@ manager.on('clusterCreate', (cluster) => {
         if ((message as BaseMessage)["_type"] !== messageType.CUSTOM_REQUEST) return; // Check if the message needs a reply
         (message as BaseMessage)["reply"]({ content: 'hello world' });
     });
+    cluster.on('death', (_cluster) => {
+        if ( _cluster.restarts.current >= _cluster.restarts.max )
+        _cluster.kill({
+            force: true,
+            reason: 'Automatic restart limit reached: Cluster has been killed.'
+        });
+    })
     setInterval(() => {
         cluster.send({ content: 'I am alive' }); // Send a message to the client
         cluster.request({ content: 'Are you alive?', alive: true }).then(e => console.log(e)); // Send a message to the client

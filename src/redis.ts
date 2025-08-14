@@ -37,6 +37,10 @@ export class RedisClient {
             retryStrategy(times) {
                 if (times > 10) {
                     console.error(prefix.redis, '❗ Redis connection failed 10 attempts');
+                    // Stop retrying after 10 attempts
+                    console.error(prefix.redis, '❗ Exiting the process now...');
+                    process.exit(1);
+                    // Return null to stop retrying (if posible)
                     return null;
                 }
                 return Math.min(times * 100, 3000);

@@ -77,23 +77,20 @@ export async function GET(request: express.Request, response: express.Response) 
                     related: related?JSON.parse(related):null
                 }});
             }
-            const getWatchPlaylist = await YTMusicAPI('GET', `watch/${encodeURIComponent(queryId)}`).catch(() => {
-                redisClient?.redis.setex(`yt:watch_playlist:${queryId}`, 600, '');
-            });
-            if ( !getWatchPlaylist ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', var: 'WatchPlaylist'});
-            if ( redisClient?.redis )
-                redisClient.redis.setex(`yt:watch_playlist:${queryId}`, 43200, JSON.stringify(getWatchPlaylist.data.result));
-            const getSongRelated = await YTMusicAPI('GET', `song_related/${encodeURIComponent(getWatchPlaylist.data.result.related)}`).catch(() => {
+            const getSongRelated = await YTMusicAPI('GET', `song_related/${queryId}`).catch(() => {
                 redisClient?.redis.setex(`yt:related:${queryId}`, 600, '');
             });
             if ( !getSongRelated ) return response.status(HttpStatusCode.NotFound).json({message: 'Not Found', var: 'SongRelated'});
             if ( redisClient?.redis )
-                redisClient.redis.setex(`yt:related:${queryId}`, 43200, JSON.stringify(getSongRelated.data.result));
+            {
+                if(getSongRelated.data?.result?.playlist) redisClient.redis.setex(`yt:watch_playlist:${queryId}`, 43200, JSON.stringify(getSongRelated.data.result.playlist));
+                if(getSongRelated.data?.result?.related) redisClient.redis.setex(`yt:related:${queryId}`, 43200, JSON.stringify(getSongRelated.data.result.related));
+            }
             return response.status(HttpStatusCode.Ok).json({
                 message: 'Ok',
                 result: {
-                    watch_playlist: getWatchPlaylist?getWatchPlaylist.data.result:null,
-                    related: getSongRelated?getSongRelated.data.result:null
+                    watch_playlist: getSongRelated?getSongRelated.data.result.playlist:null,
+                    related: getSongRelated?getSongRelated.data.result.related:null
                 }
             });
         }

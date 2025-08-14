@@ -18,6 +18,19 @@ export class Database {
       console.log(consolePrefix.database + '🟢 Database connected successfully!');
     }).catch((e) => {
       console.log(consolePrefix.database + '🔴 Failed to connect to the database, now pona application will have nosql and store everything in memory.\n\tReason:', e);
+      // Exit the process to prevent further issues
+      console.log(consolePrefix.database + '🔴 Exiting the process now...');
+      process.exit(1);
+    })
+  }
+
+  public async createPool(option: databaseOption): Promise<mariadb.Pool> {
+    return mariadb.createPool({
+      host: option.host,
+      port: option.port,
+      user: option.user,
+      password: option.password,
+      database: option.database
     })
   }
 

@@ -13,7 +13,7 @@ import { ClientUser, User } from "discord.js";
 import { EventEmitter } from "events";
 
 import setVoiceChannelStatus from "@utils/setVoiceChannelStatus";
-import { prefix as consolePrefix } from "@/config/console";
+import { prefix as consolePrefix, prefix } from "@/config/console";
 
 import { PlayerOptions, Track } from "@interfaces/player";
 import {
@@ -558,13 +558,13 @@ export class Manager extends EventEmitter {
 		if (!update || (!("token" in update) && !("session_id" in update))) return;
 		const player = this.players.get(update.guild_id);
 		if (!player) return;
-		player.options.lastActive = new Date().getTime();
 		if ("token" in update) {
 			player.voiceState.event = update;
 			const {
 				sessionId,
 				event: { token, endpoint }
 			} = player.voiceState;
+			player.options.lastActive = new Date().getTime();
 			await player.node.rest.updatePlayer({
 				guildId: player.guild,
 				data: {
@@ -579,15 +579,18 @@ export class Manager extends EventEmitter {
 		}
 		if (update.user_id !== this.options.clientId) return;
 		if (update.channel_id) {
+			player.options.lastActive = new Date().getTime();
 			if (player.voiceChannel !== update.channel_id) this.emit("playerMove", player, player.voiceChannel, update.channel_id);
 			player.voiceState.sessionId = update.session_id;
 			player.voiceChannel = update.channel_id;
 			return;
 		}
+		await setVoiceChannelStatus(`guild-${player.guild}`);
 		this.emit("playerDisconnect", player, player.voiceChannel);
 		player.voiceChannel = null;
 		player.voiceState = Object.assign({});
 		player.destroy();
+		console.log(prefix.lavalink, player.guild, 'Player destroyed by updateVoiceState event.');
 		return;
 	}
 }

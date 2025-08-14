@@ -36,10 +36,12 @@ manager.on('clusterCreate', (cluster) => {
     });
     cluster.on('death', (_cluster) => {
         if ( _cluster.restarts.current >= _cluster.restarts.max )
-        _cluster.kill({
-            force: true,
-            reason: 'Automatic restart limit reached: Cluster has been killed.'
-        });
+        {
+            new Error(consolePrefix.shard + `Cluster [${_cluster.id}] has been killed after reaching max restarts.`);
+            process.exit(1); // Exit the process if the cluster has been killed after reaching max restarts
+        }
+        else
+        console.log(consolePrefix.shard + `Cluster [${_cluster.id}] has been killed, restarting...`);
     })
     setInterval(() => {
         cluster.send({ content: 'I am alive' }); // Send a message to the client

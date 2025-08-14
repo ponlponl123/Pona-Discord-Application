@@ -31,9 +31,9 @@ export async function GET(request: express.Request, response: express.Response) 
           return;
         }
       }
-      if (!database || !database.connection)
+      if (!database || !database.pool)
         return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
-      const fetchDB = await database.connection.query(
+      const fetchDB = await database.pool.query(
         `SELECT cache_lastupdated FROM favorite_track WHERE uid=? AND target=?`,
         [user.id, videoId]
       );
@@ -42,7 +42,7 @@ export async function GET(request: express.Request, response: express.Response) 
           const fetchVideo = await getVideo(videoId);
           if (fetchVideo) {
             const channelId = fetchVideo.result.v1?.artist.artistId || fetchVideo.result.v2?.artists[0].id;
-            await database.connection.query(
+            await database.pool.query(
               `UPDATE favorite_track SET cache=?, cache_lastupdated=? WHERE uid=? AND target=? AND source=?`,
               [JSON.stringify(fetchVideo.result), new Date().getTime(), user.id, videoId, channelId]
             );
@@ -73,7 +73,7 @@ export async function GET(request: express.Request, response: express.Response) 
 
 export async function POST(request: express.Request, response: express.Response) {
   try {
-    if ( !database || !database.connection )
+    if ( !database || !database.pool )
       return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
     const { authorization } = request.headers;
     const { c, id } = request.query;
@@ -97,7 +97,7 @@ export async function POST(request: express.Request, response: express.Response)
       return response.status(HttpStatusCode.BadRequest).json({ error: 'Cannot authorized this video, please ensure artistId is correct?' });
     if ( redisClient?.redis )
       redisClient.redis.multi().hset(`user:${user.id}:favorite`,videoId,JSON.stringify(video.result)).expire(`user:${user.id}:favorite`,86400);
-    database.connection.query(
+    database.pool.query(
       `INSERT IGNORE INTO favorite_track (uid, target, source, cache, cache_lastupdated) VALUES (?, ?, ?, ?, ?)`,
       [user.id, videoId, channelId, JSON.stringify(video.result), new Date().getTime()]
     );
@@ -110,7 +110,7 @@ export async function POST(request: express.Request, response: express.Response)
 
 export async function DELETE(request: express.Request, response: express.Response) {
   try {
-    if ( !database || !database.connection )
+    if ( !database || !database.pool )
       return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
     const { authorization } = request.headers;
     const { c, id } = request.query;
@@ -131,7 +131,7 @@ export async function DELETE(request: express.Request, response: express.Respons
       return response.status(HttpStatusCode.BadRequest).json({ error: 'Invalid videoId' });
     if ( redisClient?.redis )
       redisClient.redis.multi().hset(`user:${user.id}:favorite`,channelId,0).expire(`user:${user.id}:favorite`,86400);
-    database.connection.query(
+    database.pool.query(
       `DELETE FROM favorite_track WHERE uid=? AND target=? AND source=?`,
       [user.id, videoId, channelId]
     );

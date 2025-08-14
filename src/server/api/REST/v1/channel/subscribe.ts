@@ -8,7 +8,7 @@ export const path = "/:options?";
 
 export async function GET(request: express.Request, response: express.Response) {
   try {
-    if (!database || !database.connection)
+    if (!database || !database.pool)
       return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
     const { authorization } = request.headers;
     const { c, limit } = request.query;
@@ -31,7 +31,7 @@ export async function GET(request: express.Request, response: express.Response) 
         if ( value && Number(value) )
           return response.status(HttpStatusCode.Ok).json({message: value==='1'?'Subscribed':'Unsubscribed', state: Number(value)});
       }
-      const value = await database.connection.query(
+      const value = await database.pool.query(
         `SELECT uid, target FROM subscribe_artist WHERE uid=? AND target=?`,
         [user.id, channelId]
       );
@@ -57,7 +57,7 @@ export async function GET(request: express.Request, response: express.Response) 
             if ( value )
               return response.status(HttpStatusCode.Ok).json({ message: 'Ok', result: JSON.parse(value) });
           }
-          const channels = await database.connection.query(
+          const channels = await database.pool.query(
             `SELECT target, cache, cache_lastupdated FROM subscribe_artist WHERE uid=? LIMIT ?`,
             [user.id, q_limit]
           );
@@ -72,7 +72,7 @@ export async function GET(request: express.Request, response: express.Response) 
                 const fetchChannel = await getChannel(channel.target);
                 if ( fetchChannel )
                 {
-                  database.connection?.query(
+                  database.pool?.query(
                     `UPDATE subscribe_artist SET cache=?, cache_lastupdated=? WHERE uid=? AND target=?`,
                     [JSON.stringify(fetchChannel.result), new Date().toISOString().slice(0, 19).replace('T', ' '), user.id, channel.target]
                   );
@@ -105,7 +105,7 @@ export async function GET(request: express.Request, response: express.Response) 
 
 export async function POST(request: express.Request, response: express.Response) {
   try {
-    if ( !database || !database.connection )
+    if ( !database || !database.pool )
       return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
     const { authorization } = request.headers;
     const { c } = request.query;
@@ -121,7 +121,7 @@ export async function POST(request: express.Request, response: express.Response)
       return response.status(HttpStatusCode.BadRequest).json({ error: 'Invalid channelId' });
     if ( redisClient?.redis )
       redisClient.redis.hset(`user:${user.id}:subscribe`,channelId,1),redisClient.redis.expire(`user:${user.id}:subscribe`,86400);
-    database.connection.query(
+    database.pool.query(
       `INSERT IGNORE INTO subscribe_artist (uid, target) VALUES (?, ?)`,
       [user.id, channelId]
     );
@@ -134,7 +134,7 @@ export async function POST(request: express.Request, response: express.Response)
 
 export async function DELETE(request: express.Request, response: express.Response) {
   try {
-    if ( !database || !database.connection )
+    if ( !database || !database.pool )
       return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
     const { authorization } = request.headers;
     const { c } = request.query;
@@ -150,7 +150,7 @@ export async function DELETE(request: express.Request, response: express.Respons
       return response.status(HttpStatusCode.BadRequest).json({ error: 'Invalid channelId' });
     if ( redisClient?.redis )
       redisClient.redis.hset(`user:${user.id}:subscribe`,channelId,0),redisClient.redis.expire(`user:${user.id}:subscribe`,86400);
-    database.connection.query(
+    database.pool.query(
       `DELETE FROM subscribe_artist WHERE uid=? AND target=?`,
       [user.id, channelId]
     );

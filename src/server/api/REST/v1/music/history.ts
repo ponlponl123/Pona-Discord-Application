@@ -33,7 +33,7 @@ export async function GET(request: express.Request, response: express.Response) 
         if ( value ) 
           return response.status(HttpStatusCode.Ok).json({message: 'Ok', tracks: JSONBig.parse(value)});
       }
-      if (!database || !database.connection) {
+      if (!database || !database.pool) {
         return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
       }
       const sql_query = `SELECT id, track
@@ -47,7 +47,7 @@ export async function GET(request: express.Request, response: express.Response) 
         WHERE row_num = 1
         ORDER BY id DESC
         LIMIT ?;`;
-      const res = await database.connection.query(sql_query, [user.id, limit]);
+      const res = await database.pool.query(sql_query, [user.id, limit]);
       if ( !res || res.length === 0 ) {
         return response.status(HttpStatusCode.NotFound).json({ error: 'Not Found' });
       }
@@ -86,9 +86,9 @@ export async function GET(request: express.Request, response: express.Response) 
                 return response.status(HttpStatusCode.Ok).json({message: 'Ok', results: value});
             }
           }
-          if ( !database || !database.connection )
+          if ( !database || !database.pool )
             return response.status(HttpStatusCode.ServiceUnavailable).json({ error: 'Service Unavailable' });
-          const search_history = await database.connection.query(
+          const search_history = await database.pool.query(
             `SELECT text FROM (
               SELECT id, text,
                 ROW_NUMBER() OVER (PARTITION BY text ORDER BY id DESC) AS row_num

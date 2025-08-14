@@ -44,7 +44,7 @@ async function connectToVoiceChannelBySocket(guildId: string, voiceBasedChannelI
       await joinChannel(textChannel, voiceChannel, guild);
     }
   } catch (e: any) {
-    throw new Error("Failed to connect to voice channel\n\tReason:", e);
+    throw new Error(`Failed to connect to voice channel\n\tReason: ${e?.message || e}\n${e?.stack || ''}`);
   }
 }
 

@@ -8,7 +8,7 @@ export const path = '/:fetch?';
 
 export async function GET(request: express.Request, response: express.Response) {
   try {
-    if ( !database || !database.connection || !ytmusic.client ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
+    if ( !database || !database.pool || !ytmusic.client ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
     const { authorization } = request.headers;
     const { fetch } = request.params;
     const { id, type, query } = request.query;

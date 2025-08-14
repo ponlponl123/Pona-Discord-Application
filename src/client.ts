@@ -279,11 +279,11 @@ class Pona extends EventEmitter {
     }
 
     public async saveGuildSettings(guildId: string, settings: GuildSettings): Promise<boolean> {
-        if (!guildId || !database || !database.connection) return false;
+        if (!guildId || !database || !database.pool) return false;
         console.log(consolePrefix.discord + '\x1b[33mSaving guild setting: ' + guildId + '\x1b[0m');
         
         try {
-            const fetchPrevGuildSettings = await database.connection.query(
+            const fetchPrevGuildSettings = await database.pool.query(
                 `SELECT args FROM guilds WHERE guildid = ? LIMIT 1`,
                 [guildId]
             );
@@ -294,7 +294,7 @@ class Pona extends EventEmitter {
             }
 
             const newSetting = JSON.stringify({ ...defaultSetting, ...settings });
-            await database.connection.query(
+            await database.pool.query(
                 `INSERT IGNORE INTO guilds (guildid, args) VALUES (?, ?) ON DUPLICATE KEY UPDATE args = ?`,
                 [guildId, newSetting, newSetting]
             );
@@ -312,11 +312,11 @@ class Pona extends EventEmitter {
     }
 
     public async loadGuildSettings(guildId: string): Promise<GuildSettings | undefined> {
-        if ( !guildId || !database || !database.connection ) return;
+        if ( !guildId || !database || !database.pool ) return;
         console.log( consolePrefix.discord + '\x1b[33mLoading guild setting: ' + guildId + '\x1b[0m');
 
         try {
-            const fetchPrevGuildSettings = await database.connection.query(
+            const fetchPrevGuildSettings = await database.pool.query(
                 `SELECT args FROM guilds WHERE guildid = ? LIMIT 1`,
                 [guildId]
             )

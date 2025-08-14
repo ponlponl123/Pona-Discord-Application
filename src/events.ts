@@ -64,7 +64,7 @@ export default class eventManager {
     const shardId = pona.ponaId;
 
     ping('https://discord.com/api/gateway', 443, async (ping) => {
-      await database.connection?.query(`INSERT INTO pona_heartbeat_interval (time, clusterid, shardid, ptm) VALUES (?, ?, ?, ?)`, [date, clusterId, shardId, ping]);
+      await database.pool?.query(`INSERT INTO pona_heartbeat_interval (time, clusterid, shardid, ptm) VALUES (?, ?, ?, ?)`, [date, clusterId, shardId, ping]);
     });
     await this.invokeHandlers('heartbeat', client);
   }
@@ -79,7 +79,7 @@ export default class eventManager {
     // const newchannelid = newState.channel?.id;
     switch (type) {
       default : {
-        await database.connection?.query(
+        await database.pool?.query(
           `INSERT INTO pona_voicestate_history (guildid, memberid, channelid, beforestate, afterstate, date, type)
           VALUES (?, ?, ?, ?, ?, ?, ?)`
         , [
@@ -110,7 +110,7 @@ export default class eventManager {
 
   private async player_trackStart (player: Player, track: Track) {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-    await database.connection?.query(
+    await database.pool?.query(
         `INSERT INTO player_track_history (requestby, uniqueid, time, voicechannel, guildid, track)
         VALUES (?, ?, ?, ?, ?, ?)`
     , [
@@ -122,7 +122,7 @@ export default class eventManager {
       JSON.stringify(track)
       ]
     )
-    await database.connection?.query(
+    await database.pool?.query(
         `INSERT INTO pona_flipflop_state (time, guildid, active)
         VALUES (?, ?, ?)`
     , [
@@ -142,7 +142,7 @@ export default class eventManager {
 
   public async pona_action (name: string, by: string, data: any, guildId: string, channelId: string): Promise<void> {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-    await database.connection?.query(
+    await database.pool?.query(
         `INSERT INTO player_action_history (action_name, actionby, data, guild, channel, timestamp)
         VALUES (?, ?, ?, ?, ?, ?)`
     , [
@@ -159,7 +159,7 @@ export default class eventManager {
 
   private async player_playerDestroy (player: Player) {
     const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-    await database.connection?.query(
+    await database.pool?.query(
         `INSERT INTO pona_flipflop_state (time, guildid, active)
         VALUES (?, ?, ?)`
     , [

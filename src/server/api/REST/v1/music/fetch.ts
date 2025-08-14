@@ -5,7 +5,7 @@ import { database, redisClient, ytmusic } from '@/index';
 
 export async function GET(request: express.Request, response: express.Response) {
   try {
-    if ( !database || !database.connection || !ytmusic.client ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
+    if ( !database || !database.pool || !ytmusic.client ) return response.status(HttpStatusCode.ServiceUnavailable).json({error: 'Service Unavailable'});
     const { authorization } = request.headers;
     const { id, type, query } = request.query;
     if ( !id || !type ) return response.status(400).json({ error: "Missing required parameters" });

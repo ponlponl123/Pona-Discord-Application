@@ -39,7 +39,7 @@ export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
             if ( active && history ) 
               return response.status(HttpStatusCode.Ok).json({message: 'Ok', active: JSONBig.parse(active), history: JSONBig.parse(history)});
           }
-          if ( !database.connection ) {
+          if ( !database.pool ) {
             return response.status(HttpStatusCode.ServiceUnavailable).json({
               message: 'Service Unavailable'
             });
@@ -130,8 +130,8 @@ export const GET_PRIVATE: Router['GET_PRIVATE'] = async (request, response) => {
             GROUP BY \`from\`, \`to\`
             ORDER BY \`from\`;`
 
-          const rows = await database.connection.query(sql_query, [guildid]);
-          const rows2 = await database.connection.query(sql_query2, [guildid]);
+          const rows = await database.pool.query(sql_query, [guildid]);
+          const rows2 = await database.pool.query(sql_query2, [guildid]);
 
           (rows2 as memberInChannelHistory[]).map(timeline => {
             timeline.channels.map(channel => {

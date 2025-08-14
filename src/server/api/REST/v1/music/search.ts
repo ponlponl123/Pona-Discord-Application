@@ -26,8 +26,8 @@ export async function GET(request: express.Request, response: express.Response) 
       redisClient?.redis.setex(`yt:search:suggestions:${String(q)}`, 1800, JSON.stringify(searchSuggestions));
       return response.status(HttpStatusCode.Ok).json({message: 'Ok', searchSuggestions: searchSuggestions});
     } else {
-      if ( database && database.connection )
-        database.connection.query(
+      if ( database && database.pool )
+        database.pool.query(
           `INSERT INTO search_history (uid, text) VALUES (?, ?)`,
           [user.id, String(q)]
         );

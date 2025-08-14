@@ -92,8 +92,8 @@ process.on('exit', () => {
                 console.error(prefix.redis, 'Error closing Redis Replica connection:', err);
             });
     }
-    if (database.connection) {
-        database.connection.end().then(() => {
+    if (database.pool) {
+        database.pool.end().then(() => {
             console.log(prefix.database, 'Database connection closed.');
         }).catch((err) => {
             console.error(prefix.database, 'Error closing database connection:', err);

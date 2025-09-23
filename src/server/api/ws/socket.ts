@@ -31,7 +31,10 @@ export class initialize {
                 ...(redis_conf.REDIS_SENTINEL_ENABLED ? {
                     sentinelPassword: redis_conf.REDIS_SENTINEL_PASSWORD || undefined,
                     sentinels: redis_conf.sentinels,
-                } : {}),
+                } : {
+                    host: redis_conf.REDIS_HOST || 'localhost',
+                    port: redis_conf.REDIS_PORT || 6379,
+                }),
                 db: redis_conf.REDIS_DB || 0,
                 name: redis_conf.REDIS_NAME || undefined,
                 keyPrefix: 'pona:',

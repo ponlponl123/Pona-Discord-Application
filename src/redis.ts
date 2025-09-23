@@ -23,7 +23,10 @@ export class RedisClient {
                     port: parseInt(process.env["REDIS_SENTINEL_PORT_3"] || "26379"),
                 }] : []),
             ],
-        }: {}),
+        }: {
+            host: process.env["REDIS_HOST"] || "localhost",
+            port: parseInt(process.env["REDIS_PORT"] || "6379"),
+        }),
         name: process.env["REDIS_NAME"] || undefined,
         db: parseInt(process.env["REDIS_DB"] || "0"),
         lazyConnect: true,

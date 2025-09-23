@@ -48,17 +48,8 @@ export class initialize {
 
             console.log(consolePrefix.redis, '🟠 Attempting to connect to Redis for Socket.io Adapter...');
 
-            const redis_pub = new Redis(
-                redis_conf.REDIS_PORT,
-                redis_conf.REDIS_HOST,
-                redisOptions
-            );
-
-            const redis_sub = new Redis(
-                redis_conf.REDIS_PORT,
-                redis_conf.REDIS_HOST,
-                redisOptions
-            );
+            const redis_pub = new Redis(redisOptions);
+            const redis_sub = new Redis(redisOptions);
 
             redis_pub.on('ready', () => {
                 console.log(consolePrefix.redis, '🟢 Redis for Socket.io Adapter Publisher connected successfully!');

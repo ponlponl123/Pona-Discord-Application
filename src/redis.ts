@@ -5,10 +5,7 @@ export class RedisClient {
   public redis: Redis;
 
   constructor() {
-    this.redis = new Redis(
-        parseInt(process.env["REDIS_PORT"] || "6379"),
-        process.env["REDIS_HOST"] || "localhost",
-    {
+    this.redis = new Redis({
         password: process.env["REDIS_PASSWORD"] || undefined,
         ...(process.env["REDIS_SENTINEL_ENABLED"] === "true" ? {
             sentinelPassword: process.env["REDIS_SENTINEL_PASSWORD"] || undefined,

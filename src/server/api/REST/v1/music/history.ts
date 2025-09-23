@@ -29,7 +29,7 @@ export async function GET(request: express.Request, response: express.Response) 
       }
       if ( redisClient?.redis && limit === 14)
       {
-        const value = await redisClient.redis_ReadOnly.get(`user:${user.id}:history:track`);
+        const value = await redisClient.redis.get(`user:${user.id}:history:track`);
         if ( value ) 
           return response.status(HttpStatusCode.Ok).json({message: 'Ok', tracks: JSONBig.parse(value)});
       }
@@ -72,16 +72,16 @@ export async function GET(request: express.Request, response: express.Response) 
           }
           if ( redisClient?.redis )
           {
-            const keyType = await redisClient.redis_ReadOnly.type(`user:${user.id}:history:search`);
+            const keyType = await redisClient.redis.type(`user:${user.id}:history:search`);
             if ( keyType === 'SET' )
             {
-              const value = await redisClient.redis_ReadOnly.smembers(`user:${user.id}:history:search`);
+              const value = await redisClient.redis.smembers(`user:${user.id}:history:search`);
               if ( value && value.length > 0 ) 
                 return response.status(HttpStatusCode.Ok).json({message: 'Ok', results: value});
             }
             else if ( keyType === 'LIST' )
             {
-              const value = await redisClient.redis_ReadOnly.lrange(`user:${user.id}:history:search`, 0, 7);
+              const value = await redisClient.redis.lrange(`user:${user.id}:history:search`, 0, 7);
               if ( value && value.length > 0 ) 
                 return response.status(HttpStatusCode.Ok).json({message: 'Ok', results: value});
             }

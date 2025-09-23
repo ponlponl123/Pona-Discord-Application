@@ -57,19 +57,7 @@ export const database = new Database({
     password: databaseConf.password || 'secret',
     database: databaseConf.database || 'my_db',
 });
-export const redisClient = redisConf.REDIS_ENABLED ? new RedisClient(
-    (redisConf.pub.host || redisConf.sub.host || 'localhost'),
-    (redisConf.pub.port || redisConf.sub.port || 6379),
-    redisConf.pub.auth?.password || redisConf.sub.auth?.password,
-    {
-        replica: {
-            enabled: redisConf.sub.host ? true : false,
-            host: redisConf.sub.host || 'localhost',
-            port: redisConf.sub.port || 6379,
-            password: redisConf.sub.auth?.password
-        }
-    }
-) : undefined;
+export const redisClient = redisConf.REDIS_ENABLED ? new RedisClient() : undefined;
 export const lavalink = new LavalinkServer(discordClient.client.user?.id || config.DISCORD_CLIENT_ID);
 export const apiServer = runner === "bun" ?
     new createBunAPIServer(expressConf.EXPRESS_PORT) :
@@ -85,12 +73,6 @@ process.on('exit', () => {
         }).catch((err) => {
             console.error(prefix.redis, 'Error closing Redis connection:', err);
         });
-        if ( redisClient.redis_ReadOnly )
-            redisClient.redis_ReadOnly.quit().then(() => {
-                console.log(prefix.redis, 'Redis Replica connection closed.');
-            }).catch(err => {
-                console.error(prefix.redis, 'Error closing Redis Replica connection:', err);
-            });
     }
     if (database.pool) {
         database.pool.end().then(() => {

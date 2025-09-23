@@ -27,7 +27,7 @@ export async function GET(request: express.Request, response: express.Response) 
         return response.status(HttpStatusCode.BadRequest).json({ error: 'Invalid channelId' });
       if ( redisClient?.redis )
       {
-        const value = await redisClient.redis_ReadOnly.hget(`user:${user.id}:subscribe`,channelId);
+        const value = await redisClient.redis.hget(`user:${user.id}:subscribe`,channelId);
         if ( value && Number(value) )
           return response.status(HttpStatusCode.Ok).json({message: value==='1'?'Subscribed':'Unsubscribed', state: Number(value)});
       }
@@ -53,7 +53,7 @@ export async function GET(request: express.Request, response: express.Response) 
           let q_limit = Number(limit) || 14;
           if ( redisClient?.redis )
           {
-            const value = await redisClient.redis_ReadOnly.get(`user:${user.id}:subscribe_cache`);
+            const value = await redisClient.redis.get(`user:${user.id}:subscribe_cache`);
             if ( value )
               return response.status(HttpStatusCode.Ok).json({ message: 'Ok', result: JSON.parse(value) });
           }

@@ -3,18 +3,32 @@ import { prefix } from '@config/console'
 
 export class RedisClient {
   public redis: Redis;
-  public redis_ReadOnly: Redis;
 
-  constructor(host: string, port: number, password?: string, options?: {
-    replica: {
-        enabled: boolean;
-        host: string;
-        port: number;
-        password?: string;
-    }
-  }) {
-    this.redis = new Redis(port, host, {
-        password: password,
+  constructor() {
+    this.redis = new Redis(
+        parseInt(process.env["REDIS_PORT"] || "6379"),
+        process.env["REDIS_HOST"] || "localhost",
+    {
+        password: process.env["REDIS_PASSWORD"] || undefined,
+        ...(process.env["REDIS_SENTINEL_ENABLED"] === "true" ? {
+            sentinelPassword: process.env["REDIS_SENTINEL_PASSWORD"] || undefined,
+            sentinels: [
+                {
+                    host: process.env["REDIS_SENTINEL_HOST"] || "localhost",
+                    port: parseInt(process.env["REDIS_SENTINEL_PORT"] || "26379"),
+                },
+                ...(process.env["REDIS_SENTINEL_HOST_2"] ? [{
+                    host: process.env["REDIS_SENTINEL_HOST_2"] || "localhost",
+                    port: parseInt(process.env["REDIS_SENTINEL_PORT_2"] || "26379"),
+                }] : []),
+                ...(process.env["REDIS_SENTINEL_HOST_3"] ? [{
+                    host: process.env["REDIS_SENTINEL_HOST_3"] || "localhost",
+                    port: parseInt(process.env["REDIS_SENTINEL_PORT_3"] || "26379"),
+                }] : []),
+            ],
+        }: {}),
+        name: process.env["REDIS_NAME"] || undefined,
+        db: parseInt(process.env["REDIS_DB"] || "0"),
         lazyConnect: true,
         enableReadyCheck: true,
         keyPrefix: 'pona:',
@@ -26,34 +40,6 @@ export class RedisClient {
             return Math.min(times * 100, 3000); // Exponential backoff
         }
     });
-
-    if ( options?.replica.enabled )
-    {
-        this.redis_ReadOnly = new Redis(options.replica.port, options.replica.host, {
-            password: options.replica.password,
-            lazyConnect: true,
-            enableReadyCheck: true,
-            keyPrefix: 'pona:',
-            retryStrategy(times) {
-                if (times > 10) {
-                    console.error(prefix.redis, '❗ Redis connection failed 10 attempts');
-                    // Stop retrying after 10 attempts
-                    console.error(prefix.redis, '❗ Exiting the process now...');
-                    process.exit(1);
-                    // Return null to stop retrying (if posible)
-                    return null;
-                }
-                return Math.min(times * 100, 3000);
-            }
-        });
-        console.error(prefix.redis, '🟠 Attempting to connect to Redis Replica Database...');
-        this.redis_ReadOnly.connect().then(() => {
-            console.log(prefix.redis, '🟢 Redis Replica Database connected successfully!');
-        }).catch((err) => {
-            console.error(prefix.redis, '🔴 Redis Replica Database connection error:', err);
-        })
-    }
-    else this.redis_ReadOnly = this.redis;
     
     console.error(prefix.redis, '🟠 Attempting to connect to Redis Database...');
     this.redis.connect().then(() => {

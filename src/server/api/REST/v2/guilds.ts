@@ -24,7 +24,7 @@ export async function GET_PRIVATE(request: express.Request, response: express.Re
         if ( !userInfo ) return response.status(HttpStatusCode.Unauthorized).json({error: 'Unauthorized'});
         if ( redisClient?.redis )
         {
-          const value = await redisClient.redis_ReadOnly.get(`user:${userInfo.id}:guilds`);
+          const value = await redisClient.redis.get(`user:${userInfo.id}:guilds`);
           if ( value ) 
             return response.status(HttpStatusCode.Ok).json({message: 'Ok', guilds: JSON.parse(value)});
         }

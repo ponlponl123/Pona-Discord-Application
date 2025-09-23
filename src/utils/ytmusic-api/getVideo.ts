@@ -8,8 +8,8 @@ export async function IsValidVideo(videoId: string): Promise<boolean> {
         if (
             redisClient?.redis &&
             (
-                await redisClient.redis_ReadOnly.get(`yt:video:v1:${videoId}`) ||
-                await redisClient.redis_ReadOnly.get(`yt:video:v2:${videoId}:info`)
+                await redisClient.redis.get(`yt:video:v1:${videoId}`) ||
+                await redisClient.redis.get(`yt:video:v2:${videoId}:info`)
             ) ||
             (
                 await ytmusic.client.getVideo(videoId) ||
@@ -27,8 +27,8 @@ export async function IsValidVideo(videoId: string): Promise<boolean> {
 export async function getVideo(videoId: string): Promise<false | { message: string, result: {v1: VideoFull | undefined, v2: SongDetailed | undefined} }> {
     if ( redisClient?.redis )
     {
-        let redis_video_detail_v1 = await redisClient.redis_ReadOnly.get(`yt:video:v1:${videoId}`);
-        let redis_video_detail_v2 = await redisClient.redis_ReadOnly.get(`yt:video:v2:${videoId}:info`);
+        let redis_video_detail_v1 = await redisClient.redis.get(`yt:video:v1:${videoId}`);
+        let redis_video_detail_v2 = await redisClient.redis.get(`yt:video:v2:${videoId}:info`);
         if ( redis_video_detail_v1 || redis_video_detail_v2 )
         {
             if ( !redis_video_detail_v1&&redis_video_detail_v1!=='' )

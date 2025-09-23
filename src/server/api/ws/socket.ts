@@ -10,8 +10,8 @@ import { createAdapter } from "@socket.io/redis-adapter";
 
 export class initialize {
     public readonly server: Server;
-    public readonly redis_pub: Redis | undefined;
-    public readonly redis_sub: Redis | undefined;
+    private redis_pub?: Redis;
+    private redis_sub?: Redis;
 
     constructor(http: HttpServer) {
         const socketServer = new Server(http, {
@@ -26,59 +26,61 @@ export class initialize {
         if (redisConfig && redisConfig.REDIS_ENABLED) {
             const redis_conf = redisConfig;
 
-            const redis_pub_options: RedisOptions = {
-                host: redis_conf.pub.host,
-                port: redis_conf.pub.port,
-                password: redis_conf.pub.auth?.password,
-                keyPrefix: "pona-ws:",
-                retryStrategy(times) {
-                    return Math.min(times * 50, 2000);
-                },
+            const redisOptions: RedisOptions = {
+                password: redis_conf.REDIS_PASSWORD || undefined,
+                ...(redis_conf.REDIS_SENTINEL_ENABLED ? {
+                    sentinelPassword: redis_conf.REDIS_SENTINEL_PASSWORD || undefined,
+                    sentinels: redis_conf.sentinels,
+                } : {}),
+                db: redis_conf.REDIS_DB || 0,
+                name: redis_conf.REDIS_NAME || undefined,
+                keyPrefix: 'pona:',
                 lazyConnect: true,
-                keepAlive: 30 * 60 * 1000,
-                maxRetriesPerRequest: null, // disable the max retries per request limit
-            };
-
-            const redis_sub_options: RedisOptions = {
-                host: redis_conf.sub.host,
-                port: redis_conf.sub.port,
-                password: redis_conf.pub.auth?.password,
-                keyPrefix: "pona-ws:",
+                enableReadyCheck: true,
                 retryStrategy(times) {
-                    return Math.min(times * 50, 2000);
-                },
-                lazyConnect: true,
-                keepAlive: 30 * 60 * 1000,
-                maxRetriesPerRequest: null,
-            };
-
-            this.redis_pub = new Redis(redis_pub_options);
-            this.redis_sub = new Redis(redis_sub_options);
-
-            const onRedisReady = (type: 'pub' | 'sub') => {
-                console.log(consolePrefix.socket, `🟢 Redis Network is ready (${type})`);
-            };
-
-            const onRedisError = (err: { code: string; message: string }, type: 'pub' | 'sub') => {
-                if (err.code === 'ETIMEDOUT') {
-                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: Connection timed out. Retrying...`);
-                } else if (err.message.includes('All sentinels are unreachable')) {
-                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: All Sentinels are unreachable. Retrying from scratch...`);
-                } else if (err.message.includes('Connection in subscriber mode, only subscriber commands may be used')) {
-                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: Redis is in subscriber mode. Please check your Redis configuration.`);
-                } else if (err.message.includes('Only HELLO messages are accepted by Sentinel instances')) {
-                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: Attempted to connect to a Sentinel instance. Please check your Redis configuration.`);
-                } else {
-                    console.error(consolePrefix.socket + `🔴 (${type}) Redis: Unknown Redis error occurred:`, err);
+                    if (times > 10) {
+                        console.error(consolePrefix.redis, '❗ Redis connection failed after 10 attempts');
+                        return null; // Stop retrying
+                    }
+                    return Math.min(times * 100, 3000); // Exponential backoff
                 }
             };
 
-            this.redis_pub.on("ready", () => { onRedisReady('pub') });
-            this.redis_sub.on("ready", () => { onRedisReady('sub') });
+            console.log(consolePrefix.redis, '🟠 Attempting to connect to Redis for Socket.io Adapter...');
 
-            this.redis_pub.on("error", (err: { code: string; message: string }) => { onRedisError(err, 'pub') });
-            this.redis_sub.on("error", (err: { code: string; message: string }) => { onRedisError(err, 'sub') });
+            const redis_pub = new Redis(
+                redis_conf.REDIS_PORT,
+                redis_conf.REDIS_HOST,
+                redisOptions
+            );
 
+            const redis_sub = new Redis(
+                redis_conf.REDIS_PORT,
+                redis_conf.REDIS_HOST,
+                redisOptions
+            );
+
+            redis_pub.on('ready', () => {
+                console.log(consolePrefix.redis, '🟢 Redis for Socket.io Adapter Publisher connected successfully!');
+            });
+
+            redis_pub.on('error', (err) => {
+                console.error(consolePrefix.redis, '🔴 Redis for Socket.io Adapter Publisher connection error:', err);
+            });
+
+            redis_sub.on('ready', () => {
+                console.log(consolePrefix.redis, '🟢 Redis for Socket.io Adapter Subscriber connected successfully!');
+            });
+
+            redis_sub.on('error', (err) => {
+                console.error(consolePrefix.redis, '🔴 Redis for Socket.io Adapter Subscriber connection error:', err);
+            });
+
+            // Assign to class properties to prevent garbage collection
+            this.redis_pub = redis_pub;
+            this.redis_sub = redis_sub;
+
+            // Use the Redis adapter for Socket.io
             this.server.adapter(createAdapter(this.redis_pub, this.redis_sub));
         }
 

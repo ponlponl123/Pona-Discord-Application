@@ -1,14 +1,17 @@
-import express from 'express';
+import { Elysia } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { redisClient } from '@/index';
 
-export async function GET(_request: express.Request, response: express.Response) {
-    if ( !redisClient?.redis || (await redisClient?.redis.ping() !== 'PONG') )
-        return response.status(HttpStatusCode.ServiceUnavailable).json({
-            message: 'Service Unavailable',
-        });
+export default new Elysia().get('/', async ({ set }) => {
+  if (!redisClient?.redis || (await redisClient?.redis.ping()) !== 'PONG') {
+    set.status = HttpStatusCode.ServiceUnavailable;
+    return {
+      message: 'Service Unavailable',
+    };
+  }
 
-    return response.status(HttpStatusCode.Ok).json({
-        message: 'OK',
-    });
-}
+  set.status = HttpStatusCode.Ok;
+  return {
+    message: 'OK',
+  };
+});

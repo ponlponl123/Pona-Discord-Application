@@ -1,176 +1,144 @@
-import express from 'express'
-import compression from 'compression'
-import { createServer, IncomingMessage, Server, ServerResponse } from 'http'
-import socketio from 'socket.io'
-import cors from 'cors'
-import path from 'path'
-import fs from 'fs'
-import net from 'net'
+import { Elysia } from 'elysia';
+import { cors } from '@elysiajs/cors';
+import { staticPlugin } from '@elysiajs/static';
+import { swagger } from '@elysiajs/swagger';
+import { createServer } from 'http';
+import socketio from 'socket.io';
+import path from 'path';
+import net from 'net';
 
-import cookieParser from 'cookie-parser'
-import { HttpStatusCode } from 'axios'
-import bodyParser from 'body-parser'
-import favicon from 'serve-favicon'
-
-import { prefix as consolePrefix } from '@config/console'
+import { prefix as consolePrefix } from '@config/console';
 
 // Middleware handlers
-import Middleware_errorHandler from './middlewares/errorHandle'
-import Middleware_apikeyHandler from './middlewares/apiKey'
+import { errorHandlerPlugin } from './middlewares/errorHandle';
 
-import { initialize as initializeSocket } from './api/ws/socket'
+import { initialize as initializeSocket } from './api/ws/socket';
 
-import rest_routes from './routes'
-import { HTTPMethods } from '@interfaces/router'
-import type { Router as PonaRouter, PRIVATE_HTTPMethod, httpMethod, HTTPMethod } from '@interfaces/router'
+import routes_v1 from './api/REST/v1/routes';
+import routes_v2 from './api/REST/v2/routes';
 
 export class apiServer {
-    private portUsing: number = 3000;
-    public readonly app: express.Application;
-    public readonly http: Server<typeof IncomingMessage, typeof ServerResponse>;
-    public readonly io: socketio.Server;
+  private portUsing: number = 3000;
+  public readonly app: Elysia;
+  public readonly http: any;
+  public readonly io: socketio.Server;
 
-    constructor(port: number) {
-        const app = express();
-        const httpServer = createServer(app);
-        const socket = new initializeSocket(httpServer);
-    
-        app.use(compression());
-        if ( process.env["AUTO_ROUTE"] === "production" )
-            app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
-        else if ( process.env["AUTO_ROUTE"] === "development" )
-            app.use(favicon(path.join(__dirname, '..', '..', 'public', 'favicon.ico')));
-        app.disable('x-powered-by');
-        app.use(cors({
-            origin: 'https://pona.ponlponl123.com',
-        }))
-        app.use( cookieParser() )
-        app.use( bodyParser.json() )
-        app.use( Middleware_errorHandler )
+  constructor(port: number) {
+    const app = new Elysia();
 
-        app.use(( req: express.Request, res: express.Response, next: express.NextFunction) => {
-            const start = Date.now();
-            next();
-            res.on('finish', () => {
-                const status = res.statusCode;
-                const duration = Date.now() - start;
-                console.log(consolePrefix.express + `\x1b[2m${new Date}\x1b[0m | \x1b[${status >= 200 && status < 400 ? "32m" : status >= 500 ? "31m" : "33m"}${status}\x1b[0m [ ${req.method} ${req.protocol} ] ${req.originalUrl} (${duration}ms)`);
-            });
-        })
-    
-        app.get('/', (_req: express.Request, res: express.Response) => {
-            res.status(HttpStatusCode.Ok).json({
-                status: HttpStatusCode.Ok,
-                message: 'Hello, world!'
-            });
-        })
-    
-        this.app = app;
-        this.http = httpServer;
-        this.io = socket.server;
+    // Create HTTP server for Socket.IO compatibility
+    const httpServer = createServer();
+    const socket = new initializeSocket(httpServer);
 
-        this.router();
-        this.portUsing = port;
+    app
+      .use(
+        cors({
+          origin: 'https://pona.ponlponl123.com',
+          credentials: true,
+        }),
+      )
+      .use(
+        swagger({
+          documentation: {
+            info: {
+              title: 'Pona Discord Application API',
+              version: '1.0.0',
+            },
+          },
+        }),
+      )
+      .use(
+        staticPlugin({
+          assets:
+            process.env['AUTO_ROUTE'] === 'production'
+              ? path.join(__dirname, 'public')
+              : path.join(__dirname, '..', '..', 'public'),
+          prefix: '/static',
+        }),
+      )
+      .use(errorHandlerPlugin)
+      .onBeforeHandle((context) => {
+        const start = Date.now();
+        (context as any).startTime = start;
+      })
+      .onAfterHandle((context) => {
+        const duration =
+          Date.now() - ((context as any).startTime || Date.now());
+        const status = Number(context.set?.status) || 200;
+        console.log(
+          consolePrefix.express +
+            `\x1b[2m${new Date()}\x1b[0m | \x1b[${
+              status >= 200 && status < 400
+                ? '32m'
+                : status >= 500
+                ? '31m'
+                : '33m'
+            }${status}\x1b[0m [ ${context.request.method} ] ${
+              new URL(context.request.url).pathname
+            } (${duration}ms)`,
+        );
+      })
+      .get('/', () => ({
+        status: 200,
+        message: 'Hello, world!',
+      }))
+      .use(routes_v1)
+      .use(routes_v2);
 
-        this.checkPortAndListen(port);
-    }
+    this.app = app;
+    this.http = httpServer;
+    this.io = socket.server;
+    this.portUsing = port;
 
-    private checkPortAndListen(port: number) {
-        const server = net.createServer();
-        server.once('error', (err: any) => {
-            if (err.code === 'EADDRINUSE') {
-                console.log(consolePrefix.express + `\x1b[33mPort ${port} is in use, trying next port...\x1b[0m`);
-                this.checkPortAndListen(port + 1);
-            } else {
-                console.error(consolePrefix.express + `\x1b[31mError occurred: ${err.message}\x1b[0m`);
-            }
-        });
+    this.checkPortAndListen(port);
+  }
 
-        server.once('listening', () => {
-            server.close();
-            this.portUsing = port;
-            this.http.listen(this.portUsing, () => {
-                console.log(consolePrefix.express + `\x1b[32mAPI Server running at ${this.portUsing}! 📡\x1b[0m`);
-            });
-        });
-
-        server.listen(port);
-    }
-
-    private async router() {
-        if ( process.env["AUTO_ROUTE"] !== "no" )
-        {
-            const APIdir = path.join(__dirname, 'api');
-            const restAPI_dir = path.join(APIdir, 'REST');
-    
-            if ( !fs.existsSync(APIdir) )
-                throw new ReferenceError('api directory does not exist');
-            if ( !fs.existsSync(restAPI_dir) )
-                throw new ReferenceError('rest api directory does not exist');
-    
-            fs.readdirSync(restAPI_dir).forEach(dir => {
-                const routePath = path.join(restAPI_dir, dir);
-                if (fs.lstatSync(routePath).isDirectory()) {
-                    fs.readdirSync(routePath).forEach(async file => {
-                        const filePath = path.resolve(routePath, file);
-                        const _route_register = async (fpath: string, className?: string) => {
-                            const name = path.basename(fpath).split('.')[0];
-                            const fpath_esm = 'file://' + fpath;
-                            let controller: PonaRouter;
-                            try {
-                                const test = await import(fpath_esm);
-                                controller = test;
-                            } catch (err) {
-                                console.warn('Failed to import ESM module, retrying with MJS');
-                                try {
-                                    const test = await import(fpath);
-                                    controller = test;
-                                } catch (err) {
-                                    console.error(consolePrefix.express, `\x1b[31mFailed to import controller: ${fpath}\x1b[0m`);
-                                    return;
-                                }
-                            }
-    
-                            this.route(name, dir, controller, className);
-                        }
-                        if (fs.lstatSync(filePath).isFile() && (file.endsWith('.ts') || file.endsWith('.js'))) await _route_register(filePath);
-                        else if (fs.lstatSync(filePath).isDirectory())
-                            fs.readdirSync(filePath).forEach(async file_d => {
-                                const filePath_d = path.resolve(filePath, file_d);
-                                if (fs.lstatSync(filePath_d).isFile() && (file_d.endsWith('.ts') || file_d.endsWith('.js'))) await _route_register(filePath_d, file);
-                            });
-                    });
-                }
-            });
+  private checkPortAndListen(port: number) {
+    const checkPort = (p: number) => {
+      const server = net.createServer();
+      server.once('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log(
+            consolePrefix.express +
+              `\x1b[33mPort ${p} is in use, trying next port...\x1b[0m`,
+          );
+          checkPort(p + 1);
         } else {
-            rest_routes.forEach((route) => {
-                this.route(route.name, route.version, route.controller, route.classname);
-            })
+          console.error(
+            consolePrefix.express +
+              `\x1b[31mError occurred: ${err.message}\x1b[0m`,
+          );
         }
-    }
+      });
 
-    private route(name: string, version: string, controller: PonaRouter, className?: string) {
-        const endpoint = name + (controller?.path || '').toString();
-        const endpointPath = className ? `/${className}/${endpoint}` : `/${endpoint}`;
-        try {
-            const router = express.Router();
-            for ( const method of HTTPMethods ) {
-                const handler = controller[method as HTTPMethod];
-                const privateHandler = controller[method+"_PRIVATE" as PRIVATE_HTTPMethod];
-                const friendlyMethod = method.toLowerCase();
-                if (handler && friendlyMethod in router) {
-                    router[friendlyMethod as httpMethod](endpointPath, handler);
-                    console.log(consolePrefix.express, `Routed [${method}] api endpoint:`, version, endpoint, endpointPath);
-                }
-                if (privateHandler && friendlyMethod in router) {
-                    router[friendlyMethod as httpMethod](endpointPath, Middleware_apikeyHandler, privateHandler);
-                    console.log(consolePrefix.express, `Routed PRIVATE [${method}] api endpoint:`, version, endpoint, endpointPath);
-                }
-            }
-            this.app.use(`/${version}`, router);
-        } catch (err: any)
-        {
-            console.error(consolePrefix.express, `Error routing ${endpointPath} endpoint:`, err?.message)
-        }
-    }
+      server.once('listening', () => {
+        server.close();
+        this.portUsing = p;
+
+        // Start Elysia server using Bun.serve
+        Bun.serve({
+          fetch: this.app.fetch,
+          port: this.portUsing,
+        });
+        console.log(
+          consolePrefix.express +
+            `\x1b[32mElysia API Server running at ${this.portUsing}! 📡\x1b[0m`,
+        );
+
+        // Start Socket.IO server
+        this.http.listen(this.portUsing + 1, () => {
+          console.log(
+            consolePrefix.express +
+              `\x1b[32mSocket.IO Server running at ${
+                this.portUsing + 1
+              }! �\x1b[0m`,
+          );
+        });
+      });
+
+      server.listen(p);
+    };
+
+    checkPort(port);
+  }
 }

@@ -1,45 +1,80 @@
-import express from "express";
+import { Context } from 'elysia';
 
-export type HTTPMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS'
-export type PRIVATE_HTTPMethod = 'GET_PRIVATE' | 'POST_PRIVATE' | 'PUT_PRIVATE' | 'PATCH_PRIVATE' | 'DELETE_PRIVATE' | 'HEAD_PRIVATE' | 'OPTIONS_PRIVATE'
+export type HTTPMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'HEAD'
+  | 'OPTIONS';
+export type PRIVATE_HTTPMethod =
+  | 'GET_PRIVATE'
+  | 'POST_PRIVATE'
+  | 'PUT_PRIVATE'
+  | 'PATCH_PRIVATE'
+  | 'DELETE_PRIVATE'
+  | 'HEAD_PRIVATE'
+  | 'OPTIONS_PRIVATE';
 
-export type httpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete' | 'head' | 'options'
+export type httpMethod =
+  | 'get'
+  | 'post'
+  | 'put'
+  | 'patch'
+  | 'delete'
+  | 'head'
+  | 'options';
 
 export const HTTPMethods: HTTPMethod[] = [
-    'GET',
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-    'HEAD',
-    'OPTIONS'
-]
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+];
 
-export type RequestParameters =
-    ((request: express.Request | express.Request | any) => void | Promise<void> | any) |
-    ((response: express.Response | express.Response | any) => void | Promise<void> | any) |
-    ((request: express.Request | express.Request | any, response: express.Response | express.Response | any) => void | Promise<void> | any);
+export type ElysiaHandler = (context: Context) => Promise<any> | any;
+
+// Type for common Elysia context properties
+export interface ElysiaContext {
+  body?: any;
+  query: Record<string, any>;
+  params: Record<string, any>;
+  headers: Record<string, any>;
+  set: {
+    status?: number | string;
+    headers?: Record<string, string | number>;
+    redirect?: string;
+  };
+  cookie: Record<string, { value: unknown }>;
+  request: Request;
+  path: string;
+  store: Record<string, any>;
+}
 
 export default interface PublicRouter {
-    GET?: RequestParameters;
-    POST?: RequestParameters;
-    PUT?: RequestParameters;
-    PATCH?: RequestParameters;
-    DELETE?: RequestParameters;
-    HEAD?: RequestParameters;
-    OPTIONS?: RequestParameters;
+  GET?: ElysiaHandler;
+  POST?: ElysiaHandler;
+  PUT?: ElysiaHandler;
+  PATCH?: ElysiaHandler;
+  DELETE?: ElysiaHandler;
+  HEAD?: ElysiaHandler;
+  OPTIONS?: ElysiaHandler;
 }
 
 export interface PrivateRouter {
-    GET_PRIVATE?: RequestParameters;
-    POST_PRIVATE?: RequestParameters;
-    PUT_PRIVATE?: RequestParameters;
-    PATCH_PRIVATE?: RequestParameters;
-    DELETE_PRIVATE?: RequestParameters;
-    HEAD_PRIVATE?: RequestParameters;
-    OPTIONS_PRIVATE?: RequestParameters;
+  GET_PRIVATE?: ElysiaHandler;
+  POST_PRIVATE?: ElysiaHandler;
+  PUT_PRIVATE?: ElysiaHandler;
+  PATCH_PRIVATE?: ElysiaHandler;
+  DELETE_PRIVATE?: ElysiaHandler;
+  HEAD_PRIVATE?: ElysiaHandler;
+  OPTIONS_PRIVATE?: ElysiaHandler;
 }
 
 export interface Router extends PublicRouter, PrivateRouter {
-    path?: string;
+  path?: string;
 }

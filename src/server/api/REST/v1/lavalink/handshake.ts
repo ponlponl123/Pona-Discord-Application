@@ -1,14 +1,17 @@
-import express from 'express';
+import { Elysia } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { lavalink } from '@/index';
 
-export function GET(_request: express.Request, response: express.Response) {
-  if ( lavalink.lavanodes.length === 0 )
-    return response.status(HttpStatusCode.ServiceUnavailable).json({
+export default new Elysia().get('/', ({ set }) => {
+  if (lavalink.lavanodes.length === 0) {
+    set.status = HttpStatusCode.ServiceUnavailable;
+    return {
       message: 'Service Unavailable',
-    });
+    };
+  }
 
-  return response.status(HttpStatusCode.Ok).json({
+  set.status = HttpStatusCode.Ok;
+  return {
     message: 'OK',
-  });
-}
+  };
+});

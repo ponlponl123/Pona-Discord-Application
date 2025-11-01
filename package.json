@@ -87,7 +87,7 @@
     "opusscript": "^0.1.1",
     "redis": "^4.7.0",
     "socket.io": "^4.8.1",
-    "socket.io-redis": "^5.2.0",
+    "socket.io-redis": "^5.4.0",
     "sodium-native": "^4.2.1",
     "tsconfig-paths": "^4.2.0",
     "ws": "^8.18.1",

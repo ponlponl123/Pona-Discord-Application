@@ -105,50 +105,58 @@ export default new Elysia().get(
             const related = await redisClient.redis.get(
               `yt:related:${queryId}`,
             );
-            if (related) set.status = HttpStatusCode.Ok;
-            return {
-              message: 'Ok',
-              result: {
-                watch_playlist: watch_playlist
-                  ? JSON.parse(watch_playlist)
-                  : null,
-                related: related ? JSON.parse(related) : null,
-              },
-            };
+            if (related) {
+              set.status = HttpStatusCode.Ok;
+              return {
+                message: 'Ok',
+                result: {
+                  watch_playlist: watch_playlist
+                    ? JSON.parse(watch_playlist)
+                    : null,
+                  related: related ? JSON.parse(related) : null,
+                },
+              };
+            }
           }
+          const getSongWatchPlaylist = await YTMusicAPI(
+            'GET',
+            `watch/playlist/${queryId}`,
+          ).catch(() => {
+            redisClient?.redis.setex(`yt:watch_playlist:${queryId}`, 600, '');
+          });
           const getSongRelated = await YTMusicAPI(
             'GET',
-            `song_related/${queryId}`,
+            `browse/song_related/${queryId}`,
           ).catch(() => {
             redisClient?.redis.setex(`yt:related:${queryId}`, 600, '');
           });
-          if (!getSongRelated) {
+          if (!getSongRelated && !getSongWatchPlaylist) {
             set.status = HttpStatusCode.NotFound;
             return { message: 'Not Found', var: 'SongRelated' };
           }
           if (redisClient?.redis) {
-            if (getSongRelated.data?.result?.playlist)
+            if (getSongWatchPlaylist && getSongWatchPlaylist?.data?.result)
               redisClient.redis.setex(
                 `yt:watch_playlist:${queryId}`,
                 43200,
-                JSON.stringify(getSongRelated.data.result.playlist),
+                JSON.stringify(getSongWatchPlaylist?.data.result),
               );
-            if (getSongRelated.data?.result?.related)
+            if (getSongRelated && getSongRelated?.data?.related_content)
               redisClient.redis.setex(
                 `yt:related:${queryId}`,
                 43200,
-                JSON.stringify(getSongRelated.data.result.related),
+                JSON.stringify(getSongRelated?.data.related_content),
               );
           }
           set.status = HttpStatusCode.Ok;
           return {
             message: 'Ok',
             result: {
-              watch_playlist: getSongRelated
-                ? getSongRelated.data.result.playlist
+              watch_playlist: getSongWatchPlaylist
+                ? getSongWatchPlaylist.data.result
                 : null,
               related: getSongRelated
-                ? getSongRelated.data.result.related
+                ? getSongRelated.data.related_content
                 : null,
             },
           };
@@ -192,7 +200,7 @@ export default new Elysia().get(
                 if (!redis_artist_detail_v2 && redis_artist_detail_v2 !== '') {
                   const fetch = await YTMusicAPI(
                     'GET',
-                    `artist/${encodeURIComponent(queryId)}`,
+                    `browse/artist/${encodeURIComponent(queryId)}`,
                   ).catch(() => {
                     redisClient?.redis.setex(
                       `yt:artist:v2:${queryId}:info`,
@@ -212,7 +220,7 @@ export default new Elysia().get(
                 if (!redis_user_detail && redis_user_detail !== '') {
                   const fetch = await YTMusicAPI(
                     'GET',
-                    `user/${encodeURIComponent(queryId)}`,
+                    `browse/user/${encodeURIComponent(queryId)}`,
                   ).catch(() => {
                     redisClient?.redis.setex(
                       `yt:user:${queryId}:info`,
@@ -260,13 +268,13 @@ export default new Elysia().get(
               });
             const usr_detail = await YTMusicAPI(
               'GET',
-              `user/${encodeURIComponent(queryId)}`,
+              `browse/user/${encodeURIComponent(queryId)}`,
             ).catch(() => {
               redisClient?.redis.setex(`yt:user:${queryId}:info`, 600, '');
             });
             const artist_detail_v2 = await YTMusicAPI(
               'GET',
-              `artist/${encodeURIComponent(queryId)}`,
+              `browse/artist/${encodeURIComponent(queryId)}`,
             ).catch(() => {
               redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 600, '');
             });
@@ -331,7 +339,7 @@ export default new Elysia().get(
                 }
                 const artist_Result = await YTMusicAPI(
                   'GET',
-                  `artist_videos/${encodeURIComponent(queryId)}`,
+                  `browse/artist/${encodeURIComponent(queryId)}/videos`,
                 ).catch(() => {
                   redisClient?.redis.setex(
                     `yt:artist:v2:${queryId}:videos`,
@@ -350,7 +358,7 @@ export default new Elysia().get(
                 }
                 const user_Result = await YTMusicAPI(
                   'GET',
-                  `user_videos/${encodeURIComponent(queryId)}`,
+                  `browse/user/${encodeURIComponent(queryId)}/videos`,
                 ).catch(() => {
                   redisClient?.redis.setex(
                     `yt:user:${queryId}:videos`,
@@ -390,7 +398,7 @@ export default new Elysia().get(
             }
             const searchResult = await YTMusicAPI(
               'GET',
-              `user/${encodeURIComponent(queryId)}`,
+              `browse/user/${encodeURIComponent(queryId)}`,
             ).catch(() => {
               redisClient?.redis.setex(`yt:user:${queryId}:info`, 600, '');
             });
@@ -419,7 +427,7 @@ export default new Elysia().get(
                 }
                 const searchResult = await YTMusicAPI(
                   'GET',
-                  `user_videos/${encodeURIComponent(queryId)}`,
+                  `browse/user/${encodeURIComponent(queryId)}/videos`,
                 ).catch(() => {
                   redisClient?.redis.setex(
                     `yt:user:${queryId}:videos`,
@@ -456,7 +464,7 @@ export default new Elysia().get(
           }
           const searchResult = await YTMusicAPI(
             'GET',
-            `album/${encodeURIComponent(queryId)}`,
+            `browse/album/${encodeURIComponent(queryId)}`,
           ).catch(() => {
             redisClient?.redis.setex(`yt:album:v2:${queryId}`, 600, '');
           });
@@ -485,7 +493,7 @@ export default new Elysia().get(
             }
             const searchResult = await YTMusicAPI(
               'GET',
-              `artist/${encodeURIComponent(queryId)}`,
+              `browse/artist/${encodeURIComponent(queryId)}`,
             ).catch(() => {
               redisClient?.redis.setex(`yt:artist:v2:${queryId}:info`, 600, '');
             });
@@ -514,7 +522,7 @@ export default new Elysia().get(
                 }
                 const searchResult = await YTMusicAPI(
                   'GET',
-                  `artist_videos/${encodeURIComponent(queryId)}`,
+                  `browse/artist/${encodeURIComponent(queryId)}/videos`,
                 ).catch(() => {
                   redisClient?.redis.setex(
                     `yt:artist:v2:${queryId}:videos`,
@@ -553,7 +561,7 @@ export default new Elysia().get(
           }
           const searchResult = await YTMusicAPI(
             'GET',
-            `playlist/${encodeURIComponent(queryId)}`,
+            `playlists/${encodeURIComponent(queryId)}`,
           ).catch(() => {
             redisClient?.redis.setex(`yt:playlist:v2:${queryId}`, 600, '');
           });

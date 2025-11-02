@@ -226,13 +226,21 @@ export default new Elysia().get(
             return { message: 'Not Found' };
           }
           const videos = await ytmusic.client.getPlaylistVideos(queryId);
+
+          // Handle null videoCount by setting it to the actual video count or 0
+          const sanitizedResult = {
+            ...searchResult,
+            videoCount: searchResult.videoCount ?? videos?.length ?? 0,
+            videos,
+          };
+
           redisClient?.redis.setex(
             `yt:playlist:v1:${queryId}`,
             1800,
-            JSON.stringify({ ...searchResult, videos }),
+            JSON.stringify(sanitizedResult),
           );
           set.status = HttpStatusCode.Ok;
-          return { message: 'Ok', result: { ...searchResult, videos } };
+          return { message: 'Ok', result: sanitizedResult };
         }
         default: {
           set.status = 400;

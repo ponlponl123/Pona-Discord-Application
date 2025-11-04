@@ -1,5 +1,5 @@
 # Use oven/bun:alpine as the base image for all stages
-FROM oven/bun:1.2.5-alpine AS base
+FROM oven/bun:1.3.1-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache python3 g++ make git
 
@@ -34,14 +34,19 @@ COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmus
 FROM base AS bun-builder
 WORKDIR /pona-builder
 
-# Install tsup FIRST (separate layer for caching)
-RUN bun add -d tsup
+# Install build dependencies (separate layer for caching)
+RUN bun add -d tsup @types/bun typescript
 
 # Copy only what's needed for build
 COPY --from=builder /pona-builder/package.json ./package.json
 COPY --from=builder /pona-builder/tsup.config.ts ./tsup.config.ts
+COPY --from=builder /pona-builder/tsconfig.json ./tsconfig.json
 COPY --from=builder /pona-builder/src ./src
 COPY --from=builder /pona-builder/public ./public
+COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
+
+# Build the application
+RUN bun install
 
 # Build the application
 RUN bun run bun:build

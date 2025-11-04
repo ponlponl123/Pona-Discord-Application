@@ -43,17 +43,17 @@ export class Database {
     });
   }
 
-  private async _createConnection(
-    option: databaseOption,
-  ): Promise<mariadb.Connection> {
-    return await mariadb.createConnection({
-      host: option.host,
-      port: option.port,
-      user: option.user,
-      password: option.password,
-      database: option.database,
-    });
-  }
+  // private async _createConnection(
+  //   option: databaseOption,
+  // ): Promise<mariadb.Connection> {
+  //   return await mariadb.createConnection({
+  //     host: option.host,
+  //     port: option.port,
+  //     user: option.user,
+  //     password: option.password,
+  //     database: option.database,
+  //   });
+  // }
 
   public async query(sql: string, values?: any): Promise<any> {
     if (!this.pool) {

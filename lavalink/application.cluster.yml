@@ -14,10 +14,10 @@ plugins:
     # The clients to use for track loading. See below for a list of valid clients.
     # Clients are queried in the order they are given (so the first client is queried first and so on...)
     clients:
-      - MUSIC
+      - WEB_REMIX
       - ANDROID_VR
       - WEB
-      - WEBEMBEDDED 
+      - WEB_EMBEDDED_PLAYER 
     oauth:
       # setting "enabled: true" is the bare minimum to get OAuth working.
       enabled: false
@@ -36,6 +36,8 @@ plugins:
 #    another_key: another_value
 lavalink:
   plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.16.0"
+      repository: "https://maven.lavalink.dev/releases"
 #    - dependency: "com.github.example:example-plugin:1.0.0" # required, the coordinates of your plugin
 #      repository: "https://maven.example.com/releases" # optional, defaults to the Lavalink releases repository by default
 #      snapshot: false # optional, defaults to false, used to tell Lavalink to use the snapshot repository instead of the release repository

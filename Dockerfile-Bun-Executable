@@ -1,0 +1,76 @@
+# ========================
+# Build ytmusic-api
+# ========================
+FROM node:22.4.1-alpine AS ytmusic-api-builder
+WORKDIR /builder
+RUN apk add --no-cache git
+RUN git clone --depth=1 https://github.com/ponlponl123/ts-npm-ytmusic-api /builder/ts-npm-ytmusic-api \
+    && cd /builder/ts-npm-ytmusic-api \
+    && npm install \
+    && npm install -g tsup \
+    && npm run build
+
+# ========================
+# Install Production Dependencies
+# ========================
+FROM node:22.4.1-alpine AS npm-deps
+WORKDIR /pona-builder
+RUN apk add --no-cache python3 make g++
+COPY package.json package-lock.json ./
+RUN npm install --production --ignore-scripts
+
+# Copy ytmusic-api build
+COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
+
+# ========================
+# Build Standalone Executables with Bun
+# ========================
+FROM oven/bun:1.2.5-alpine AS bun-builder
+WORKDIR /pona-builder
+
+# Install build dependencies
+RUN apk add --no-cache python3 g++ make git
+
+# Copy dependencies from npm-deps stage
+COPY --from=npm-deps /pona-builder/node_modules ./node_modules
+
+# Copy source code and config
+COPY package.json ./
+COPY tsconfig.json ./
+COPY src ./src
+COPY public ./public
+
+# Build standalone executables (includes all dependencies)
+RUN mkdir -p dist && \
+    echo "Building standalone executables..." && \
+    bun build src/index.ts --compile --minify --sourcemap --target=bun --outfile dist/pona-index && \
+    bun build src/shard.ts --compile --minify --sourcemap --target=bun --outfile dist/pona-shard && \
+    cp -r public dist/ && \
+    echo "Build complete! Executable sizes:" && \
+    ls -lh dist/pona-*
+
+# ========================
+# Ultra-Minimal Final Image
+# ========================
+FROM alpine:latest AS runner
+WORKDIR /pona
+
+# Install only required runtime libraries
+RUN apk add --no-cache libstdc++ libgcc ca-certificates
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Copy only the standalone executables and public assets
+COPY --from=bun-builder /pona-builder/dist/pona-index ./pona-index
+COPY --from=bun-builder /pona-builder/dist/pona-shard ./pona-shard
+COPY --from=bun-builder /pona-builder/dist/public ./dist/public
+COPY --from=bun-builder /pona-builder/package.json ./package.json
+
+# Make executables runnable
+RUN chmod +x pona-index pona-shard
+
+EXPOSE 3000
+
+# Run the sharded version by default
+CMD ["./pona-shard"]

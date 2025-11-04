@@ -16,20 +16,19 @@ RUN git clone --depth=1 https://github.com/ponlponl123/ts-npm-ytmusic-api /build
     && npm run build
 
 # ========================
-# Install Dependencies & Build Project
+# Install Production Dependencies with NPM
 # ========================
-FROM node:22.4.1-alpine AS builder
+FROM node:22.4.1-alpine AS npm-deps
 WORKDIR /pona-builder
 RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json ./
-RUN npm install --production
-COPY . . 
+RUN npm install --production --ignore-scripts
 
 # Copy ytmusic-api build
 COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
 
 # ========================
-# Build the App with Bun
+# Install Build Dependencies & Build with Bun
 # ========================
 FROM base AS bun-builder
 WORKDIR /pona-builder
@@ -37,17 +36,18 @@ WORKDIR /pona-builder
 # Install tsup FIRST (separate layer for caching)
 RUN bun add -d tsup
 
-# Copy only what's needed for build
-COPY --from=builder /pona-builder/package.json ./package.json
-COPY --from=builder /pona-builder/tsup.config.ts ./tsup.config.ts
-COPY --from=builder /pona-builder/src ./src
-COPY --from=builder /pona-builder/public ./public
+# Copy package files  
+COPY package.json package-lock.json ./
 
-# Build the application
-RUN bun run bun:build
+# Copy source code
+COPY src ./src
+COPY public ./public
 
-# Copy node_modules after build (won't affect build cache)
-COPY --from=builder /pona-builder/node_modules ./node_modules
+# Build the application using bun build (simpler and faster than tsup)
+RUN mkdir -p dist && \
+    bun build src/index.ts --outfile dist/index.js --target node --minify && \
+    bun build src/shard.ts --outfile dist/shard.js --target node --minify && \
+    cp -r public dist/
 
 # ========================
 # Final Image (Minimal)
@@ -56,11 +56,12 @@ FROM base AS runner
 WORKDIR /pona
 ENV NODE_ENV=production
 
-# Copy only necessary files
-COPY --from=bun-builder /pona-builder/node_modules ./node_modules
+# Copy production dependencies from npm-deps stage
+COPY --from=npm-deps /pona-builder/node_modules ./node_modules
+
+# Copy built application from bun-builder
 COPY --from=bun-builder /pona-builder/dist ./dist
-COPY --from=bun-builder /pona-builder/public ./dist/public
-COPY --from=bun-builder /pona-builder/package.json ./package.json
+COPY package.json ./
 
 EXPOSE 3000
 ENV PORT=3000

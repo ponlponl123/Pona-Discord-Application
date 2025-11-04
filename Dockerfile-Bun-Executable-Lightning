@@ -1,0 +1,86 @@
+# ========================
+# Build ytmusic-api (cached layer)
+# ========================
+FROM node:22.4.1-alpine AS ytmusic-api-builder
+WORKDIR /builder
+RUN apk add --no-cache git
+RUN git clone --depth=1 https://github.com/ponlponl123/ts-npm-ytmusic-api /builder/ts-npm-ytmusic-api \
+    && cd /builder/ts-npm-ytmusic-api \
+    && npm install \
+    && npm install -g tsup \
+    && npm run build
+
+# ========================
+# Build Standalone Executables DIRECTLY (No slow npm install!)
+# ========================
+FROM oven/bun:1.2.5-alpine AS executable-builder
+WORKDIR /pona-builder
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Copy package and source TOGETHER
+COPY package.json ./
+COPY tsconfig.json ./
+COPY src ./src
+COPY public ./public
+
+# Let bun handle dependency resolution during build
+# This is MUCH faster than npm install
+# The --external flag tells bun to bundle dependencies
+RUN mkdir -p dist node_modules/ytmusic-api
+
+# Copy ytmusic-api (critical dependency)
+COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
+
+# Install only what we need with bun (super fast)
+RUN bun install --production
+
+# Build executables with proper structure
+# For sharding to work, we need both the executable AND the transpiled JS files
+RUN echo "🚀 Building executables and transpiled files..." && \
+    mkdir -p dist && \
+    bun build src/index.ts --outfile dist/index.js --target=bun && \
+    bun build src/shard.ts --outfile dist/shard.js --target=bun && \
+    echo "✅ JavaScript files built" && \
+    bun build src/index.ts \
+    --compile \
+    --minify \
+    --target=bun \
+    --outfile dist/pona-index && \
+    echo "✅ pona-index: $(du -h dist/pona-index | cut -f1)" && \
+    bun build src/shard.ts \
+    --compile \
+    --minify \
+    --target=bun \
+    --outfile dist/pona-shard && \
+    echo "✅ pona-shard: $(du -h dist/pona-shard | cut -f1)" && \
+    cp -r public dist/ && \
+    echo "📦 Build complete: $(du -sh dist/ | cut -f1)"
+
+# ========================
+# Ultra-Minimal Runtime
+# ========================
+FROM alpine:latest AS runner
+WORKDIR /pona
+
+RUN apk add --no-cache libstdc++ libgcc ca-certificates
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV RUNNER=bun
+
+# Copy executables AND the transpiled JS files (needed for sharding)
+COPY --from=executable-builder /pona-builder/dist/pona-index ./pona-index
+COPY --from=executable-builder /pona-builder/dist/pona-shard ./pona-shard
+COPY --from=executable-builder /pona-builder/dist/index.js ./dist/index.js
+COPY --from=executable-builder /pona-builder/dist/shard.js ./dist/shard.js
+COPY --from=executable-builder /pona-builder/dist/public ./dist/public
+
+# Also need node_modules for the sharded workers
+COPY --from=executable-builder /pona-builder/node_modules ./node_modules
+
+RUN chmod +x pona-index pona-shard
+
+EXPOSE 3000
+CMD ["./pona-shard"]

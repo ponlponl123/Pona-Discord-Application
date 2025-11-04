@@ -1,0 +1,88 @@
+# ========================
+# Build ytmusic-api (cached layer)
+# ========================
+FROM node:22.4.1-alpine AS ytmusic-api-builder
+WORKDIR /builder
+RUN apk add --no-cache git
+RUN git clone --depth=1 https://github.com/ponlponl123/ts-npm-ytmusic-api /builder/ts-npm-ytmusic-api \
+    && cd /builder/ts-npm-ytmusic-api \
+    && npm install \
+    && npm install -g tsup \
+    && npm run build
+
+# ========================
+# Install ONLY Critical Native Dependencies
+# ========================
+FROM node:22.4.1-alpine AS critical-deps
+WORKDIR /pona-builder
+RUN apk add --no-cache python3 make g++
+
+COPY package.json package-lock.json ./
+
+# Install ONLY native/binary dependencies that can't be bundled
+# Skip most JS dependencies as they'll be bundled into executable
+RUN npm ci --omit=dev --ignore-scripts && \
+    # Remove unnecessary large packages that will be bundled
+    rm -rf node_modules/@types node_modules/typescript node_modules/eslint || true
+
+# Copy ytmusic-api build
+COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
+
+# ========================
+# Build Standalone Executables with Bundled Dependencies
+# ========================
+FROM oven/bun:1.2.5-alpine AS executable-builder
+WORKDIR /pona-builder
+
+# Copy critical native dependencies
+COPY --from=critical-deps /pona-builder/node_modules ./node_modules
+COPY --from=critical-deps /pona-builder/package.json ./package.json
+
+# Copy source code
+COPY tsconfig.json ./
+COPY src ./src
+COPY public ./public
+
+# Build standalone executables
+# The executable will bundle most dependencies internally
+RUN mkdir -p dist && \
+    echo "🔨 Building standalone executables with bundled dependencies..." && \
+    bun build src/index.ts \
+    --compile \
+    --minify \
+    --target=bun \
+    --outfile dist/pona-index && \
+    echo "✅ pona-index: $(du -h dist/pona-index | cut -f1)" && \
+    bun build src/shard.ts \
+    --compile \
+    --minify \
+    --target=bun \
+    --outfile dist/pona-shard && \
+    echo "✅ pona-shard: $(du -h dist/pona-shard | cut -f1)" && \
+    cp -r public dist/ && \
+    echo "" && \
+    echo "📦 Total dist size: $(du -sh dist/ | cut -f1)"
+
+# ========================
+# Ultra-Minimal Runtime
+# ========================
+FROM alpine:latest AS runner
+WORKDIR /pona
+
+# Install ONLY required runtime libraries
+RUN apk add --no-cache libstdc++ libgcc ca-certificates
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV RUNNER=bun
+
+# Copy ONLY executables (they have dependencies bundled!)
+COPY --from=executable-builder /pona-builder/dist/pona-index ./pona-index
+COPY --from=executable-builder /pona-builder/dist/pona-shard ./pona-shard
+COPY --from=executable-builder /pona-builder/dist/public ./dist/public
+
+RUN chmod +x pona-index pona-shard && \
+    echo "✅ Final image: $(du -sh . | cut -f1)"
+
+EXPOSE 3000
+CMD ["./pona-shard"]

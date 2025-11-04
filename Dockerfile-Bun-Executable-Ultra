@@ -1,0 +1,103 @@
+# ========================
+# Build ytmusic-api (cached layer)
+# ========================
+FROM node:22.4.1-alpine AS ytmusic-api-builder
+WORKDIR /builder
+RUN apk add --no-cache git
+RUN git clone --depth=1 https://github.com/ponlponl123/ts-npm-ytmusic-api /builder/ts-npm-ytmusic-api \
+    && cd /builder/ts-npm-ytmusic-api \
+    && npm install \
+    && npm install -g tsup \
+    && npm run build
+
+# ========================
+# Install Dependencies Only (cached layer)
+# ========================
+FROM node:22.4.1-alpine AS deps-installer
+WORKDIR /pona-builder
+RUN apk add --no-cache python3 make g++
+
+# Copy package files first for better caching
+COPY package.json package-lock.json ./
+
+# Use npm ci for faster, cleaner installs (respects package-lock.json)
+# --omit=dev skips devDependencies
+# --ignore-scripts skips lifecycle scripts
+# npm ci is 2-3x faster than npm install
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copy ytmusic-api build
+COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
+
+# ========================
+# Build Standalone Executables (Fast!)
+# ========================
+FROM oven/bun:1.2.5-alpine AS executable-builder
+WORKDIR /pona-builder
+
+# Copy installed dependencies
+COPY --from=deps-installer /pona-builder/node_modules ./node_modules
+COPY --from=deps-installer /pona-builder/package.json ./package.json
+
+# Copy source code (this layer changes most often)
+COPY tsconfig.json ./
+COPY src ./src
+COPY public ./public
+
+# Build standalone executables with all optimizations
+# --compile: Create standalone executable
+# --minify: Minify code for smaller size
+# --target=bun: Optimize for bun runtime (fastest)
+RUN mkdir -p dist && \
+    echo "Building pona-index executable..." && \
+    bun build src/index.ts \
+    --compile \
+    --minify \
+    --target=bun \
+    --outfile dist/pona-index && \
+    echo "Building pona-shard executable..." && \
+    bun build src/shard.ts \
+    --compile \
+    --minify \
+    --target=bun \
+    --outfile dist/pona-shard && \
+    cp -r public dist/ && \
+    echo "✅ Build complete!" && \
+    echo "📦 Executable sizes:" && \
+    ls -lh dist/pona-* && \
+    echo "📊 Total size:" && \
+    du -sh dist/
+
+# ========================
+# Ultra-Minimal Runtime (Alpine Base)
+# ========================
+FROM alpine:latest AS runner
+WORKDIR /pona
+
+# Install ONLY required runtime libraries (minimal overhead)
+RUN apk add --no-cache \
+    libstdc++ \
+    libgcc \
+    ca-certificates
+
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV RUNNER=bun
+
+# Copy ONLY the standalone executables (no node_modules needed!)
+COPY --from=executable-builder /pona-builder/dist/pona-index ./pona-index
+COPY --from=executable-builder /pona-builder/dist/pona-shard ./pona-shard
+COPY --from=executable-builder /pona-builder/dist/public ./dist/public
+
+# Make executables runnable
+RUN chmod +x pona-index pona-shard && \
+    echo "✅ Final image ready!" && \
+    echo "📦 Image contents:" && \
+    ls -lh pona-* && \
+    du -sh .
+
+EXPOSE 3000
+
+# Default to sharded version for better performance
+CMD ["./pona-shard"]

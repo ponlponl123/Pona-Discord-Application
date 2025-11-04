@@ -1,0 +1,76 @@
+# ========================
+# Build ytmusic-api (cached layer)
+# ========================
+FROM node:22.4.1-alpine AS ytmusic-api-builder
+WORKDIR /builder
+RUN apk add --no-cache git
+RUN git clone --depth=1 https://github.com/ponlponl123/ts-npm-ytmusic-api /builder/ts-npm-ytmusic-api \
+    && cd /builder/ts-npm-ytmusic-api \
+    && npm install \
+    && npm install -g tsup \
+    && npm run build
+
+# ========================
+# Build with Bun (Optimized for Sharding)
+# ========================
+FROM oven/bun:1.2.5-alpine AS bun-builder
+WORKDIR /pona-builder
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Copy package and source
+COPY package.json tsconfig.json ./
+COPY src ./src
+COPY public ./public
+
+# Install dependencies with bun (fast!)
+RUN bun install --production
+
+# Copy ytmusic-api
+COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
+
+# Build optimized JS files (NOT executables - sharding needs separate processes)
+# Use bun build for transpilation (much faster than tsc)
+RUN mkdir -p dist && \
+    echo "🚀 Building optimized JavaScript files..." && \
+    bun build src/index.ts \
+    --outfile dist/index.js \
+    --target=bun \
+    --minify && \
+    bun build src/shard.ts \
+    --outfile dist/shard.js \
+    --target=bun \
+    --minify && \
+    cp -r public dist/ && \
+    echo "✅ Build complete!" && \
+    echo "📦 Dist size: $(du -sh dist/ | cut -f1)" && \
+    echo "📦 node_modules size: $(du -sh node_modules/ | cut -f1)"
+
+# ========================
+# Optimized Runtime with Bun
+# ========================
+FROM oven/bun:1.2.5-alpine AS runner
+WORKDIR /pona
+
+# Install runtime dependencies (minimal)
+RUN apk add --no-cache libstdc++ libgcc ca-certificates
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV RUNNER=bun
+
+# Copy production dependencies and built files
+COPY --from=bun-builder /pona-builder/node_modules ./node_modules
+COPY --from=bun-builder /pona-builder/dist ./dist
+COPY --from=bun-builder /pona-builder/package.json ./package.json
+
+# Create a startup script that uses bun
+RUN echo '#!/bin/sh' > /pona/start.sh && \
+    echo 'cd /pona && bun dist/shard.js' >> /pona/start.sh && \
+    chmod +x /pona/start.sh
+
+EXPOSE 3000
+
+# Use bun to run (faster than node)
+CMD ["bun", "dist/shard.js"]

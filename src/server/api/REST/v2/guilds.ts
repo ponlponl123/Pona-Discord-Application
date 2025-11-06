@@ -75,7 +75,10 @@ export default new Elysia().get('/guilds', async ({ cookie, set }) => {
       set.status = HttpStatusCode.Unauthorized;
       return { error: 'Unauthorized' };
     }
-  } catch {
+  } catch (e) {
+    if (String(cookie['debug']?.value || '') === 'true') {
+      console.error('Error in /guilds endpoint :', e);
+    }
     set.status = HttpStatusCode.InternalServerError;
     return { error: 'Internal Server Error' };
   }

@@ -3,8 +3,9 @@ import axios, { HttpStatusCode } from 'axios';
 import { redisClient, discordClient as self } from '@/index';
 import { Guild, type OAuth2Guild } from 'discord.js';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
+import { isApiKeyInDatabase } from '@/utils/apikey';
 
-export default new Elysia().get('/guilds', async ({ cookie, set }) => {
+export default new Elysia().get('/guilds', async ({ cookie, headers, set }) => {
   try {
     const authorization_type = String(cookie['type']?.value || '');
     const authorization_key = String(cookie['key']?.value || '');
@@ -71,15 +72,34 @@ export default new Elysia().get('/guilds', async ({ cookie, set }) => {
         };
       }
     } catch (err) {
-      // console.error("Error fetching user from Discord API :", err);
+      console.error('Error fetching user from Discord API :', err);
       set.status = HttpStatusCode.Unauthorized;
       return { error: 'Unauthorized' };
     }
   } catch (e) {
-    if (String(cookie['debug']?.value || '') === 'true') {
-      console.error('Error in /guilds endpoint :', e);
-    }
     set.status = HttpStatusCode.InternalServerError;
+    console.error('Error in /guilds endpoint :', e);
+    const authorization = headers['authorization'] || '';
+    if (
+      authorization &&
+      typeof authorization === 'string' &&
+      authorization.startsWith('Pona! ')
+    ) {
+      const apiKey = authorization.replace('Pona! ', '');
+      const isValidKey = await isApiKeyInDatabase(
+        headers['x-forwarded-for'] as string,
+        apiKey,
+        true,
+      );
+      if (
+        isValidKey &&
+        typeof isValidKey !== 'boolean' &&
+        isValidKey.canDebug
+      ) {
+        // Additional debug info already logged above
+        return { error: 'Internal Server Error', debug: e };
+      }
+    }
     return { error: 'Internal Server Error' };
   }
 });

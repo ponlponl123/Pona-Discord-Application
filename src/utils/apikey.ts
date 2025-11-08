@@ -148,8 +148,10 @@ export function decimalToPermissions(
 
 export async function isApiKeyInDatabase(
   userIP: string,
+  userAgent: string,
   key: string,
   returnPermissions?: boolean,
+  loggingUsage?: boolean,
 ): Promise<APIKeyPermission | boolean> {
   if (!database.pool) return false;
   try {
@@ -158,7 +160,6 @@ export async function isApiKeyInDatabase(
       [key],
     );
     if (!result || result.length === 0) return false;
-    if (!returnPermissions) return true;
 
     const row = result[0];
     if (row.allowedipaddresses) {
@@ -176,6 +177,12 @@ export async function isApiKeyInDatabase(
       (logs_result.length > 0 && logs_result[0].count >= row.ratelimitpermin)
     )
       return false;
+
+    if (loggingUsage) {
+      loggingUsage && (await logApiKeyUsage(key, userIP, userAgent));
+    }
+
+    if (!returnPermissions) return true;
 
     // Convert decimal permission value back to individual permissions
     const permissionValue = parseInt(row.permission) || 0;

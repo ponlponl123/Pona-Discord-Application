@@ -88,6 +88,7 @@ export default new Elysia().get('/guilds', async ({ cookie, headers, set }) => {
       const apiKey = authorization.replace('Pona! ', '');
       const isValidKey = await isApiKeyInDatabase(
         headers['x-forwarded-for'] as string,
+        headers['user-agent'] as string,
         apiKey,
         true,
       );

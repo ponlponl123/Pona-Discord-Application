@@ -7,8 +7,8 @@ import { isApiKeyInDatabase } from '@/utils/apikey';
 
 export default new Elysia().get('/guilds', async ({ cookie, headers, set }) => {
   try {
-    const authorization_type = String(cookie['type']?.value || '');
-    const authorization_key = String(cookie['key']?.value || '');
+    const authorization_type = String(cookie?.['type']?.value || '');
+    const authorization_key = String(cookie?.['key']?.value || '');
     if (!authorization_type || !authorization_key) {
       set.status = HttpStatusCode.Unauthorized;
       return { error: 'Unauthorized' };

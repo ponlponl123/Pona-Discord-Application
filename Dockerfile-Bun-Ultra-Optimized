@@ -60,12 +60,17 @@ COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmus
 RUN bun install --production
 
 # Aggressive cleanup - remove unnecessary files from node_modules
-RUN find ./node_modules -type f \( \
+# NOTE: Exclude critical runtime packages from cleanup
+RUN find ./node_modules -type f \
+    ! -path "*/tsconfig-paths/*" \
+    ! -path "*/discord.js/*" \
+    ! -path "*/discord-hybrid-sharding/*" \
+    ! -path "*/@discordjs/*" \
+    \( \
     -name "*.md" -o \
     -name "*.markdown" -o \
     -name "*.txt" -o \
     -name "*.map" -o \
-    -name "*.ts" ! -name "*.d.ts" -o \
     -name "LICENSE*" -o \
     -name "LICENCE*" -o \
     -name "CHANGELOG*" -o \
@@ -79,13 +84,17 @@ RUN find ./node_modules -type f \( \
     -name ".eslintrc*" -o \
     -name ".prettierrc*" -o \
     -name "*.spec.js" -o \
-    -name "*.test.js" -o \
-    -name "*.spec.ts" -o \
-    -name "*.test.ts" \
+    -name "*.test.js" \
     \) -delete 2>/dev/null || true
 
 # Remove unnecessary directories from node_modules
-RUN find ./node_modules -type d \( \
+# NOTE: Exclude critical runtime packages from directory cleanup
+RUN find ./node_modules -type d \
+    ! -path "*/tsconfig-paths/*" \
+    ! -path "*/discord.js/*" \
+    ! -path "*/discord-hybrid-sharding/*" \
+    ! -path "*/@discordjs/*" \
+    \( \
     -name "test" -o \
     -name "tests" -o \
     -name "__tests__" -o \
@@ -120,6 +129,8 @@ COPY --from=deps /deps/node_modules ./node_modules
 COPY --from=bun-builder /pona-builder/dist ./dist
 COPY --from=bun-builder /pona-builder/public ./dist/public
 COPY --from=bun-builder /pona-builder/package.json ./package.json
+COPY ./tsconfig-paths.js ./tsconfig-paths.js
+COPY ./tsconfig.json ./tsconfig.json
 
 EXPOSE 3000
 ENV PORT=3000

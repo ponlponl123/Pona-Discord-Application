@@ -593,6 +593,9 @@ export default new Elysia().get(
     }
   },
   {
+    headers: t.Object({
+      authorization: t.String(),
+    }),
     params: t.Object({
       fetch: t.String(),
     }),

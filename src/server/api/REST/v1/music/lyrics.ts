@@ -317,6 +317,9 @@ export default new Elysia().get(
     }
   },
   {
+    headers: t.Object({
+      authorization: t.String(),
+    }),
     query: t.Object({
       title: t.Optional(t.String()),
       author: t.Optional(t.String()),

@@ -74,6 +74,9 @@ export default new Elysia()
       }
     },
     {
+      headers: t.Object({
+        authorization: t.String(),
+      }),
       query: t.Object({
         c: t.String(),
       }),
@@ -228,6 +231,9 @@ export default new Elysia()
       }
     },
     {
+      headers: t.Object({
+        authorization: t.String(),
+      }),
       params: t.Object({
         options: t.String(),
       }),
@@ -281,6 +287,9 @@ export default new Elysia()
       }
     },
     {
+      headers: t.Object({
+        authorization: t.String(),
+      }),
       query: t.Object({
         c: t.String(),
       }),
@@ -335,6 +344,9 @@ export default new Elysia()
       }
     },
     {
+      headers: t.Object({
+        authorization: t.String(),
+      }),
       query: t.Object({
         c: t.String(),
       }),

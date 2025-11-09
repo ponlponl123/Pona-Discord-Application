@@ -98,6 +98,9 @@ export default new Elysia().get(
     }
   },
   {
+    headers: t.Object({
+      authorization: t.String(),
+    }),
     query: t.Object({
       q: t.String(),
       is_suggestion: t.Optional(t.String()),

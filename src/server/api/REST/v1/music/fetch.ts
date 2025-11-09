@@ -258,6 +258,9 @@ export default new Elysia().get(
     }
   },
   {
+    headers: t.Object({
+      authorization: t.String(),
+    }),
     query: t.Object({
       id: t.String(),
       type: t.String(),

@@ -76,7 +76,7 @@
     "base64-js": "^1.5.1",
     "bun": "^1.2.5",
     "discord-hybrid-sharding": "^2.2.3",
-    "discord.js": "^14.16.3",
+    "discord.js": "^14.24.2",
     "dotenv": "^16.4.7",
     "elysia": "^1.4.13",
     "ffmpeg-static": "^5.2.0",

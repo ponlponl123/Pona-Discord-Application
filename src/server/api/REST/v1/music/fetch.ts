@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { database, redisClient, ytmusic } from '@/index';
@@ -255,5 +255,12 @@ export default new Elysia().get(
       set.status = HttpStatusCode.InternalServerError;
       return { error: 'Internal Server Error' };
     }
+  },
+  {
+    query: t.Object({
+      id: t.String(),
+      type: t.String(),
+      q: t.Optional(t.String()),
+    }),
   },
 );

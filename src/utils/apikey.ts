@@ -216,3 +216,34 @@ export async function logApiKeyUsage(
     console.error('Error logging API key usage:', error);
   }
 }
+
+/**
+ * Helper function to check for debug API key and return debug response if available
+ */
+export async function getDebugResponse(
+  headers: Record<string, any>,
+  debugData: any,
+): Promise<{ debug?: any } | null> {
+  const authorization = headers?.['pona-authorization'] || '';
+  if (
+    authorization &&
+    typeof authorization === 'string' &&
+    authorization.startsWith('Pona! ')
+  ) {
+    const apiKey = authorization.replace('Pona! ', '');
+    const isValidKey = await isApiKeyInDatabase(
+      headers?.['x-forwarded-for'] as string,
+      headers?.['user-agent'] as string,
+      apiKey,
+      true,
+    );
+    if (
+      isValidKey &&
+      typeof isValidKey !== 'boolean' &&
+      isValidKey.canDebug
+    ) {
+      return { debug: debugData };
+    }
+  }
+  return null;
+}

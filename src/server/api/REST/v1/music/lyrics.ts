@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import axios, { HttpStatusCode } from 'axios';
 import https from 'https';
 import { ytmusic } from '@/index';
@@ -164,138 +164,162 @@ export async function fetchLyrics(
   throw Error('Unknown search engine');
 }
 
-export default new Elysia().get('/lyrics', async ({ query, set }) => {
-  try {
-    const { title, author, duration, v, engine } = query;
+export default new Elysia().get(
+  '/lyrics',
+  async ({ query, set }) => {
+    try {
+      const { title, author, duration, v, engine } = query;
 
-    switch (engine) {
-      case 'dynamic': {
-        if (!v || !title || !author || !duration) {
-          set.status = 400;
-          return { error: 'Missing required parameters' };
+      switch (engine) {
+        case 'dynamic': {
+          if (!v || !title || !author || !duration) {
+            set.status = 400;
+            return { error: 'Missing required parameters' };
+          }
+
+          // fetch all search engines when lyrics are still not found
+          const engines: SearchLyricEngine[] = [
+            'lrclib',
+            'ytmusic_android',
+            'ytmusic_web',
+            'boidu',
+            'textyl',
+          ] as SearchLyricEngine[];
+          let lyrics;
+
+          for (const engine of engines) {
+            try {
+              if (engine === 'ytmusic_web') {
+                lyrics = await fetchLyrics('ytmusic_web', String(v));
+              } else if (engine === 'ytmusic_android') {
+                lyrics = await fetchLyrics('ytmusic_android', String(v));
+              } else if (engine === 'textyl') {
+                lyrics = await fetchLyrics(
+                  'textyl',
+                  String(title),
+                  String(author),
+                );
+              } else {
+                lyrics = await fetchLyrics(
+                  engine as 'boidu' | 'lrclib',
+                  String(title),
+                  String(author),
+                  Number(duration),
+                );
+              }
+              if (lyrics) {
+                set.status = 200;
+                return lyrics;
+              }
+            } catch {}
+          }
+
+          if (!lyrics) {
+            set.status = 404;
+            return { error: 'Lyrics not found' };
+          }
+          set.status = HttpStatusCode.Gone;
+          return { message: 'Where i am now?' };
         }
+        case 'ytmusic': {
+          if (!v) {
+            set.status = 400;
+            return { error: 'Missing required parameters' };
+          }
 
-        // fetch all search engines when lyrics are still not found
-        const engines: SearchLyricEngine[] = [
-          'lrclib',
-          'ytmusic_android',
-          'ytmusic_web',
-          'boidu',
-          'textyl',
-        ] as SearchLyricEngine[];
-        let lyrics;
-
-        for (const engine of engines) {
           try {
-            if (engine === 'ytmusic_web') {
-              lyrics = await fetchLyrics('ytmusic_web', String(v));
-            } else if (engine === 'ytmusic_android') {
-              lyrics = await fetchLyrics('ytmusic_android', String(v));
-            } else if (engine === 'textyl') {
-              lyrics = await fetchLyrics(
-                'textyl',
-                String(title),
-                String(author),
-              );
-            } else {
-              lyrics = await fetchLyrics(
-                engine as 'boidu' | 'lrclib',
-                String(title),
-                String(author),
-                Number(duration),
-              );
-            }
+            const lyrics = await fetchLyrics('ytmusic_android', String(v));
             if (lyrics) {
               set.status = 200;
               return lyrics;
             }
-          } catch {}
-        }
-
-        if (!lyrics) {
-          set.status = 404;
-          return { error: 'Lyrics not found' };
-        }
-        set.status = HttpStatusCode.Gone;
-        return { message: 'Where i am now?' };
-      }
-      case 'ytmusic': {
-        if (!v) {
-          set.status = 400;
-          return { error: 'Missing required parameters' };
-        }
-
-        try {
-          const lyrics = await fetchLyrics('ytmusic_android', String(v));
-          if (lyrics) {
-            set.status = 200;
-            return lyrics;
+            set.status = 404;
+            return { error: 'Lyrics not found' };
+          } catch (err) {
+            set.status = 404;
+            return { error: 'Invalid lyrics', debug: err };
           }
-          set.status = 404;
-          return { error: 'Lyrics not found' };
-        } catch (err) {
-          set.status = 404;
-          return { error: 'Invalid lyrics', debug: err };
         }
-      }
-      case 'boidu': {
-        set.status = HttpStatusCode.ServiceUnavailable;
-        return { error: 'Service Unavailable' };
-      }
-      case 'lrclib': {
-        if (!title || !author || !duration || !Number(duration)) {
-          set.status = 400;
-          return { error: 'Missing required parameters' };
+        case 'boidu': {
+          set.status = HttpStatusCode.ServiceUnavailable;
+          return { error: 'Service Unavailable' };
         }
-
-        try {
-          const lyrics = await fetchLyrics(
-            'lrclib',
-            String(title),
-            String(author),
-            Number(duration),
-          );
-
-          if (lyrics) {
-            set.status = 200;
-            return lyrics;
+        case 'lrclib': {
+          if (!title || !author || !duration || !Number(duration)) {
+            set.status = 400;
+            return { error: 'Missing required parameters' };
           }
 
-          set.status = 404;
-          return { error: 'No lyrics found for the provided title and author' };
-        } catch {
-          set.status = 400;
-          return { error: 'No lyrics found.' };
-        }
-      }
-      default: {
-        if (!title || !author) {
-          set.status = 400;
-          return { error: 'Missing required parameters' };
-        }
+          try {
+            const lyrics = await fetchLyrics(
+              'lrclib',
+              String(title),
+              String(author),
+              Number(duration),
+            );
 
-        try {
-          const lyrics = await fetchLyrics(
-            'textyl',
-            String(title),
-            String(author),
-          );
+            if (lyrics) {
+              set.status = 200;
+              return lyrics;
+            }
 
-          if (lyrics) {
-            set.status = 200;
-            return lyrics;
+            set.status = 404;
+            return {
+              error: 'No lyrics found for the provided title and author',
+            };
+          } catch {
+            set.status = 400;
+            return { error: 'No lyrics found.' };
+          }
+        }
+        default: {
+          if (!title || !author) {
+            set.status = 400;
+            return { error: 'Missing required parameters' };
           }
 
-          set.status = 404;
-          return { error: 'No lyrics found for the provided title and author' };
-        } catch {
-          set.status = 400;
-          return { error: 'No lyrics found.' };
+          try {
+            const lyrics = await fetchLyrics(
+              'textyl',
+              String(title),
+              String(author),
+            );
+
+            if (lyrics) {
+              set.status = 200;
+              return lyrics;
+            }
+
+            set.status = 404;
+            return {
+              error: 'No lyrics found for the provided title and author',
+            };
+          } catch {
+            set.status = 400;
+            return { error: 'No lyrics found.' };
+          }
         }
       }
+    } catch {
+      set.status = HttpStatusCode.InternalServerError;
+      return { error: 'Internal Server Error' };
     }
-  } catch {
-    set.status = HttpStatusCode.InternalServerError;
-    return { error: 'Internal Server Error' };
-  }
-});
+  },
+  {
+    query: t.Object({
+      title: t.Optional(t.String()),
+      author: t.Optional(t.String()),
+      duration: t.Optional(t.Number()),
+      v: t.Optional(t.String()),
+      engine: t.Optional(
+        t.Union([
+          t.Literal('dynamic'),
+          t.Literal('ytmusic'),
+          t.Literal('boidu'),
+          t.Literal('lrclib'),
+          t.Literal('textyl'),
+        ]),
+      ),
+    }),
+  },
+);

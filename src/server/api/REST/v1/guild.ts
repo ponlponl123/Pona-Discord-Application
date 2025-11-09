@@ -1,4 +1,4 @@
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { database, redisClient, discordClient as self } from '@/index';
 import JSONBig from 'json-bigint';
@@ -14,30 +14,10 @@ export interface memberInChannelHistory {
 }
 
 export default new Elysia()
-  .get('/guild/:guildid', async ({ params, set }) => {
-    const { guildid } = params;
-
-    if (typeof guildid !== 'string') {
-      set.status = HttpStatusCode.BadRequest;
-      return { message: 'guildId is not a string' };
-    }
-
-    const guild = self.client.guilds.cache.get(guildid);
-
-    if (!guild) {
-      set.status = HttpStatusCode.NotFound;
-      return { message: 'Not Found' };
-    }
-
-    set.status = HttpStatusCode.Ok;
-    return {
-      message: 'OK',
-      guild: guild,
-    };
-  })
-  .get('/guild/:guildid/:query/private', async ({ params, set }) => {
-    try {
-      const { guildid, query } = params;
+  .get(
+    '/guild/:guildid',
+    async ({ params, set }) => {
+      const { guildid } = params;
 
       if (typeof guildid !== 'string') {
         set.status = HttpStatusCode.BadRequest;
@@ -51,29 +31,59 @@ export default new Elysia()
         return { message: 'Not Found' };
       }
 
-      switch (query) {
-        case 'stats': {
-          if (redisClient?.redis) {
-            const active = await redisClient.redis.get(
-              `guild:${guildid}:stats:active`,
-            );
-            const history = await redisClient.redis.get(
-              `guild:${guildid}:stats:history`,
-            );
-            if (active && history) {
-              set.status = HttpStatusCode.Ok;
-              return {
-                message: 'Ok',
-                active: JSONBig.parse(active),
-                history: JSONBig.parse(history),
-              };
+      set.status = HttpStatusCode.Ok;
+      return {
+        message: 'OK',
+        guild: guild,
+      };
+    },
+    {
+      params: t.Object({
+        guildid: t.String(),
+      }),
+    },
+  )
+  .get(
+    '/guild/:guildid/:query/private',
+    async ({ params, set }) => {
+      try {
+        const { guildid, query } = params;
+
+        if (typeof guildid !== 'string') {
+          set.status = HttpStatusCode.BadRequest;
+          return { message: 'guildId is not a string' };
+        }
+
+        const guild = self.client.guilds.cache.get(guildid);
+
+        if (!guild) {
+          set.status = HttpStatusCode.NotFound;
+          return { message: 'Not Found' };
+        }
+
+        switch (query) {
+          case 'stats': {
+            if (redisClient?.redis) {
+              const active = await redisClient.redis.get(
+                `guild:${guildid}:stats:active`,
+              );
+              const history = await redisClient.redis.get(
+                `guild:${guildid}:stats:history`,
+              );
+              if (active && history) {
+                set.status = HttpStatusCode.Ok;
+                return {
+                  message: 'Ok',
+                  active: JSONBig.parse(active),
+                  history: JSONBig.parse(history),
+                };
+              }
             }
-          }
-          if (!database.pool) {
-            set.status = HttpStatusCode.ServiceUnavailable;
-            return { message: 'Service Unavailable' };
-          }
-          const sql_query = `SELECT
+            if (!database.pool) {
+              set.status = HttpStatusCode.ServiceUnavailable;
+              return { message: 'Service Unavailable' };
+            }
+            const sql_query = `SELECT
               start_time,
               end_time
             FROM
@@ -90,7 +100,7 @@ export default new Elysia()
               end_time IS NOT NULL
             ORDER BY
               start_time;`;
-          const sql_query2 = `WITH filtered_data AS (
+            const sql_query2 = `WITH filtered_data AS (
               SELECT 
                 memberid, 
                 channelid, 
@@ -159,47 +169,54 @@ export default new Elysia()
             GROUP BY \`from\`, \`to\`
             ORDER BY \`from\`;`;
 
-          const rows = await database.pool.query(sql_query, [guildid]);
-          const rows2 = await database.pool.query(sql_query2, [guildid]);
+            const rows = await database.pool.query(sql_query, [guildid]);
+            const rows2 = await database.pool.query(sql_query2, [guildid]);
 
-          (rows2 as memberInChannelHistory[]).map((timeline) => {
-            timeline.channels.map((channel) => {
-              channel.name = guild.channels.cache.get(channel.id)?.name;
+            (rows2 as memberInChannelHistory[]).map((timeline) => {
+              timeline.channels.map((channel) => {
+                channel.name = guild.channels.cache.get(channel.id)?.name;
+              });
             });
-          });
-          redisClient?.redis.setex(
-            `guild:${guildid}:stats:active`,
-            300,
-            JSONBig.stringify(rows),
-          );
-          redisClient?.redis.setex(
-            `guild:${guildid}:stats:history`,
-            300,
-            JSONBig.stringify(rows2),
-          );
-          set.status = HttpStatusCode.Ok;
-          return {
-            message: 'OK',
-            active: rows,
-            history: rows2,
-          };
-        }
-        default: {
-          if (!query) {
+            redisClient?.redis.setex(
+              `guild:${guildid}:stats:active`,
+              300,
+              JSONBig.stringify(rows),
+            );
+            redisClient?.redis.setex(
+              `guild:${guildid}:stats:history`,
+              300,
+              JSONBig.stringify(rows2),
+            );
             set.status = HttpStatusCode.Ok;
             return {
               message: 'OK',
-              guild: guild,
+              active: rows,
+              history: rows2,
             };
           }
-          set.status = HttpStatusCode.MethodNotAllowed;
-          return {
-            message: 'Method Not Allowed',
-          };
+          default: {
+            if (!query) {
+              set.status = HttpStatusCode.Ok;
+              return {
+                message: 'OK',
+                guild: guild,
+              };
+            }
+            set.status = HttpStatusCode.MethodNotAllowed;
+            return {
+              message: 'Method Not Allowed',
+            };
+          }
         }
+      } catch {
+        set.status = HttpStatusCode.InternalServerError;
+        return { error: 'Internal Server Error' };
       }
-    } catch {
-      set.status = HttpStatusCode.InternalServerError;
-      return { error: 'Internal Server Error' };
-    }
-  });
+    },
+    {
+      params: t.Object({
+        guildid: t.String(),
+        query: t.String(),
+      }),
+    },
+  );

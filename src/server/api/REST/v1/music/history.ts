@@ -72,6 +72,7 @@ export default new Elysia()
           tracks: JSONBig.parse(JSONBig.stringify(res)),
         };
       } catch (e) {
+        console.error(e);
         if (process.env.NODE_ENV === 'development') {
           set.status = HttpStatusCode.InternalServerError;
           return { error: 'Internal Server Error', debug: e };
@@ -171,6 +172,7 @@ export default new Elysia()
             return { error: 'Method Not Allowed' };
         }
       } catch (e) {
+        console.error(e);
         if (process.env.NODE_ENV === 'development') {
           set.status = HttpStatusCode.InternalServerError;
           return { error: 'Internal Server Error', debug: e };

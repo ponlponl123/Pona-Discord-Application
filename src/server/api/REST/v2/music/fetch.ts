@@ -583,6 +583,7 @@ export default new Elysia().get(
         }
       }
     } catch (err: any) {
+      console.error(err);
       if (process.env.NODE_ENV === 'development') {
         set.status = HttpStatusCode.InternalServerError;
         return { error: 'Internal Server Error', debug: String(err) };

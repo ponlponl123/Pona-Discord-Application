@@ -208,7 +208,8 @@ export default new Elysia()
             };
           }
         }
-      } catch {
+      } catch (err) {
+        console.error(err);
         set.status = HttpStatusCode.InternalServerError;
         return { error: 'Internal Server Error' };
       }

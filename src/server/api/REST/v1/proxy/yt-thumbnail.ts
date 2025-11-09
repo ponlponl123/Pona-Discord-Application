@@ -22,6 +22,7 @@ async function fetchYTthumbnailEndpoint(
       endpoint: endpoint_,
     };
   } catch (err) {
+    console.error(err);
     return false;
   }
 }
@@ -66,7 +67,8 @@ export default new Elysia()
           'Cache-Control': 's-maxage=86400, stale-while-revalidate',
         };
         return Buffer.from(imageBuffer);
-      } catch {
+      } catch (err) {
+        console.error(err);
         set.status = HttpStatusCode.InternalServerError;
         return { error: 'Internal Server Error' };
       }
@@ -127,7 +129,8 @@ export default new Elysia()
           'Cache-Control': 's-maxage=86400, stale-while-revalidate',
         };
         return Buffer.from(imageBuffer);
-      } catch {
+      } catch (err) {
+        console.error(err);
         set.status = HttpStatusCode.InternalServerError;
         return { error: 'Internal Server Error' };
       }

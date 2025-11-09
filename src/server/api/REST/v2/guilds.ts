@@ -221,7 +221,7 @@ export default new Elysia().get(
   },
   {
     headers: t.Object({
-      'pona-authorization': t.String(),
+      'pona-authorization': t.Optional(t.String()),
     }),
     cookie: t.Cookie({
       type: t.String(),

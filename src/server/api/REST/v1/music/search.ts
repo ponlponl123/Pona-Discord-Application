@@ -84,6 +84,7 @@ export default new Elysia().get(
         return { message: 'Ok', result: searchResult.data.result };
       }
     } catch (err: any) {
+      console.error(err);
       if (err?.status === 404) {
         set.status = HttpStatusCode.NotFound;
         return { message: 'Not Found', result: [] };

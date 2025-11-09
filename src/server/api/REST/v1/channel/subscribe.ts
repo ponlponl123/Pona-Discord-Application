@@ -64,6 +64,7 @@ export default new Elysia()
         set.status = HttpStatusCode.Ok;
         return { message: 'Unsubscribed', state: 0 };
       } catch (error) {
+        console.error(error);
         if (process.env.NODE_ENV === 'development') {
           set.status = HttpStatusCode.InternalServerError;
           return { error: String(error) };
@@ -217,6 +218,7 @@ export default new Elysia()
           }
         }
       } catch (error) {
+        console.error(error);
         if (process.env.NODE_ENV === 'development') {
           set.status = HttpStatusCode.InternalServerError;
           return { error: String(error) };
@@ -323,6 +325,7 @@ export default new Elysia()
         set.status = HttpStatusCode.Ok;
         return { message: 'Ok' };
       } catch (error) {
+        console.error(error);
         if (process.env.NODE_ENV === 'development') {
           set.status = HttpStatusCode.InternalServerError;
           return { error: String(error) };

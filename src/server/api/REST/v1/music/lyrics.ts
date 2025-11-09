@@ -67,6 +67,7 @@ export async function fetchLyrics(
         }
         throw Error('Unknown response');
       } catch (err) {
+        console.error(err);
         throw Error('Error fetching lyrics: ' + err);
       }
     }
@@ -82,6 +83,7 @@ export async function fetchLyrics(
           } as Lyric;
         throw Error('Unknown response');
       } catch (err) {
+        console.error(err);
         throw Error('Error fetching lyrics: ' + err);
       }
     }
@@ -104,6 +106,7 @@ export async function fetchLyrics(
 
         throw Error('Unknown response');
       } catch (err) {
+        console.error(err);
         throw Error('Error fetching lyrics: ' + err);
       }
     }
@@ -126,6 +129,7 @@ export async function fetchLyrics(
 
         throw Error('Unknown response');
       } catch (err) {
+        console.error(err);
         throw Error('Error fetching lyrics: ' + err);
       }
     }
@@ -157,6 +161,7 @@ export async function fetchLyrics(
 
         throw Error('Unknown response');
       } catch (err) {
+        console.error(err);
         throw Error('Error fetching lyrics: ' + err);
       }
     }
@@ -211,7 +216,9 @@ export default new Elysia().get(
                 set.status = 200;
                 return lyrics;
               }
-            } catch {}
+            } catch (err) {
+              console.error(err);
+            }
           }
 
           if (!lyrics) {
@@ -236,6 +243,7 @@ export default new Elysia().get(
             set.status = 404;
             return { error: 'Lyrics not found' };
           } catch (err) {
+            console.error(err);
             set.status = 404;
             return { error: 'Invalid lyrics', debug: err };
           }
@@ -267,7 +275,8 @@ export default new Elysia().get(
             return {
               error: 'No lyrics found for the provided title and author',
             };
-          } catch {
+          } catch (err) {
+            console.error(err);
             set.status = 400;
             return { error: 'No lyrics found.' };
           }
@@ -294,13 +303,15 @@ export default new Elysia().get(
             return {
               error: 'No lyrics found for the provided title and author',
             };
-          } catch {
+          } catch (err) {
+            console.error(err);
             set.status = 400;
             return { error: 'No lyrics found.' };
           }
         }
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
       set.status = HttpStatusCode.InternalServerError;
       return { error: 'Internal Server Error' };
     }

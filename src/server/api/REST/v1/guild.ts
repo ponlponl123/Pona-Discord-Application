@@ -44,7 +44,7 @@ export default new Elysia()
     },
   )
   .get(
-    '/guild/:guildid/:query/private',
+    '/guild/:guildid/:query',
     async ({ params, set }) => {
       try {
         const { guildid, query } = params;

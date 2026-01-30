@@ -1,18 +1,18 @@
-import { CommandInteraction, SlashCommandBuilder } from "discord.js";
+import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
-  .setName("ping")
-  .setDescription("Replies with 🏓 Pong!")
+  .setName('ping')
+  .setDescription('Replies with 🏓 Pong!')
   .setNameLocalizations({
-      th: 'ปิง',
+    th: 'ปิง',
   })
   .setDescriptionLocalizations({
-      th: 'ตอบกลับด้วย ปอง! ( ͡° ͜ʖ ͡°)',
+    th: 'ตอบกลับด้วย ปอง! ( ͡° ͜ʖ ͡°)',
   });
 
-export async function execute(interaction: CommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction) {
   try {
-    return interaction.reply(":ping_pong: Pong!");
+    return interaction.reply(':ping_pong: Pong!');
   } catch {
     return;
   }

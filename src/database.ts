@@ -40,6 +40,11 @@ export class Database {
       user: option.user,
       password: option.password,
       database: option.database,
+      connectionLimit: 5, // Lower limit to avoid exhausting MariaDB max_connections
+      acquireTimeout: 10000, // 10 seconds to acquire a connection
+      idleTimeout: 60000, // Close idle connections after 60 seconds
+      minimumIdle: 1, // Keep at least 1 connection ready
+      resetAfterUse: true, // Reset connection state after use
     });
   }
 

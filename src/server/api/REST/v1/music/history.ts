@@ -2,7 +2,6 @@ import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { database, redisClient } from '@/index';
-import { isNumber } from 'lodash';
 import JSONBig from 'json-bigint';
 
 export default new Elysia()
@@ -10,14 +9,25 @@ export default new Elysia()
     '/history',
     async ({ headers, query, set }) => {
       try {
+        // Fail fast - check database availability first
+        if (!database?.pool) {
+          set.status = HttpStatusCode.ServiceUnavailable;
+          return { error: 'Service Unavailable' };
+        }
+
         const { authorization } = headers;
-        const { l } = query;
         if (!authorization) {
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        const tokenType = authorization.split(' ')[0];
-        const tokenKey = authorization.split(' ')[1];
+
+        const limit = Number(query['l']) || 14;
+        if (limit < 1 || limit > 100 || Number.isNaN(limit)) {
+          set.status = HttpStatusCode.BadRequest;
+          return { error: 'Invalid limit' };
+        }
+
+        const [tokenType, tokenKey] = authorization.split(' ');
         const user: any = await fetchUserByOAuthAccessToken(
           tokenType,
           tokenKey,
@@ -26,51 +36,47 @@ export default new Elysia()
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        const limit = Number(l) || 14;
-        if (limit < 1 || limit > 100 || !isNumber(limit)) {
-          set.status = HttpStatusCode.BadRequest;
-          return { error: 'Invalid limit' };
-        }
-        if (redisClient?.redis && limit === 14) {
-          const value = await redisClient.redis.get(
-            `user:${user.id}:history:track`,
-          );
-          if (value) {
+
+        // Check Redis cache
+        const cacheKey = `user:${user.id}:history:track:${limit}`;
+        if (redisClient?.redis) {
+          const cached = await redisClient.redis.get(cacheKey);
+          if (cached) {
             set.status = HttpStatusCode.Ok;
-            return { message: 'Ok', tracks: JSONBig.parse(value) };
+            return { message: 'Ok', tracks: JSONBig.parse(cached) };
           }
         }
-        if (!database || !database.pool) {
-          set.status = HttpStatusCode.ServiceUnavailable;
-          return { error: 'Service Unavailable' };
-        }
-        const sql_query = `SELECT id, track
-        FROM (
-          SELECT id, track,
-            JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri')) AS uri,
-            ROW_NUMBER() OVER (PARTITION BY JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri')) ORDER BY id DESC) AS row_num
-          FROM player_track_history
-          WHERE requestby = ?
-        ) AS subquery
-        WHERE row_num = 1
-        ORDER BY id DESC
-        LIMIT ?;`;
-        const res = await database.pool.query(sql_query, [user.id, limit]);
+
+        const res = await database.pool.query(
+          `SELECT id, track
+           FROM (
+             SELECT id, track,
+               JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri')) AS uri,
+               ROW_NUMBER() OVER (PARTITION BY JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri')) ORDER BY id DESC) AS row_num
+             FROM player_track_history
+             WHERE requestby = ?
+           ) AS subquery
+           WHERE row_num = 1
+           ORDER BY id DESC
+           LIMIT ?`,
+          [user.id, limit],
+        );
+
         if (!res || res.length === 0) {
           set.status = HttpStatusCode.NotFound;
           return { error: 'Not Found' };
         }
-        if (redisClient?.redis && limit === 14)
-          redisClient?.redis.setex(
-            `user:${user.id}:history:track`,
-            15,
-            JSONBig.stringify(res),
-          );
+
+        // Convert BigInt values to JSON-safe format
+        const tracks = JSONBig.parse(JSONBig.stringify(res));
+
+        // Cache result (fire and forget)
+        if (redisClient?.redis) {
+          redisClient.redis.setex(cacheKey, 15, JSONBig.stringify(tracks));
+        }
+
         set.status = HttpStatusCode.Ok;
-        return {
-          message: 'OK',
-          tracks: JSONBig.parse(JSONBig.stringify(res)),
-        };
+        return { message: 'OK', tracks };
       } catch (e) {
         console.error(e);
         if (process.env.NODE_ENV === 'development') {
@@ -190,6 +196,7 @@ export default new Elysia()
       }),
       query: t.Object({
         query: t.String(),
+        l: t.Optional(t.Number()),
       }),
     },
   );

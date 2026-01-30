@@ -53,14 +53,14 @@ export default new Elysia()
         );
         if (value && value.length > 0) {
           if (redisClient?.redis)
-            redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
-              redisClient.redis.expire(`user:${user.id}:subscribe`, 86400);
+            (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
+              redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
           set.status = HttpStatusCode.Ok;
           return { message: 'Subscribed', state: 1 };
         }
         if (redisClient?.redis)
-          redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
-            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400);
+          (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
+            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
         set.status = HttpStatusCode.Ok;
         return { message: 'Unsubscribed', state: 0 };
       } catch (error) {
@@ -132,14 +132,18 @@ export default new Elysia()
           );
           if (value && value.length > 0) {
             if (redisClient?.redis)
-              redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
-                redisClient.redis.expire(`user:${user.id}:subscribe`, 86400);
+              (redisClient.redis.hset(
+                `user:${user.id}:subscribe`,
+                channelId,
+                1,
+              ),
+                redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
             set.status = HttpStatusCode.Ok;
             return { message: 'Subscribed', state: 1 };
           }
           if (redisClient?.redis)
-            redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
-              redisClient.redis.expire(`user:${user.id}:subscribe`, 86400);
+            (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
+              redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
           set.status = HttpStatusCode.Ok;
           return { message: 'Unsubscribed', state: 0 };
         } else {
@@ -167,49 +171,63 @@ export default new Elysia()
                 [user.id, q_limit],
               );
               if (channels && channels.length > 0) {
-                let subscribed_channels: { artistId: string; info: any }[] = [];
-                for (const channel of channels) {
-                  if (redisClient?.redis)
-                    redisClient.redis
-                      .multi()
-                      .hset(`user:${user.id}:subscribe`, channel.target, 1)
-                      .expire(`user:${user.id}:subscribe`, 86400);
-                  if (
-                    !channel.cache ||
-                    channel.cache_lastupdated < new Date().getTime() - 86400000
-                  ) {
-                    const fetchChannel: any = await getChannel(channel.target);
-                    if (fetchChannel) {
-                      database.pool?.query(
-                        `UPDATE subscribe_artist SET cache=?, cache_lastupdated=? WHERE uid=? AND target=?`,
-                        [
-                          JSON.stringify(fetchChannel.result),
-                          new Date()
-                            .toISOString()
-                            .slice(0, 19)
-                            .replace('T', ' '),
-                          user.id,
-                          channel.target,
-                        ],
+                const now = new Date().getTime();
+                const nowFormatted = new Date()
+                  .toISOString()
+                  .slice(0, 19)
+                  .replace('T', ' ');
+
+                // Process all channels in parallel
+                const subscribed_channels = await Promise.all(
+                  channels.map(async (channel: any) => {
+                    // Check if cache is stale (older than 24h)
+                    const needsFetch =
+                      !channel.cache ||
+                      channel.cache_lastupdated < now - 86400000;
+
+                    if (needsFetch) {
+                      const fetchChannel: any = await getChannel(
+                        channel.target,
                       );
-                      subscribed_channels.push({
-                        artistId: channel.target,
-                        info: fetchChannel.result,
-                      });
-                      continue;
+                      if (fetchChannel?.result) {
+                        // Fire and forget - don't await cache update
+                        database.pool?.query(
+                          `UPDATE subscribe_artist SET cache=?, cache_lastupdated=? WHERE uid=? AND target=?`,
+                          [
+                            JSON.stringify(fetchChannel.result),
+                            nowFormatted,
+                            user.id,
+                            channel.target,
+                          ],
+                        );
+                        return {
+                          artistId: channel.target,
+                          info: fetchChannel.result,
+                        };
+                      }
                     }
+                    return {
+                      artistId: channel.target,
+                      info: JSON.parse(channel?.cache),
+                    };
+                  }),
+                );
+
+                // Batch Redis operations
+                if (redisClient?.redis) {
+                  const multi = redisClient.redis.multi();
+                  for (const channel of channels) {
+                    multi.hset(`user:${user.id}:subscribe`, channel.target, 1);
                   }
-                  subscribed_channels.push({
-                    artistId: channel.target,
-                    info: JSON.parse(channel?.cache),
-                  });
-                }
-                if (redisClient?.redis)
-                  redisClient.redis.setex(
+                  multi.expire(`user:${user.id}:subscribe`, 86400);
+                  multi.setex(
                     `user:${user.id}:subscribe_cache`,
                     30,
                     JSON.stringify(subscribed_channels),
                   );
+                  multi.exec(); // Fire and forget
+                }
+
                 set.status = HttpStatusCode.Ok;
                 return { message: 'Ok', result: subscribed_channels };
               }
@@ -269,8 +287,8 @@ export default new Elysia()
           return { error: 'Invalid channelId' };
         }
         if (redisClient?.redis)
-          redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
-            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400);
+          (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
+            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
         database.query(
           `INSERT IGNORE INTO subscribe_artist (uid, target) VALUES (?, ?)`,
           [user.id, channelId],
@@ -325,8 +343,8 @@ export default new Elysia()
           return { error: 'Invalid channelId' };
         }
         if (redisClient?.redis)
-          redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
-            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400);
+          (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
+            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
         database.query(
           `DELETE FROM subscribe_artist WHERE uid=? AND target=?`,
           [user.id, channelId],

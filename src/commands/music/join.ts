@@ -1,70 +1,79 @@
 import {
   GuildMember,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   SlashCommandBuilder,
   EmbedBuilder,
-} from "discord.js";
-import isUserInVoiceChannel from "@utils/isUserIsInVoiceChannel";
-import isPonaInVoiceChannel from "@utils/isPonaInVoiceChannel";
-import joinVoiceChannel from "@utils/player/joinVoiceChannelAsPlayer";
+  InteractionContextType,
+} from 'discord.js';
+import isUserInVoiceChannel from '@utils/isUserIsInVoiceChannel';
+import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
+import joinVoiceChannel from '@utils/player/joinVoiceChannelAsPlayer';
 
 export const data = new SlashCommandBuilder()
   .setName('join')
   .setDescription('Join the channel you are in')
-  .setDMPermission(false);
+  .setContexts([InteractionContextType.Guild]);
 
-export async function execute(interaction: CommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     const member = interaction.member as GuildMember;
 
-    if ( !isUserInVoiceChannel(member) ) {
+    if (!isUserInVoiceChannel(member)) {
       const embed = new EmbedBuilder()
-        .setDescription('<:X_:1298270493639446548> · **Please connect to voice channel first.**')
+        .setDescription(
+          '<:X_:1298270493639446548> · **Please connect to voice channel first.**',
+        )
         .setColor('#F9C5D5');
-      
+
       return interaction.reply({
         embeds: [embed],
-        ephemeral: true
+        ephemeral: true,
       });
     }
 
-    if ( member.voice.channel && await isPonaInVoiceChannel(member.voice.channel?.guildId) )
-    {
+    if (
+      member.voice.channel &&
+      (await isPonaInVoiceChannel(member.voice.channel?.guildId))
+    ) {
       const embed = new EmbedBuilder()
-        .setDescription('<:X_:1298270493639446548> · **Pona is already in voice channel**!')
+        .setDescription(
+          '<:X_:1298270493639446548> · **Pona is already in voice channel**!',
+        )
         .setColor('#F2789F');
-      
+
       return interaction.reply({
         embeds: [embed],
-        ephemeral: true
+        ephemeral: true,
       });
     }
 
-    if ( interaction.channel && interaction.guild?.id && member.voice.channel ) {
+    if (interaction.channel && interaction.guild?.id && member.voice.channel) {
       const player = await joinVoiceChannel(
         interaction.channel,
         member.voice.channel,
-        member.voice.channel.guild
-      )
+        member.voice.channel.guild,
+      );
 
-      if ( player ) {
+      if (player) {
         const embed = new EmbedBuilder()
           .setDescription('<:Check:1298270444150980619> · **Joined**!')
           .setColor('#F9C5D5');
-        
+
         return interaction.reply({
-          embeds: [embed]
+          embeds: [embed],
         });
       }
     }
 
     const embed = new EmbedBuilder()
-      .setDescription('<:X_:1298270493639446548> · **Error occurated, please try again later**!')
+      .setDescription(
+        '<:X_:1298270493639446548> · **Error occurated, please try again later**!',
+      )
       .setColor('DarkRed');
-    
+
     return interaction.reply({
       embeds: [embed],
-      ephemeral: true
+      ephemeral: true,
     });
   } catch {
     return;

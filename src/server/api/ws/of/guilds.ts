@@ -691,6 +691,62 @@ export default async function dynamicGuildNamespace(io: Server) {
           }
         },
       );
+      socket.on(
+        'add-playlist',
+        async (
+          uri: string[],
+          playlistDetailed: {
+            title: string;
+            author: string;
+            thumbnails: string[];
+          },
+          callback,
+        ) => {
+          try {
+            if (
+              !member ||
+              !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ||
+              !uri.length
+            )
+              return callback ? callback({ status: 'error' }) : false;
+            const player = await isPonaInVoiceChannel(guildId);
+            if (!player)
+              return callback ? callback({ status: 'error' }) : false;
+
+            // Fetch all songs in parallel for better performance
+            const trackResults = await Promise.all(
+              uri.map((singleUri) =>
+                getSongs(singleUri, 'youtube music', member),
+              ),
+            );
+
+            // Filter out failed fetches and collect all tracks
+            const allTracks = trackResults.flatMap((result) =>
+              typeof result === 'string' ? [] : result.tracks,
+            );
+
+            if (allTracks.length === 0)
+              return callback ? callback({ status: 'error' }) : false;
+
+            // Add all tracks to queue in one batch
+            addToQueue(allTracks, player);
+
+            if (callback)
+              callback({
+                status: 'ok',
+              });
+            events.pona_action(
+              'trackadd-playlist',
+              member.id,
+              JSON.stringify(playlistDetailed),
+              guildId,
+              player.voiceChannel || '',
+            );
+          } catch {
+            return callback ? callback({ status: 'error' }) : false;
+          }
+        },
+      );
       socket.on('previous', async (callback) => {
         try {
           if (

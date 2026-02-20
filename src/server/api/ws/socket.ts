@@ -5,6 +5,7 @@ import dynamicGuildNamespace from './of/guilds';
 import trafficDebugger from '@/server/middlewares/socket/trafficDebugger';
 import { prefix as consolePrefix, type as consoleType } from '@/config/console';
 import { config as redisConfig } from '@/config/redis';
+import { toml } from '@/index';
 import Redis, { RedisOptions } from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 
@@ -56,6 +57,14 @@ export class initialize {
               host: redis_conf.REDIS_HOST || 'localhost',
               port: redis_conf.REDIS_PORT || 6379,
             }),
+        natMap: toml?.redis?.sentinel?.natmap
+          ? Object.fromEntries(
+              toml.redis.sentinel.natmap.map((nat) => [
+                `${nat.nat}`,
+                { host: nat.host, port: nat.port },
+              ]),
+            )
+          : undefined,
         db: redis_conf.REDIS_DB || 0,
         name: redis_conf.REDIS_NAME || undefined,
         keyPrefix: 'pona:',

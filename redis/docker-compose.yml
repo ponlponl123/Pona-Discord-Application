@@ -1,0 +1,93 @@
+version: "3.9"
+
+services:
+  redis-masterer:
+    image: redis:7
+    container_name: redis-masterer
+    command:
+      ["redis-server", "--appendonly", "yes", "--requirepass", "masterpass"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/master:/data
+
+  redis-replica-1:
+    image: redis:7
+    container_name: redis-replica-1
+    command:
+      [
+        "redis-server",
+        "--replicaof",
+        "redis-masterer",
+        "6379",
+        "--requirepass",
+        "replicapass",
+        "--masterauth",
+        "masterpass",
+        "--appendonly",
+        "yes"
+      ]
+    depends_on:
+      - redis-masterer
+    ports:
+      - "6380:6379"
+    volumes:
+      - ./data/replica1:/data
+
+  redis-replica-2:
+    image: redis:7
+    container_name: redis-replica-2
+    command:
+      [
+        "redis-server",
+        "--replicaof",
+        "redis-masterer",
+        "6379",
+        "--requirepass",
+        "replicapass",
+        "--masterauth",
+        "masterpass",
+        "--appendonly",
+        "yes"
+      ]
+    depends_on:
+      - redis-masterer
+    ports:
+      - "6381:6379"
+    volumes:
+      - ./data/replica2:/data
+
+  sentinel-1:
+    image: redis:7
+    container_name: sentinel-1
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./sentinel.conf:/etc/redis/sentinel.conf
+    ports:
+      - "26379:26379"
+    depends_on:
+      - redis-masterer
+      - redis-replica-1
+      - redis-replica-2
+
+  sentinel-2:
+    image: redis:7
+    container_name: sentinel-2
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./sentinel.conf:/etc/redis/sentinel.conf
+    ports:
+      - "26380:26379"
+    depends_on:
+      - redis-masterer
+
+  sentinel-3:
+    image: redis:7
+    container_name: sentinel-3
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    volumes:
+      - ./sentinel.conf:/etc/redis/sentinel.conf
+    ports:
+      - "26381:26379"
+    depends_on:
+      - redis-masterer

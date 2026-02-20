@@ -7,7 +7,7 @@ import socketio from 'socket.io';
 import path from 'path';
 import net from 'net';
 
-import { prefix as consolePrefix } from '@config/console';
+import { prefix as consolePrefix, type as consoleType } from '@config/console';
 
 // Middleware handlers
 import { errorHandlerPlugin } from './middlewares/errorHandle';
@@ -66,6 +66,7 @@ export class apiServer {
           Date.now() - ((context as any).startTime || Date.now());
         const status = Number(context.set?.status) || 200;
         console.log(
+          consoleType.info,
           consolePrefix.express +
             `\x1b[2m${new Date()}\x1b[0m | \x1b[${
               status >= 200 && status < 400
@@ -98,13 +99,13 @@ export class apiServer {
       const server = net.createServer();
       server.once('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
-          console.log(
+          console.log(consoleType.warn,
             consolePrefix.express +
               `\x1b[33mPort ${p} is in use, trying next port...\x1b[0m`,
           );
           checkPort(p + 1);
         } else {
-          console.error(
+          console.error(consoleType.error,
             consolePrefix.express +
               `\x1b[31mError occurred: ${err.message}\x1b[0m`,
           );
@@ -121,13 +122,14 @@ export class apiServer {
           port: this.portUsing,
         });
         console.log(
+          consoleType.info,
           consolePrefix.express +
             `\x1b[32mElysia API Server running at ${this.portUsing}! 📡\x1b[0m`,
         );
 
         // Start Socket.IO server
         this.http.listen(this.portUsing + 1, () => {
-          console.log(
+          console.log(consoleType.info,
             consolePrefix.express +
               `\x1b[32mSocket.IO Server running at ${
                 this.portUsing + 1

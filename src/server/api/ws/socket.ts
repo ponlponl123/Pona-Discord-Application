@@ -3,7 +3,7 @@ import { Server } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import dynamicGuildNamespace from './of/guilds';
 import trafficDebugger from '@/server/middlewares/socket/trafficDebugger';
-import { prefix as consolePrefix } from '@/config/console';
+import { prefix as consolePrefix, type as consoleType } from '@/config/console';
 import { config as redisConfig } from '@/config/redis';
 import Redis, { RedisOptions } from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
@@ -64,6 +64,7 @@ export class initialize {
         retryStrategy(times) {
           if (times > 10) {
             console.error(
+              consoleType.error,
               consolePrefix.redis,
               '❗ Redis connection failed after 10 attempts',
             );
@@ -74,6 +75,7 @@ export class initialize {
       };
 
       console.log(
+        consoleType.warn,
         consolePrefix.redis,
         '🟠 Attempting to connect to Redis for Socket.io Adapter...',
       );
@@ -83,6 +85,7 @@ export class initialize {
 
       redis_pub.on('ready', () => {
         console.log(
+          consoleType.info,
           consolePrefix.redis,
           '🟢 Redis for Socket.io Adapter Publisher connected successfully!',
         );
@@ -90,6 +93,7 @@ export class initialize {
 
       redis_pub.on('error', (err) => {
         console.error(
+          consoleType.error,
           consolePrefix.redis,
           '🔴 Redis for Socket.io Adapter Publisher connection error:',
           err,
@@ -98,6 +102,7 @@ export class initialize {
 
       redis_sub.on('ready', () => {
         console.log(
+          consoleType.info,
           consolePrefix.redis,
           '🟢 Redis for Socket.io Adapter Subscriber connected successfully!',
         );
@@ -105,6 +110,7 @@ export class initialize {
 
       redis_sub.on('error', (err) => {
         console.error(
+          consoleType.error,
           consolePrefix.redis,
           '🔴 Redis for Socket.io Adapter Subscriber connection error:',
           err,

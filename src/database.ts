@@ -1,5 +1,5 @@
-import mariadb from 'mariadb';
-import { prefix as consolePrefix } from './config/console';
+import * as mariadb from 'mariadb';
+import { prefix as consolePrefix, type as consoleType } from './config/console';
 
 export interface databaseOption {
   host: string;
@@ -17,18 +17,17 @@ export class Database {
     this.createPool(option)
       .then((conn) => {
         this.pool = conn;
-        console.log(
-          consolePrefix.database + '🟢 Database connected successfully!',
-        );
+        console.log(consoleType.info, consolePrefix.database + '🟢 Database connected successfully!');
       })
       .catch((e) => {
         console.log(
+          consoleType.error,
           consolePrefix.database +
             '🔴 Failed to connect to the database, now pona application will have nosql and store everything in memory.\n\tReason:',
           e,
         );
         // Exit the process to prevent further issues
-        console.log(consolePrefix.database + '🔴 Exiting the process now...');
+        console.log(consoleType.error, consolePrefix.database + '🔴 Exiting the process now...');
         process.exit(1);
       });
   }

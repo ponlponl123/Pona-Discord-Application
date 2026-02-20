@@ -1,6 +1,6 @@
 import path from 'path';
 import { config as discordConf } from './config/discord';
-import { prefix as consolePrefix } from './config/console';
+import { prefix as consolePrefix, type as consoleType } from './config/console';
 import {
   ClusterManager,
   ReClusterManager,
@@ -28,15 +28,15 @@ manager.extend(
 );
 
 manager.on('shardCreate', (shard) => {
-  console.log(consolePrefix.shard + `shardCreate [${shard.id}]`);
+  console.log(consoleType.info, consolePrefix.shard + `shardCreate [${shard.id}]`);
 });
 
 manager.on('clientRequest', (req) => {
-  console.log(consolePrefix.shard + `clientRequest`, req);
+  console.log(consoleType.info, consolePrefix.shard + `clientRequest`, req);
 });
 
 manager.on('clusterCreate', (cluster) => {
-  console.log(consolePrefix.shard + `clusterCreate [${cluster.id}]`);
+  console.log(consoleType.info, consolePrefix.shard + `clusterCreate [${cluster.id}]`);
   cluster.on('message', (message) => {
     console.log(message);
     if ((message as BaseMessage)['_type'] !== messageType.CUSTOM_REQUEST)
@@ -46,12 +46,14 @@ manager.on('clusterCreate', (cluster) => {
   cluster.on('death', (_cluster) => {
     if (_cluster.restarts.current >= _cluster.restarts.max) {
       new Error(
+        consoleType.error + " " +
         consolePrefix.shard +
           `Cluster [${_cluster.id}] has been killed after reaching max restarts.`,
       );
       process.exit(1); // Exit the process if the cluster has been killed after reaching max restarts
     } else
       console.log(
+        consoleType.warn + " " +
         consolePrefix.shard +
           `Cluster [${_cluster.id}] has been killed, restarting...`,
       );
@@ -65,11 +67,11 @@ manager.on('clusterCreate', (cluster) => {
 });
 
 manager.on('clusterReady', (cluster) => {
-  console.log(consolePrefix.shard + `clusterReady [${cluster.id}]`);
+  console.log(consoleType.info, consolePrefix.shard + `clusterReady [${cluster.id}]`);
 });
 
 manager.on('debug', (debug) => {
-  console.log(consolePrefix.shard + 'DEBUG:', debug);
+  console.log(consoleType.info, consolePrefix.shard + 'DEBUG:', debug);
 });
 
 manager.spawn({ timeout: -1 });

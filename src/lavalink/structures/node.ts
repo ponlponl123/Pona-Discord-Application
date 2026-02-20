@@ -10,7 +10,7 @@ import WebSocket from "ws";
 import path from "path";
 import fs from "fs";
 
-import { prefix as consolePrefix } from "@/config/console";
+import { prefix as consolePrefix, type as consoleType } from "@/config/console";
 
 import nodeCheck from "@utils/lavalink/nodeCheck";
 import { Track, UnresolvedTrack } from "@interfaces/player";
@@ -39,7 +39,7 @@ let sessionIdsMap: Map<string, string> = new Map();
 const configDir = path.dirname(sessionIdsFilePath);
 if (!fs.existsSync(configDir)) {
 	fs.mkdirSync(configDir, { recursive: true });
-	console.log(consolePrefix.lavalink + `Created lavalink states directory at ${configDir}`);
+	console.log(consoleType.info, consolePrefix.lavalink + `Created lavalink states directory at ${configDir}`);
 }
 
 export class Node {
@@ -131,7 +131,7 @@ export class Node {
 	public createSessionIdsFile(): void {
 		if (!fs.existsSync(sessionIdsFilePath)) {
 			fs.writeFileSync(sessionIdsFilePath, JSON.stringify({}), "utf-8");
-			console.log(consolePrefix.lavalink + `Created lavalink sessionIds.json at ${sessionIdsFilePath}`);
+			console.log(consoleType.info, consolePrefix.lavalink + `Created lavalink sessionIds.json at ${sessionIdsFilePath}`);
 		}
 	}
 
@@ -139,14 +139,14 @@ export class Node {
 		if (fs.existsSync(sessionIdsFilePath)) {
 			const sessionIdsData = fs.readFileSync(sessionIdsFilePath, "utf-8");
 			sessionIdsMap = new Map(Object.entries(JSON.parse(sessionIdsData)));
-			console.log(consolePrefix.lavalink + `Loaded lavalink session IDs from JSON file`);
+			console.log(consoleType.info, consolePrefix.lavalink + `Loaded lavalink session IDs from JSON file`);
 		}
 	}
 
 	public updateSessionId(): void {
 		sessionIdsMap.set(this.options.identifier as string, this.sessionId as string);
 		fs.writeFileSync(sessionIdsFilePath, JSON.stringify(Object.fromEntries(sessionIdsMap)));
-		console.log(consolePrefix.lavalink + `Updated lavalink sessionId for ${this.options.identifier} to ${this.sessionId}`);
+		console.log(consoleType.info, consolePrefix.lavalink + `Updated lavalink sessionId for ${this.options.identifier} to ${this.sessionId}`);
 	}
 
 	public connect(): void {
@@ -163,7 +163,7 @@ export class Node {
 		} else if (this.options.resumeStatus && sessionIdsMap.has(this.options.identifier as string)) {
 			this.sessionId = sessionIdsMap.get(this.options.identifier as string) || null;
 			headers["Session-Id"] = this.sessionId as string;
-			console.log(consolePrefix.lavalink + `Resuming lavalink session with Id: ${this.sessionId}`);
+			console.log(consoleType.info, consolePrefix.lavalink + `Resuming lavalink session with Id: ${this.sessionId}`);
 		}
 
 		this.socket = new WebSocket(`ws${this.options.secure ? "s" : ""}://${this.address}/v4/websocket`, {
@@ -267,7 +267,7 @@ export class Node {
 				this.info = await this.fetchInfo();
 				// Log if the session was resumed successfully
 				if (payload.resumed) {
-					console.log(consolePrefix.lavalink + `Lavalink Session resumed for ${this.options.identifier} successfully.`);
+					console.log(consoleType.info, consolePrefix.lavalink + `Lavalink Session resumed for ${this.options.identifier} successfully.`);
 
 					// Load player states from the JSON file
 					await this.manager.loadPlayerStates(this.options.identifier as string);

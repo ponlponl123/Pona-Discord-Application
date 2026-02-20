@@ -9,3 +9,10 @@ export const prefix = {
     lavalink:    "\x1b[0m\x1b[41m Lavalink \x1b[0m ",
     database:    "\x1b[0m\x1b[42m Database \x1b[0m ",
 }
+
+export const type = {
+    debug: "\x1b[34mDEBUG\x1b[0m",
+    warn: "\x1b[33mWARN\x1b[0m",
+    error: "\x1b[31mERROR\x1b[0m",
+    info: "\x1b[32mINFO\x1b[0m",
+}

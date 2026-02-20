@@ -13,7 +13,7 @@ import { ClientUser, User } from "discord.js";
 import { EventEmitter } from "events";
 
 import setVoiceChannelStatus from "@utils/setVoiceChannelStatus";
-import { prefix as consolePrefix, prefix } from "@/config/console";
+import { prefix as consolePrefix, type as consoleType } from "@/config/console";
 
 import { PlayerOptions, Track } from "@interfaces/player";
 import {
@@ -85,7 +85,7 @@ export class Manager extends EventEmitter {
 	public readonly options: ManagerOptions;
 	private initiated = false;
 
-	public async loadPlayerStates(nodeId: string): Promise<void> {
+	public async loadPlayerStates(nodeId: string): Promise<Player | undefined> {
 		const node = this.nodes.get(nodeId);
 		if (!node) throw new Error(`Could not find node: ${nodeId}`);
 		if ( !redisClient || !redisClient.redis ) throw new Error('Redis is not initialized.');
@@ -132,7 +132,7 @@ export class Manager extends EventEmitter {
 					try {
 						player.connect();
 					} catch (error) {
-						console.log(consolePrefix.lavalink + error);
+						console.log(consoleType.error, consolePrefix.lavalink + error);
 						continue;
 					}
 				}
@@ -152,7 +152,7 @@ export class Manager extends EventEmitter {
 							if (player.state !== "CONNECTED") player.connect();
 							player.queue.add(tracks);
 							if (!state.paused && player.state === "CONNECTED") player.play();
-							else console.log(consolePrefix.lavalink + player.state);
+							else console.log(consoleType.warn, consolePrefix.lavalink + player.state);
 						} else {
 							const payload = {
 								reason: "finished",
@@ -189,16 +189,15 @@ export class Manager extends EventEmitter {
 				player.setQueueRepeat(state.queueRepeat);
 				if (state.dynamicRepeat) player.setDynamicRepeat(state.dynamicRepeat, state.dynamicLoopInterval._idleTimeout);
 				if (state.isAutoplay) player.setAutoplay(state.isAutoplay, state.data.Internal_BotUser);
-				console.log(consolePrefix.lavalink + `Loaded lavalink player state for ${state.options.guild}.`);
+				console.log(consoleType.info, consolePrefix.lavalink + `Loaded lavalink player state for ${state.options.guild}.`);
 			}
 		}
 
-		console.log(consolePrefix.lavalink + "Restored lavalink states from redis.");
+		console.log(consoleType.info, consolePrefix.lavalink + "Restored lavalink states from redis.");
 	}
-
+		
 	public async readPlayerState(guildId: string): Promise<Player | undefined> {
 		if ( !redisClient || !redisClient.redis ) throw new Error('Redis is not initialized.');
-
 		const raw_state = await redisClient.redis.get(`state:${guildId}`);
 		if ( !raw_state ) return;
 		const state = JSON.parse(raw_state);
@@ -233,7 +232,7 @@ export class Manager extends EventEmitter {
 			player.setQueueRepeat(state.queueRepeat);
 			if (state.dynamicRepeat)player.setDynamicRepeat(state.dynamicRepeat, state.dynamicLoopInterval._idleTimeout);
 			if (state.isAutoplay) player.setAutoplay(state.isAutoplay, state.data.Internal_BotUser);
-			console.log(consolePrefix.lavalink + `Read lavalink player state for ${state.options.guild}.`);
+			console.log(consoleType.info, consolePrefix.lavalink + `Read lavalink player state for ${state.options.guild}.`);
 			return player;
 		}
 
@@ -252,7 +251,7 @@ export class Manager extends EventEmitter {
 		const serializedPlayer = this.serializePlayer(player) as unknown as Player;
 		await redisClient.redis.setex(`state:${guildId}`, 7200, JSON.stringify(serializedPlayer, null, 2))
 
-		console.log(consolePrefix.lavalink + `Saved player state to "state:${guildId}" for ${guildId}`);
+		console.log(consoleType.info, consolePrefix.lavalink + `Saved player state to "state:${guildId}" for ${guildId}`);
 	}
 
 	public async delPlayerState(guildId: string): Promise<void> {
@@ -262,7 +261,7 @@ export class Manager extends EventEmitter {
 		if ( !player ) return;
 		await redisClient.redis.del([`state:${guildId}`]);
 
-		console.log(consolePrefix.lavalink + `Deleted player state from "state:${guildId}" for ${guildId}`);
+		console.log(consoleType.info, consolePrefix.lavalink + `Deleted player state from "state:${guildId}" for ${guildId}`);
 	}
 
 	private serializePlayer(player: Player): Record<string, unknown> {
@@ -590,7 +589,7 @@ export class Manager extends EventEmitter {
 		player.voiceChannel = null;
 		player.voiceState = Object.assign({});
 		player.destroy();
-		console.log(prefix.lavalink, player.guild, 'Player destroyed by updateVoiceState event.');
+		console.log(consoleType.info, consolePrefix.lavalink, player.guild, 'Player destroyed by updateVoiceState event.');
 		return;
 	}
 }

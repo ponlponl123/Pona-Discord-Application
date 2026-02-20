@@ -2,7 +2,7 @@ import Pona from './client';
 import eventManager from './events';
 import { Database } from './database';
 import LavalinkServer from './lavalink';
-import { prefix } from '@config/console';
+import { prefix as consolePrefix, type as consoleType } from '@config/console';
 import { config as redisConf } from '@config/redis';
 import { config as discordConf } from '@config/discord';
 import { config as expressConf } from '@config/express';
@@ -11,6 +11,7 @@ import { apiServer as createAPIServer } from '@server/main';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { getInfo } from 'discord-hybrid-sharding';
 import { PonaYTMusicAPI } from './ytmusic';
+import tomlConfig from './config/toml';
 import RedisClient from './redis';
 
 export const needCluster = process.env['CLUSTER'] === 'true';
@@ -23,7 +24,7 @@ if (needCluster) {
     shardList = info.SHARD_LIST;
     shardCount = info.TOTAL_SHARDS;
   } catch (e) {
-    console.info(prefix.shard, 'Cluster info not available.');
+    console.info(consoleType.info, consolePrefix.shard, 'Cluster info not available.');
   }
 }
 
@@ -43,7 +44,9 @@ const client = new Client({
   partials: [Partials.GuildMember],
 });
 
+export const debugMode = process.env['DEBUG_MODE'] === 'true' || process.env['NODE_ENV'] === 'development';
 export const config = discordConf;
+export const toml = tomlConfig;
 export const runner = process.env['RUNNER'] || 'default';
 export const pona = new Pona(client, needCluster);
 export const discordClient = pona;
@@ -69,24 +72,21 @@ process.on('exit', () => {
     redisClient.redis
       .quit()
       .then(() => {
-        console.log(prefix.redis, 'Redis connection closed.');
+        console.log(consoleType.info, consolePrefix.redis, 'Redis connection closed.');
       })
       .catch((err) => {
-        console.error(prefix.redis, 'Error closing Redis connection:', err);
+        console.error(consoleType.error, consolePrefix.redis, 'Error closing Redis connection:', err);
       });
   }
   if (database.pool) {
     database.pool
       .end()
       .then(() => {
-        console.log(prefix.database, 'Database connection closed.');
+        console.log(consoleType.info, consolePrefix.database, 'Database connection closed.');
       })
       .catch((err) => {
-        console.error(
-          prefix.database,
-          'Error closing database connection:',
-          err,
-        );
+        console.error(consoleType.error, consolePrefix.database, 'Error closing database connection:', err);
+        
       });
   }
 });

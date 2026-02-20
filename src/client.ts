@@ -15,7 +15,7 @@ import {
 import { config } from '@config/discord';
 import commandIndex from '@commands/index';
 import slashCommand from '@interfaces/command';
-import { prefix as consolePrefix } from '@config/console'
+import { prefix as consolePrefix, type as consoleType } from '@config/console'
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
 import { BaseMessage, ClusterClient, getInfo, messageType } from "discord-hybrid-sharding";
 import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
@@ -61,17 +61,17 @@ class Pona extends EventEmitter {
         this.ponaId = String(new Date().getTime());
         if (needCluster) this.client.cluster = new ClusterClient(client);
         this.client.login(config.DISCORD_TOKEN);
-        console.log(consolePrefix.system + "\x1b[33mLogging in discord application...\x1b[0m");
+        console.log(consoleType.info, consolePrefix.system, "\x1b[33mLogging in discord application...\x1b[0m");
 
         if (this.client.cluster) {
-            if (this.client.cluster.maintenance) console.log(`Bot on maintenance mode with ${this.client.cluster.maintenance}`);
+            if (this.client.cluster.maintenance) console.log(consoleType.info, consolePrefix.system, `Bot on maintenance mode with ${this.client.cluster.maintenance}`);
     
             this.client.cluster.on('ready', (client) => {
-                console.log(consolePrefix.shard + consolePrefix.discord + `Cluster is ready ${client.id}`)
+                console.log(consoleType.info, consolePrefix.shard, consolePrefix.discord, `Cluster is ready ${client.id}`);
             });
 
             this.client.cluster.on('message', message => {
-                console.log(consolePrefix.shard + message);
+                console.log(consoleType.info, consolePrefix.shard, message);
                 if ((message as BaseMessage)["_type"] !== messageType.CUSTOM_REQUEST) return; // Check if the message needs a reply
                 if ((message as BaseMessage)["alive"]) (message as BaseMessage)["reply"]({ content: 'Yes I am!' });
             });
@@ -90,24 +90,24 @@ class Pona extends EventEmitter {
                     const maxShards = Math.ceil(totalGuilds / 2500); // Calculate maximum shard count
                     if ( shardInfo.TOTAL_SHARDS >= maxShards )
                     {
-                        console.log(consolePrefix.discord + `\x1b[31mDiscord exited: Shard is not enabled or total guilds exceed maximum limit.\x1b[0m`);
+                        console.log(consoleType.error, consolePrefix.discord, `\x1b[31mDiscord exited: Shard is not enabled or total guilds exceed maximum limit.\x1b[0m`);
                         return this.client.destroy();
                     }
                 } catch {
-                    console.log(consolePrefix.discord + ' An error occurred while fetching shard information OR Shard is not enabled.');
+                    console.log(consoleType.error, consolePrefix.discord, ' An error occurred while fetching shard information OR Shard is not enabled.');
                 }
             }
             this.client.user?.setStatus('idle');
-            console.log(consolePrefix.discord + `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
+            console.log(consoleType.info, consolePrefix.discord, `\x1b[32m${this.client.user?.username}#${this.client.user?.discriminator} logged in! 🤖\x1b[0m`);
             this.heartbeatEvent(this.client);
             this.emit('clientReady', client);
 
             this.registerSlashCommands();
             lavalink.manager.on('nodeConnect', async (node: Node) => {
                 this.client.user?.setStatus('online');
-                console.log( consolePrefix.lavalink + `\x1b[41mNode "${node.options.identifier}(${node.address})" have ${node.manager.players.size} players\x1b[0m` );
+                console.log(consoleType.info, consolePrefix.lavalink, `\x1b[41mNode "${node.options.identifier}(${node.address})" have ${node.manager.players.size} players\x1b[0m`);
                 node.manager.players.map(async player => {
-                    console.log( consolePrefix.lavalink + 'Founded player: ' + player.guild );
+                    console.log(consoleType.info, consolePrefix.lavalink, 'Founded player: ' + player.guild);
                 })
             })
             lavalink.manager.init(config.DISCORD_CLIENT_ID);
@@ -121,11 +121,11 @@ class Pona extends EventEmitter {
         });
 
         this.client.on(Events.MessagePollVoteAdd, (answer, userId) => {
-            console.log(consolePrefix.discord + `\x1b[32mPoll Vote: \x1b[0m\x1b[47m\x1b[30m${answer.poll.message.guildId}\x1b[0m - \x1b[36m${answer.poll.question}\x1b[0m - \x1b[33m${userId}\x1b[0m - \x1b[31m${answer.voteCount}\x1b[0m`);
+            console.log(consoleType.info, consolePrefix.discord, `\x1b[32mPoll Vote: \x1b[0m\x1b[47m\x1b[30m${answer.poll.message.guildId}\x1b[0m - \x1b[36m${answer.poll.question}\x1b[0m - \x1b[33m${userId}\x1b[0m - \x1b[31m${answer.voteCount}\x1b[0m`);
         });
 
-        this.client.on(Events.Warn, (info) => console.log(consolePrefix.discord + info));
-        this.client.on(Events.Error, console.error);
+        this.client.on(Events.Warn, (info) => console.log(consoleType.warn, consolePrefix.discord, info));
+        this.client.on(Events.Error, (error) => console.error(consoleType.error, consolePrefix.discord, error));
 
         this.client.on(Events.VoiceStateUpdate, async (oldState, newState): Promise<any> => {
             const guildId = oldState?.guild?.id || newState?.guild?.id;
@@ -189,7 +189,7 @@ class Pona extends EventEmitter {
         });
     
         this.client.on(Events.InteractionCreate, async (interaction): Promise<any> => {
-            if (!interaction.isCommand()) {
+            if (!interaction.isChatInputCommand()) {
                 return;
             }
     
@@ -217,12 +217,12 @@ class Pona extends EventEmitter {
                     const test = await import(filePath_esm);
                     command = test;
                 } catch (err) {
-                    console.warn(consolePrefix.discord + 'Failed to import ESM module, retrying with MJS');
+                    console.warn( consoleType.warn, consolePrefix.discord, 'Failed to import ESM module, retrying with MJS');
                     try {
                         const test = await import(filePath_mjs);
                         command = test;
                     } catch (err) {
-                        console.error(consolePrefix.discord + `Failed to import command at ${filePath_mjs}:`, err);
+                        console.error(consoleType.error, consolePrefix.discord, `Failed to import command at ${filePath_mjs}:`, err);
                         continue;
                     }
                 }
@@ -230,9 +230,9 @@ class Pona extends EventEmitter {
                 if ('data' in command && 'execute' in command) {
                     this.slashCommands.push(command.data.toJSON());
                     this.slashCommandsMap.set(command.data.name, command);
-                    console.log(consolePrefix.discord + `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`);
+                    console.log(consoleType.info, consolePrefix.discord, `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`);
                 } else {
-                    console.log(consolePrefix.discord + `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+                    console.log(consoleType.warn, consolePrefix.discord, `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
                 }
             }
         } else {
@@ -240,24 +240,24 @@ class Pona extends EventEmitter {
                 if ('data' in command && 'execute' in command) {
                     this.slashCommands.push(command.data.toJSON());
                     this.slashCommandsMap.set(command.data.name, command);
-                    console.log(consolePrefix.discord + `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`);
+                    console.log(consoleType.info, consolePrefix.discord, `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`);
                 } else {
-                    console.log(consolePrefix.discord + `[WARNING] The command at ${index}(index) is missing a required "data" or "execute" property.`);
+                    console.log(consoleType.warn, consolePrefix.discord, `[WARNING] The command at ${index}(index) is missing a required "data" or "execute" property.`);
                 }
             })
         }
         const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
         const regisResult = await rest.put(Routes.applicationCommands(this.client.user!.id), { body: this.slashCommands });
         if ( regisResult )
-            console.log(consolePrefix.discord + '\x1b[32mRegis Slash commands successfully!\x1b[0m');
+            console.log(consoleType.info, consolePrefix.discord, '\x1b[32mRegis Slash commands successfully!\x1b[0m');
         else
-            console.log(consolePrefix.discord + '\x1b[31mRegis Slash commands failed :(\x1b[0m');
+            console.log(consoleType.error, consolePrefix.discord, '\x1b[31mRegis Slash commands failed :(\x1b[0m');
     }
 
     private async heartbeatEvent(client: Client): Promise<void> {
         if ( !client?.user ) return;
         const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-        console.log( consolePrefix.discord + `${date.toLocaleString()} Heartbeat interval event received from client` );
+        console.log( consoleType.info, consolePrefix.discord, `${date.toLocaleString()} Heartbeat interval event received from client` );
         client.user.setActivity({
             name: getWelcomeMessage(),
             type: ActivityType.Custom,
@@ -280,7 +280,7 @@ class Pona extends EventEmitter {
 
     public async saveGuildSettings(guildId: string, settings: GuildSettings): Promise<boolean> {
         if (!guildId || !database || !database.pool) return false;
-        console.log(consolePrefix.discord + '\x1b[33mSaving guild setting: ' + guildId + '\x1b[0m');
+        console.log(consoleType.info, consolePrefix.discord, `\x1b[33mSaving guild setting: ${guildId}\x1b[0m`);
         
         try {
             const fetchPrevGuildSettings = await database.pool.query(
@@ -303,17 +303,17 @@ class Pona extends EventEmitter {
                 await this.defaultGuildLanguageChangedEvent(guildId);
             }
 
-            console.log(consolePrefix.discord + '\x1b[32mSaved guild setting: ' + guildId + '\x1b[0m');
+            console.log(consoleType.info, consolePrefix.discord, `\x1b[32mSaved guild setting: ${guildId}\x1b[0m`);
             return true;
         } catch (error) {
-            console.error(consolePrefix.discord + '\x1b[31mFailed to save guild setting: ' + guildId + '\x1b[0m', error);
+            console.error(consoleType.error, consolePrefix.discord, `\x1b[31mFailed to save guild setting: ${guildId}\x1b[0m`, error);
             return false;
         }
     }
 
     public async loadGuildSettings(guildId: string): Promise<GuildSettings | undefined> {
         if ( !guildId || !database || !database.pool ) return;
-        console.log( consolePrefix.discord + '\x1b[33mLoading guild setting: ' + guildId + '\x1b[0m');
+        console.log( consoleType.info, consolePrefix.discord, `\x1b[33mLoading guild setting: ${guildId}\x1b[0m`);
 
         try {
             const fetchPrevGuildSettings = await database.pool.query(
@@ -324,10 +324,10 @@ class Pona extends EventEmitter {
             if ( fetchPrevGuildSettings && fetchPrevGuildSettings[0] && fetchPrevGuildSettings[0].args )
                 return JSON.parse(fetchPrevGuildSettings[0].args);
     
-            console.log( consolePrefix.discord + '\x1b[32bLoaded guild setting: ' + guildId + '\x1b[0m');
+            console.log(consoleType.info, consolePrefix.discord, `\x1b[32mLoaded guild setting: ${guildId}\x1b[0m`);
             return;
         } catch (error) {
-            console.error(consolePrefix.discord + '\x1b[31mFailed to load guild setting: ' + guildId + '\x1b[0m', error);
+            console.error(consoleType.error, consolePrefix.discord, `\x1b[31mFailed to load guild setting: ${guildId}\x1b[0m`, error);
             return;
         }
     }

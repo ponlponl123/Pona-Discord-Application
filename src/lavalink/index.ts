@@ -5,7 +5,7 @@ import { Node } from "./structures/node";
 import { NodeOptions } from "@interfaces/node";
 import { Track } from "@interfaces/player";
 import { discordClient as self } from "@/index";
-import { prefix as consolePrefix } from "@config/console";
+import { prefix as consolePrefix, type as consoleType } from "@config/console";
 import { config as discordConf } from "@config/discord";
 import { config } from "@config/lavalink";
 // import leaveVoiceChannelAsPlayer from "@utils/player/leaveVoiceChannelAsPlayer";
@@ -42,16 +42,16 @@ class LavalinkServer extends EventEmitter {
 
     private async handleAxiosError(error: AxiosError) {
         if (error.response?.status === 503) {
-            console.error('Service Unavailable: The server is currently unable to handle the request due to a temporary overload or scheduled maintenance.');
+            console.error(consoleType.error, consolePrefix.lavalink + 'Service Unavailable: The server is currently unable to handle the request due to a temporary overload or scheduled maintenance.');
             // Implement retry logic or other handling here
         } else {
-            console.error('An error occurred:', error.message);
+            console.error(consoleType.error, consolePrefix.lavalink + 'An error occurred:', error.message);
         }
     }
 
     constructor(public readonly clientId: string) {
         super();
-        console.log(consolePrefix.system + `\x1b[33mLogging in lavalink server with ${clientId}...\x1b[0m`);
+        console.log(consoleType.info, consolePrefix.system + `\x1b[33mLogging in lavalink server with ${clientId}...\x1b[0m`);
 
         this.lavanodes.push({
             identifier: "Node 1",
@@ -75,7 +75,7 @@ class LavalinkServer extends EventEmitter {
             send: (id, payload) => {
                 const guild = self.client.guilds.cache.get(id);
                 if (guild) guild.shard.send(payload);
-                console.log(consolePrefix.lavalink + "Manager send: " + JSON.stringify(payload));
+                console.log(consoleType.info, consolePrefix.lavalink + "Manager send: " + JSON.stringify(payload));
             }
         });
         
@@ -98,7 +98,7 @@ class LavalinkServer extends EventEmitter {
                 if (axios.isAxiosError(error)) {
                     this.handleAxiosError(error);
                 } else {
-                    console.error('An unexpected error occurred:', error);
+                    console.error(consoleType.error, consolePrefix.lavalink + 'An unexpected error occurred:', error);
                 }
             }
         });
@@ -125,7 +125,7 @@ class LavalinkServer extends EventEmitter {
                 if (axios.isAxiosError(error)) {
                     this.handleAxiosError(error);
                 } else {
-                    console.error('An unexpected error occurred:', error);
+                    console.error(consoleType.error, consolePrefix.lavalink + 'An unexpected error occurred:', error);
                 }
             }
         });
@@ -144,26 +144,26 @@ class LavalinkServer extends EventEmitter {
 
         // Emitted whenever a node connects
         this.manager.on('nodeConnect', (node: Node) => {
-            console.log( consolePrefix.lavalink + `Node "${node.options.identifier}" connected.` );
+            console.log( consoleType.info, consolePrefix.lavalink + `Node "${node.options.identifier}" connected.` );
         });
 
         // The error event, which you should handle otherwise your application will crash when an error is emitted
         this.manager.on("nodeError", (node: Node, error: Error) => {
-            console.log( consolePrefix.lavalink + `Node "${node.options.identifier}" encountered an error: ${error.message}.` );
+            console.log( consoleType.error, consolePrefix.lavalink + `Node "${node.options.identifier}" encountered an error: ${error.message}.` );
         });
 
         this.manager.on('playerCreate', async (player: Player) => {
-            console.log( consolePrefix.lavalink + `Player Created, playing ${player.queue.current?.title} for ${player.guild}` );
+            console.log( consoleType.info, consolePrefix.lavalink + `Player Created, playing ${player.queue.current?.title} for ${player.guild}` );
             this.emit('playerCreate', player);
         });
 
         // this.manager.on('chaptersLoaded', async (player: Player, track: UnresolvedTrack | Track)
         this.manager.on('chaptersLoaded', async (player: Player) => {
-            console.log( consolePrefix.lavalink + `Player chaptersLoaded, Continue playing ${player.queue.current?.title} for ${player.guild}` )
+            console.log( consoleType.info, consolePrefix.lavalink + `Player chaptersLoaded, Continue playing ${player.queue.current?.title} for ${player.guild}` )
         });
 
         this.manager.on('segmentsLoaded', async (player: Player) => {
-            console.log( consolePrefix.lavalink + `Player segmentsLoaded, Continue playing ${player.queue.current?.title} for ${player.guild}` )
+            console.log( consoleType.info, consolePrefix.lavalink + `Player segmentsLoaded, Continue playing ${player.queue.current?.title} for ${player.guild}` )
         });
     }
 }

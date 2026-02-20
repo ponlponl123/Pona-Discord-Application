@@ -2,7 +2,7 @@
   "compilerOptions": {
     "lib": ["ES2015"],
     "target": "ES2015",
-    "module": "Node16",
+    "module": "es2022",
     "allowJs": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
@@ -14,7 +14,7 @@
     "baseUrl": "./",
     "outDir": "./dist",
     "removeComments": true,
-    "moduleResolution": "node16",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

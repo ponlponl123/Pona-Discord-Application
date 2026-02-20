@@ -15,6 +15,9 @@ docker-compose up -d
 - **Replica 2**: `localhost:6381` (password: `replicapass`)
 - **Sentinels**: `localhost:26379`, `localhost:26380`, `localhost:26381`
 
+> [!NOTE]
+> Sentinel resolves the master IP dynamically via `sentinel-entrypoint.sh` at startup, so no hardcoded IPs are needed — it works on any machine.
+
 ## Accessing Redis
 
 ### CLI

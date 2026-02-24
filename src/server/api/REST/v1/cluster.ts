@@ -19,7 +19,7 @@ export default new Elysia().get('/cluster', ({ set }) => {
       shardList: shardList,
     };
   } catch (error) {
-    // console.error(error);
+    console.error(error);
     set.status = HttpStatusCode.InternalServerError;
     return {
       error:

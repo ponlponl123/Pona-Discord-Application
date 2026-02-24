@@ -667,13 +667,19 @@ export default async function dynamicGuildNamespace(io: Server) {
               !uri ||
               !searchengine
             )
-              return callback ? callback({ status: 'error' }) : false;
+              return callback
+                ? callback({ status: 'error', message: 'invalid parameters' })
+                : false;
             const player = await isPonaInVoiceChannel(guildId);
             if (!player)
-              return callback ? callback({ status: 'error' }) : false;
+              return callback
+                ? callback({ status: 'error', message: 'player not found' })
+                : false;
             const track = await getSongs(uri, 'youtube music', member);
             if (typeof track === 'string')
-              return callback ? callback({ status: 'error' }) : false;
+              return callback
+                ? callback({ status: 'error', message: 'track not found' })
+                : false;
             addToQueue(track.tracks, player);
             if (callback)
               callback({
@@ -686,7 +692,8 @@ export default async function dynamicGuildNamespace(io: Server) {
               guildId,
               player.voiceChannel || '',
             );
-          } catch {
+          } catch (err) {
+            console.error('Error while adding track:', err);
             return callback ? callback({ status: 'error' }) : false;
           }
         },
@@ -742,7 +749,9 @@ export default async function dynamicGuildNamespace(io: Server) {
               guildId,
               player.voiceChannel || '',
             );
-          } catch {
+          } catch (err) {
+            console.error('Error while adding playlist:', err);
+
             return callback ? callback({ status: 'error' }) : false;
           }
         },

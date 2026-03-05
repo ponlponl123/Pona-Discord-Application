@@ -83,7 +83,7 @@ export class Manager extends EventEmitter {
   public readonly options: ManagerOptions;
   private initiated = false;
 
-  public async loadPlayerStates(nodeId: string): Promise<Player | undefined> {
+  public async loadPlayerStates(nodeId: string): Promise<void> {
     const node = this.nodes.get(nodeId);
     if (!node) throw new Error(`Could not find node: ${nodeId}`);
     if (!redisClient || !redisClient.redis)
@@ -110,7 +110,7 @@ export class Manager extends EventEmitter {
 
     for (const playerKey of playerKeys) {
       const data = await redisClient.redis.get(playerKey);
-      if (!data) return;
+      if (!data) continue;
       const state = JSON.parse(data);
 
       if (
@@ -122,23 +122,20 @@ export class Manager extends EventEmitter {
         const lavaPlayer = info.find(
           (player) => player.guildId === state.guild,
         );
-        if (!lavaPlayer) {
-          this.destroy(state.guild);
-          continue;
-        }
+
         const playerOptions: PlayerOptions = {
           guild: state.options.guild,
           textChannel: state.options.textChannel,
           voiceChannel: state.options.voiceChannel,
           selfDeafen: state.options.selfDeafen,
-          volume: lavaPlayer.volume || state.options.volume,
+          volume: lavaPlayer?.volume || state.options.volume,
           lastActive: state.options.lastActive,
         };
 
         this.create(playerOptions);
 
         const player = this.get(state.options.guild) as Player;
-        if (!lavaPlayer.state.connected) {
+        if (!lavaPlayer?.state?.connected) {
           try {
             player.connect();
           } catch (error) {
@@ -147,57 +144,9 @@ export class Manager extends EventEmitter {
           }
         }
 
-        const tracks = [];
+        const tracks: Track[] = [];
 
-        if (!lavaPlayer.track) {
-          if (state.queue.current !== null) {
-            for (const key in state.queue) {
-              if (
-                !isNaN(Number(key)) &&
-                key !== 'current' &&
-                key !== 'previous' &&
-                key !== 'manager'
-              ) {
-                const song = state.queue[key];
-                tracks.push(
-                  TrackUtils.build(createTrackData(song), song.requester),
-                );
-              }
-            }
-
-            if (tracks.length > 0) {
-              if (player.state !== 'CONNECTED') player.connect();
-              player.queue.add(tracks);
-              if (!state.paused && player.state === 'CONNECTED') player.play();
-              else
-                console.log(
-                  consoleType.warn,
-                  consolePrefix.lavalink + player.state,
-                );
-            } else {
-              const payload = {
-                reason: 'finished',
-              };
-              node.queueEnd(
-                player,
-                state.queue.current,
-                payload as TrackEndEvent,
-              );
-              continue;
-            }
-          } else {
-            if (state.queue.previous !== null) {
-              const payload = {
-                reason: 'finished',
-              };
-              node.queueEnd(
-                player,
-                state.queue.previous,
-                payload as TrackEndEvent,
-              );
-            } else this.destroy(state.guild);
-          }
-        } else {
+        if (lavaPlayer?.track) {
           const currentTrack = state.queue.current;
           if (currentTrack) {
             tracks.push(
@@ -222,6 +171,65 @@ export class Manager extends EventEmitter {
             }
             if (player.state !== 'CONNECTED') player.connect();
             player.queue.add(tracks);
+          }
+        } else {
+          if (state.queue.current !== null) {
+            tracks.push(
+              TrackUtils.build(
+                createTrackData(state.queue.current),
+                state.queue.current.requester,
+              ),
+            );
+
+            for (const key in state.queue) {
+              if (
+                !isNaN(Number(key)) &&
+                key !== 'current' &&
+                key !== 'previous' &&
+                key !== 'manager'
+              ) {
+                const song = state.queue[key];
+                tracks.push(
+                  TrackUtils.build(createTrackData(song), song.requester),
+                );
+              }
+            }
+
+            if (tracks.length > 0) {
+              if (player.state !== 'CONNECTED') player.connect();
+              player.queue.add(tracks);
+              if (!state.paused && player.state === 'CONNECTED') {
+                try {
+                  await player.play();
+                  if (state.position && state.position > 0) {
+                    await node.rest.updatePlayer({
+                      guildId: player.guild,
+                      data: { position: state.position },
+                    });
+                  }
+                } catch (error) {
+                  console.log(
+                    consoleType.error,
+                    consolePrefix.lavalink +
+                      `Failed to resume playback for ${player.guild}: ${error}`,
+                  );
+                }
+              }
+            } else {
+              node.queueEnd(player, state.queue.current, {
+                reason: 'finished',
+              } as TrackEndEvent);
+              continue;
+            }
+          } else {
+            if (state.queue.previous !== null) {
+              node.queueEnd(player, state.queue.previous, {
+                reason: 'finished',
+              } as TrackEndEvent);
+            } else {
+              this.destroy(state.guild);
+            }
+            continue;
           }
         }
 

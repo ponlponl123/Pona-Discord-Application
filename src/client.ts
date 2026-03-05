@@ -1,5 +1,3 @@
-import path, { join } from 'path';
-import { readdirSync } from 'fs';
 import {
   Client,
   Guild,
@@ -310,73 +308,21 @@ class Pona extends EventEmitter {
   }
 
   private async registerSlashCommands() {
-    if (process.env['AUTO_ROUTE'] !== 'no') {
-      const commandsDirectory = join(__dirname, 'commands');
-      const commandFiles = readdirSync(commandsDirectory).filter(
-        (file) =>
-          !file.endsWith('.map') &&
-          !file.startsWith('index') &&
-          (file.endsWith('.ts') || file.endsWith('.js')),
-      );
-
-      for (const file of commandFiles) {
-        const filePath = path.resolve(commandsDirectory, file);
-        let command: slashCommand;
-
-        try {
-          command = await import('file://' + filePath);
-        } catch {
-          console.warn(
-            consoleType.warn,
-            consolePrefix.discord,
-            'Failed to import ESM module, retrying with MJS',
-          );
-          try {
-            command = await import(filePath);
-          } catch (err) {
-            console.error(
-              consoleType.error,
-              consolePrefix.discord,
-              `Failed to import command at ${filePath}:`,
-              err,
-            );
-            continue;
-          }
-        }
-
-        if ('data' in command && 'execute' in command) {
-          this.slashCommands.push(command.data.toJSON());
-          this.slashCommandsMap.set(command.data.name, command);
-          console.log(
-            consoleType.info,
-            consolePrefix.discord,
-            `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`,
-          );
-        } else {
-          console.log(
-            consoleType.warn,
-            consolePrefix.discord,
-            `[WARNING] The command at ${filePath} is missing "data" or "execute" property.`,
-          );
-        }
-      }
-    } else {
-      for (const command of commandIndex) {
-        if ('data' in command && 'execute' in command) {
-          this.slashCommands.push(command.data.toJSON());
-          this.slashCommandsMap.set(command.data.name, command);
-          console.log(
-            consoleType.info,
-            consolePrefix.discord,
-            `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`,
-          );
-        } else {
-          console.log(
-            consoleType.warn,
-            consolePrefix.discord,
-            `[WARNING] Command is missing "data" or "execute" property.`,
-          );
-        }
+    for (const command of commandIndex) {
+      if ('data' in command && 'execute' in command) {
+        this.slashCommands.push(command.data.toJSON());
+        this.slashCommandsMap.set(command.data.name, command);
+        console.log(
+          consoleType.info,
+          consolePrefix.discord,
+          `\x1b[33mRegistering command: \x1b[0m\x1b[47m\x1b[30m ${command.data.name} \x1b[0m`,
+        );
+      } else {
+        console.log(
+          consoleType.warn,
+          consolePrefix.discord,
+          `[WARNING] Command is missing "data" or "execute" property.`,
+        );
       }
     }
 

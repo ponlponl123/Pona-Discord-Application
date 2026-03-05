@@ -7,6 +7,7 @@ import {
   GuildMember,
   ChatInputCommandInteraction,
   SlashCommandBuilder,
+  MessageFlags,
 } from 'discord.js';
 
 export const data = new SlashCommandBuilder()
@@ -22,7 +23,7 @@ export default async function execute(
     const member = interaction.member as GuildMember;
     const lang = await getGuildLanguage(member.guild.id);
     const defer = await interaction.deferReply({
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
 
     if (member.permissions.has('ManageGuild') && interaction.guild) {

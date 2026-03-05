@@ -4,6 +4,7 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
   InteractionContextType,
+  MessageFlags,
 } from 'discord.js';
 import warningEmbedBuilder from '@utils/embeds/warning';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
@@ -30,7 +31,7 @@ export default async function execute(
         embeds: [
           warningEmbedBuilder(lang.data.music.errors.pona_not_in_voice_channel),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -42,7 +43,7 @@ export default async function execute(
         embeds: [
           warningEmbedBuilder(lang.data.music.errors.not_same_voice_channel),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -62,7 +63,7 @@ export default async function execute(
 
     return interaction.reply({
       embeds: [warningEmbedBuilder(lang.data.music.errors.no_player_active)],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   } catch {
     return;

@@ -13,6 +13,7 @@ import {
   StringSelectMenuInteraction,
   CacheType,
   InteractionContextType,
+  MessageFlags,
 } from 'discord.js';
 import { discordClient as self } from '@/index';
 import warningEmbedBuilder from '@utils/embeds/warning';
@@ -40,7 +41,7 @@ export default async function execute(
         embeds: [
           warningEmbedBuilder(lang.data.music.errors.pona_not_in_voice_channel),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -52,7 +53,7 @@ export default async function execute(
         embeds: [
           warningEmbedBuilder(lang.data.music.errors.not_same_voice_channel),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -64,7 +65,7 @@ export default async function execute(
           embeds: [
             warningEmbedBuilder(lang.data.music.queue.remove.requirement),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
       const currentTrack = playback.queue.current as Track;
@@ -102,7 +103,7 @@ export default async function execute(
       const response = await interaction.reply({
         content: lang.data.music.queue.remove.selector,
         components: actionRows,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       const collector = response.createMessageComponentCollector({
         filter: (i) => i.user.id === interaction.user.id,
@@ -262,7 +263,7 @@ export default async function execute(
 
     return interaction.reply({
       embeds: [warningEmbedBuilder(lang.data.music.errors.no_player_active)],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   } catch {
     return;

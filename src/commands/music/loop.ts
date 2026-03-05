@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
   InteractionContextType,
+  MessageFlags,
 } from 'discord.js';
 import warningEmbedBuilder from '@utils/embeds/warning';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
@@ -25,7 +26,7 @@ export default async function execute(
     if (!voiceActionRequirement.isPonaInVoiceChannel) {
       return interaction.reply({
         embeds: [warningEmbedBuilder('Pona is not in voice channel.')],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -35,7 +36,7 @@ export default async function execute(
     ) {
       return interaction.reply({
         embeds: [warningEmbedBuilder('Please enter a same voice channel.')],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -52,7 +53,7 @@ export default async function execute(
 
     return interaction.reply({
       embeds: [warningEmbedBuilder('No playback is currently active.')],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   } catch {
     return;

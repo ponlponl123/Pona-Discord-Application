@@ -8,6 +8,7 @@ import {
   ButtonStyle,
   Interaction,
   InteractionContextType,
+  MessageFlags,
 } from 'discord.js';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
 import joinVoiceChannel from '@utils/player/joinVoiceChannelAsPlayer';
@@ -66,7 +67,7 @@ export default async function execute(
             lang.data.music.errors.not_in_voice_channel,
           ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -89,7 +90,7 @@ export default async function execute(
               lang.data.music.errors.cannot_join_voice_channel,
             ),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -107,7 +108,7 @@ export default async function execute(
             lang.data.music.errors.not_same_voice_channel,
           ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -119,12 +120,12 @@ export default async function execute(
             lang.data.components.errors.not_valid,
           ),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
     const letsthink = await interaction.deferReply({
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     const result = await getSongs(input, searchEngine, member);
 
@@ -138,7 +139,7 @@ export default async function execute(
               lang.data.errors.pona_share_not_found,
             ),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       else if (reason === 'unauthorized')
         return interaction.reply({
@@ -148,7 +149,7 @@ export default async function execute(
               lang.data.errors.pona_share_unauthorized,
             ),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       else if (reason === 'no_tracks')
         return interaction.reply({
@@ -158,7 +159,7 @@ export default async function execute(
               lang.data.errors.pona_share_no_tracks,
             ),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       else
         return interaction.reply({
@@ -168,7 +169,7 @@ export default async function execute(
               lang.data.errors.pona_share_service_unavailable,
             ),
           ],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
     }
 
@@ -236,7 +237,7 @@ export default async function execute(
       if (!response)
         return interaction.followUp({
           content: `${lang.data.components.errors.timeout}`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
 
       const collectorFilter = (i: Interaction) =>
@@ -303,7 +304,7 @@ export default async function execute(
                   lang.data.music.errors.not_found,
                 ),
               ],
-              ephemeral: true,
+              flags: MessageFlags.Ephemeral,
             });
           }
           await confirmation.reply({
@@ -323,7 +324,7 @@ export default async function execute(
           .catch(() => {
             interaction.followUp({
               content: lang.data.components.errors.timeout,
-              ephemeral: true,
+              flags: MessageFlags.Ephemeral,
             });
           });
         console.log(

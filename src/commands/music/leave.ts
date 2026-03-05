@@ -4,6 +4,7 @@ import {
   SlashCommandBuilder,
   EmbedBuilder,
   InteractionContextType,
+  MessageFlags,
 } from 'discord.js';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
 import leaveVoiceChannelAsPlayer from '@utils/player/leaveVoiceChannelAsPlayer';
@@ -34,7 +35,7 @@ export default async function execute(
 
       return interaction.reply({
         embeds: [embed],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -55,7 +56,7 @@ export default async function execute(
 
         return interaction.reply({
           embeds: [embed],
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -80,7 +81,7 @@ export default async function execute(
 
     return interaction.reply({
       embeds: [embed],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   } catch {
     return;

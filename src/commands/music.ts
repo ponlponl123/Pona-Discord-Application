@@ -4,6 +4,7 @@ import {
   GuildMember,
   EmbedBuilder,
   InteractionContextType,
+  MessageFlags,
 } from 'discord.js';
 import isAvailable from '@utils/player/isAvailable';
 import errorEmbedBuilder from '@utils/embeds/error';
@@ -202,7 +203,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
         embeds: [
           await errorEmbedBuilder('Service is not available right now :('),
         ],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
 
     switch (subCommand) {

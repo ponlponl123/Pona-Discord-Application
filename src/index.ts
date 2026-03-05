@@ -73,7 +73,7 @@ export const apiServer = new createAPIServer(expressConf.EXPRESS_PORT);
 export const ponaEventManager = new eventManager();
 export const ytmusic = new PonaYTMusicAPI();
 
-process.on('exit', async () => {
+async function shutdown() {
   try {
     await redisClient?.redis.quit();
     console.log(
@@ -105,4 +105,9 @@ process.on('exit', async () => {
       err,
     );
   }
-});
+
+  process.exit(0);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

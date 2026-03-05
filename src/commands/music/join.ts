@@ -1,9 +1,10 @@
-import {
+﻿import {
   GuildMember,
   ChatInputCommandInteraction,
   SlashCommandBuilder,
   EmbedBuilder,
   InteractionContextType,
+  MessageFlags,
 } from 'discord.js';
 import isUserInVoiceChannel from '@utils/isUserIsInVoiceChannel';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
@@ -27,7 +28,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       return interaction.reply({
         embeds: [embed],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -43,7 +44,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
       return interaction.reply({
         embeds: [embed],
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -73,7 +74,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
     return interaction.reply({
       embeds: [embed],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   } catch {
     return;

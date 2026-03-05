@@ -3,11 +3,11 @@ import type { PonaEvents, voiceStateChange } from './client';
 import type { Player, PlayerEvents } from './lavalink';
 
 import ping from './utils/ping';
-import type { Client, VoiceState } from 'discord.js';
 import type { Track } from './interfaces/player';
-import os from 'os';
+import type { Client, VoiceState } from 'discord.js';
 import type { PlayerStateEventType } from './interfaces/manager';
 import { type apiServer as ApiServer } from './server/main';
+import os from 'os';
 
 export type EventEmitter = keyof PonaEvents | keyof PlayerEvents;
 

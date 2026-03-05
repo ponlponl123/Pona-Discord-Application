@@ -1,42 +1,20 @@
 # ========================
-# Build ytmusic-api
-# ========================
-FROM node:22.4.1-alpine AS ytmusic-api-builder
-WORKDIR /builder
-RUN apk add --no-cache git
-RUN git clone --depth=1 https://github.com/ponlponl123/ts-npm-ytmusic-api /builder/ts-npm-ytmusic-api \
-    && cd /builder/ts-npm-ytmusic-api \
-    && npm install \
-    && npm install -g tsup \
-    && npm run build \
-    && npm prune --production \
-    && rm -rf .git
-
-# ========================
 # Build the App with Bun
 # ========================
 FROM oven/bun:1.3.1-alpine AS bun-builder
 WORKDIR /pona-builder
 
-# Install only necessary build dependencies
+# Install build dependencies and copy package files
 RUN apk add --no-cache python3 make g++
-
-# Copy package files first for better layer caching
 COPY package.json package-lock.json* bun.lockb* ./
 
-# Install ALL dependencies (including dev) for building
-RUN bun install && rm -f package-lock.json
-
-# Install build dependencies
-RUN bun add -d tsup @types/bun typescript
+# Install all dependencies (cached layer - only invalidated on package changes)
+RUN bun install
 
 # Copy source code and config files
 COPY tsup.config.ts tsconfig.json ./
 COPY src ./src
 COPY public ./public
-
-# Copy ytmusic-api build
-COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
 
 # Build the application
 RUN bun run bun:build
@@ -47,20 +25,12 @@ RUN bun run bun:build
 FROM oven/bun:1.3.1-alpine AS deps
 WORKDIR /deps
 
-# Install only runtime build tools (minimal set)
+# Install only runtime build tools and install production deps in single stage
 RUN apk add --no-cache python3 make g++
-
-# Copy package files
 COPY package.json ./
-
-# Copy ytmusic-api (production pruned)
-COPY --from=ytmusic-api-builder /builder/ts-npm-ytmusic-api ./node_modules/ytmusic-api
-
-# Install ONLY production dependencies
 RUN bun install --production
 
-# Aggressive cleanup - remove unnecessary files from node_modules
-# NOTE: Exclude critical runtime packages from cleanup
+# Aggressive cleanup - remove unnecessary files and directories
 RUN find ./node_modules -type f \
     ! -path "*/tsconfig-paths/*" \
     ! -path "*/discord.js/*" \
@@ -85,11 +55,8 @@ RUN find ./node_modules -type f \
     -name ".prettierrc*" -o \
     -name "*.spec.js" -o \
     -name "*.test.js" \
-    \) -delete 2>/dev/null || true
-
-# Remove unnecessary directories from node_modules
-# NOTE: Exclude critical runtime packages from directory cleanup
-RUN find ./node_modules -type d \
+    \) -delete 2>/dev/null || true && \
+    find ./node_modules -type d \
     ! -path "*/tsconfig-paths/*" \
     ! -path "*/discord.js/*" \
     ! -path "*/discord-hybrid-sharding/*" \
@@ -109,30 +76,27 @@ RUN find ./node_modules -type d \
     -name "benchmarks" \
     \) -exec rm -rf {} + 2>/dev/null || true
 
-# Remove source maps and typescript sources but keep type definitions
-RUN find ./node_modules -name "*.js.map" -delete 2>/dev/null || true
-RUN find ./node_modules -name "*.mjs.map" -delete 2>/dev/null || true
-
 # ========================
 # Final Image (Minimal)
 # ========================
 FROM oven/bun:1.3.1-alpine AS runner
 WORKDIR /pona
 
-# Install ONLY runtime libraries (no build tools!)
-RUN apk add --no-cache libstdc++ ca-certificates
+# Install only runtime libraries and setup environment
+RUN apk add --no-cache libstdc++ ca-certificates && \
+    addgroup -g 9999 appuser && \
+    adduser -u 9999 -G appuser -s /sbin/nologin -D appuser
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production PORT=3000
 
-# Copy only necessary files
-COPY --from=deps /deps/node_modules ./node_modules
-COPY --from=bun-builder /pona-builder/dist ./dist
-COPY --from=bun-builder /pona-builder/public ./dist/public
-COPY --from=bun-builder /pona-builder/package.json ./package.json
-COPY ./tsconfig-paths.js ./tsconfig-paths.js
-COPY ./tsconfig.json ./tsconfig.json
+# Copy only necessary files from build stages
+COPY --from=deps --chown=appuser:appuser /deps/node_modules ./node_modules
+COPY --from=bun-builder --chown=appuser:appuser /pona-builder/dist ./dist
+COPY --from=bun-builder --chown=appuser:appuser /pona-builder/public ./dist/public
+COPY --chown=appuser:appuser package.json tsconfig-paths.js tsconfig.json ./
+
+USER appuser
 
 EXPOSE 3000
-ENV PORT=3000
 
 CMD ["bun", "bun:start-reg-shard"]

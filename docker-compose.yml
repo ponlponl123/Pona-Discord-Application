@@ -33,7 +33,7 @@ services:
     environment:
       # ... other environment variables
       REDIS_ENABLED: false
-      LAVALINK_SERVER: lavalink  # Use the service name "lavalink" instead of localhost
+      LAVALINK_SERVER: lavalink # Use the service name "lavalink" instead of localhost
     expose:
       - 3000
     networks:

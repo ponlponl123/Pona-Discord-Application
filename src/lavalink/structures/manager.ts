@@ -91,16 +91,22 @@ export class Manager extends EventEmitter {
 
     const info = (await node.rest.getAllPlayers()) as LavaPlayer[];
 
+    const keyPrefix = redisClient.redis.options.keyPrefix || '';
+
     let cursor = '0';
-    let playerKeys = [];
+    let playerKeys: string[] = [];
     do {
       const [nextCursor, foundKeys] = await redisClient.redis.scan(
         cursor,
         'MATCH',
-        'state:*',
+        `${keyPrefix}state:*`,
       );
       cursor = nextCursor;
-      playerKeys.push(...foundKeys);
+      playerKeys.push(
+        ...foundKeys.map((k) =>
+          keyPrefix && k.startsWith(keyPrefix) ? k.slice(keyPrefix.length) : k,
+        ),
+      );
     } while (cursor !== '0');
 
     // clear current memory before adding new state

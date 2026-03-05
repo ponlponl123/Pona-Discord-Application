@@ -1,19 +1,20 @@
 export interface playOptions {
-	guildId: string;
-	data: {
-		encodedTrack?: string | null;
-		identifier?: string;
-		startTime?: number;
-		endTime?: number;
-		volume?: number;
-		position?: number;
-		paused?: boolean;
-		filters?: object;
-		voice?: {
-			token: string;
-			sessionId: string;
-			endpoint: string;
-		};
-		noReplace?: boolean;
-	};
+  guildId: string;
+  data: {
+    encodedTrack?: string | null;
+    identifier?: string;
+    startTime?: number;
+    endTime?: number;
+    volume?: number;
+    position?: number;
+    paused?: boolean;
+    filters?: object;
+    voice?: {
+      token: string;
+      sessionId: string;
+      endpoint: string;
+      channelId: string;
+    };
+    noReplace?: boolean;
+  };
 }

@@ -1,7 +1,7 @@
 services:
   lavalink:
     # pin the image version to Lavalink v4
-    image: ghcr.io/lavalink-devs/lavalink:4
+    image: ghcr.io/lavalink-devs/lavalink:4.2.1
     container_name: lavalink
     restart: unless-stopped
     environment:
@@ -30,6 +30,6 @@ networks:
     name: lavalink
     # For stack deploy or allow other connect to lavalink server with lavalink network
     # need to set lavalink network from local to bridge
-    # 
+    #
     # driver: bridge
-    # 
+    #

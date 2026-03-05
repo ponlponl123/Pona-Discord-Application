@@ -1,11 +1,11 @@
 import axios from 'axios';
-import { User } from 'discord.js';
+import type { User } from 'discord.js';
 
 export async function fetchUserByOAuthAccessToken(
   type: 'Bearer' | string,
   key: string,
 ): Promise<User | false> {
-  return await fetchUserByOAuth(`${type} ${key}`);
+  return fetchUserByOAuth(`${type} ${key}`);
 }
 
 export async function fetchUserByOAuth(
@@ -20,8 +20,7 @@ export async function fetchUserByOAuth(
       },
     });
     if (user.status === 200) return user.data;
-  } catch (err) {
-    // console.error("Error fetching user from Discord API :", err);
+  } catch {
     return false;
   }
   return false;

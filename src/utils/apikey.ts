@@ -15,7 +15,6 @@ export interface APIKeyPermission {
   canManageEmojis: boolean;
 }
 
-// Separate enums by category, starting at 1
 export enum DeveloperPermissions {
   DEBUG_ENABLED = 1,
 }
@@ -32,30 +31,23 @@ export enum ManagementPermissions {
   CAN_MANAGE_EMOJIS = 5,
 }
 
-// Bit positions for each category (powers of 2)
 export enum PermissionBitOffset {
-  DEVELOPER_START = 0, // Bits 0-9 for developer permissions
-  GENERIC_START = 10, // Bits 10-19 for generic permissions
-  MANAGEMENT_START = 20, // Bits 20-29 for management permissions
+  DEVELOPER_START = 0,
+  GENERIC_START = 10,
+  MANAGEMENT_START = 20,
 }
 
-// Helper functions to convert category permissions to bit values
 export const PermissionBitValues = {
-  // Developer permissions (bits 0-9)
   DEBUG_ENABLED:
     1 <<
     (PermissionBitOffset.DEVELOPER_START +
       DeveloperPermissions.DEBUG_ENABLED -
       1),
-
-  // Generic permissions (bits 10-19)
   PREMIUM_ENDPOINTS_ENABLED:
     1 <<
     (PermissionBitOffset.GENERIC_START +
       GenericPermissions.PREMIUM_ENDPOINTS_ENABLED -
       1),
-
-  // Management permissions (bits 20-29)
   CAN_MANAGE_USERS:
     1 <<
     (PermissionBitOffset.MANAGEMENT_START +
@@ -83,9 +75,6 @@ export const PermissionBitValues = {
       1),
 };
 
-/**
- * Convert APIKeyPermission object to decimal value for database storage
- */
 export function permissionsToDecimal(
   permissions: Partial<APIKeyPermission>,
 ): number {
@@ -106,43 +95,22 @@ export function permissionsToDecimal(
   return value;
 }
 
-/**
- * Convert decimal value from database to APIKeyPermission object
- */
 export function decimalToPermissions(
   decimalValue: number,
   rateLimitPerMinute = 60,
   allowedIPAddresses: string[] = [],
 ): APIKeyPermission {
+  const has = (bit: number) => (decimalValue & bit) === bit;
   return {
-    // Developer permissions
-    canDebug:
-      (decimalValue & PermissionBitValues.DEBUG_ENABLED) ===
-      PermissionBitValues.DEBUG_ENABLED,
-
-    // Generic permissions
-    canUsePremiumEndpoints:
-      (decimalValue & PermissionBitValues.PREMIUM_ENDPOINTS_ENABLED) ===
-      PermissionBitValues.PREMIUM_ENDPOINTS_ENABLED,
+    canDebug: has(PermissionBitValues.DEBUG_ENABLED),
+    canUsePremiumEndpoints: has(PermissionBitValues.PREMIUM_ENDPOINTS_ENABLED),
     rateLimitPerMinute,
     allowedIPAddresses,
-
-    // Management permissions
-    canManageUsers:
-      (decimalValue & PermissionBitValues.CAN_MANAGE_USERS) ===
-      PermissionBitValues.CAN_MANAGE_USERS,
-    canManageGuilds:
-      (decimalValue & PermissionBitValues.CAN_MANAGE_GUILDS) ===
-      PermissionBitValues.CAN_MANAGE_GUILDS,
-    canManageChannels:
-      (decimalValue & PermissionBitValues.CAN_MANAGE_CHANNELS) ===
-      PermissionBitValues.CAN_MANAGE_CHANNELS,
-    canManageRoles:
-      (decimalValue & PermissionBitValues.CAN_MANAGE_ROLES) ===
-      PermissionBitValues.CAN_MANAGE_ROLES,
-    canManageEmojis:
-      (decimalValue & PermissionBitValues.CAN_MANAGE_EMOJIS) ===
-      PermissionBitValues.CAN_MANAGE_EMOJIS,
+    canManageUsers: has(PermissionBitValues.CAN_MANAGE_USERS),
+    canManageGuilds: has(PermissionBitValues.CAN_MANAGE_GUILDS),
+    canManageChannels: has(PermissionBitValues.CAN_MANAGE_CHANNELS),
+    canManageRoles: has(PermissionBitValues.CAN_MANAGE_ROLES),
+    canManageEmojis: has(PermissionBitValues.CAN_MANAGE_EMOJIS),
   };
 }
 
@@ -179,12 +147,11 @@ export async function isApiKeyInDatabase(
       return false;
 
     if (loggingUsage) {
-      loggingUsage && (await logApiKeyUsage(key, userIP, userAgent));
+      await logApiKeyUsage(key, userIP, userAgent);
     }
 
     if (!returnPermissions) return true;
 
-    // Convert decimal permission value back to individual permissions
     const permissionValue = parseInt(row.permission) || 0;
     const allowedIPs = row.allowedipaddresses
       ? row.allowedipaddresses.split(',')
@@ -217,9 +184,6 @@ export async function logApiKeyUsage(
   }
 }
 
-/**
- * Helper function to check for debug API key and return debug response if available
- */
 export async function getDebugResponse(
   headers: Record<string, any>,
   debugData: any,
@@ -237,11 +201,7 @@ export async function getDebugResponse(
       apiKey,
       true,
     );
-    if (
-      isValidKey &&
-      typeof isValidKey !== 'boolean' &&
-      isValidKey.canDebug
-    ) {
+    if (isValidKey && typeof isValidKey !== 'boolean' && isValidKey.canDebug) {
       return { debug: debugData };
     }
   }

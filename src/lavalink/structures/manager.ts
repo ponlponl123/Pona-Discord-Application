@@ -271,6 +271,13 @@ export class Manager extends EventEmitter {
       const tracks = [];
 
       if (state.queue.current !== null) {
+        // Restore the current track directly so it isn't lost when the
+        // subsequent queue is empty (add([]) would throw a RangeError).
+        player.queue.current = TrackUtils.build(
+          createTrackData(state.queue.current),
+          state.queue.current.requester,
+        );
+
         for (const key in state.queue) {
           if (
             !isNaN(Number(key)) &&
@@ -285,7 +292,9 @@ export class Manager extends EventEmitter {
           }
         }
 
-        player.queue.add(tracks);
+        if (tracks.length > 0) {
+          player.queue.add(tracks);
+        }
       }
 
       if (state.paused) player.pause(true);
@@ -572,12 +581,17 @@ export class Manager extends EventEmitter {
     const _query: SearchQuery = typeof query === 'string' ? { query } : query;
 
     // Determine the source to use for searching
-    let sourceKey =
-      _query.source || this.options.defaultSearchPlatform || 'youtube music';
+    let sourceKey: keyof typeof Manager.DEFAULT_SOURCES =
+      (_query.source as keyof typeof Manager.DEFAULT_SOURCES) ||
+      (this.options
+        .defaultSearchPlatform as keyof typeof Manager.DEFAULT_SOURCES) ||
+      'youtube music';
 
     // Map the source key to the actual Lavalink source prefix
     let _source =
-      Manager.DEFAULT_SOURCES[sourceKey as SearchPlatform] || sourceKey;
+      Manager.DEFAULT_SOURCES[
+        sourceKey as keyof typeof Manager.DEFAULT_SOURCES
+      ] || sourceKey;
 
     // Final fallback ensures we always have a valid source
     if (!_source || _source === 'undefined') {
@@ -733,6 +747,7 @@ export class Manager extends EventEmitter {
             token: token,
             endpoint: endpoint,
             sessionId: sessionId as string,
+            channelId: player.voiceChannel as string,
           },
         },
       });

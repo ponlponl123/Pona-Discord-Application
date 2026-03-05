@@ -15,16 +15,20 @@ import tomlConfig from './config/toml';
 import RedisClient from './redis';
 
 export const needCluster = process.env['CLUSTER'] === 'true';
-var shardList: number[] | undefined = undefined;
-var shardCount = 1;
+let shardList: number[] | undefined;
+let shardCount = 1;
 
 if (needCluster) {
   try {
     const info = getInfo();
     shardList = info.SHARD_LIST;
     shardCount = info.TOTAL_SHARDS;
-  } catch (e) {
-    console.info(consoleType.info, consolePrefix.shard, 'Cluster info not available.');
+  } catch {
+    console.info(
+      consoleType.info,
+      consolePrefix.shard,
+      'Cluster info not available.',
+    );
   }
 }
 
@@ -44,7 +48,9 @@ const client = new Client({
   partials: [Partials.GuildMember],
 });
 
-export const debugMode = process.env['DEBUG_MODE'] === 'true' || process.env['NODE_ENV'] === 'development';
+export const debugMode =
+  process.env['DEBUG_MODE'] === 'true' ||
+  process.env['NODE_ENV'] === 'development';
 export const config = discordConf;
 export const toml = tomlConfig;
 export const runner = process.env['RUNNER'] || 'default';
@@ -67,26 +73,36 @@ export const apiServer = new createAPIServer(expressConf.EXPRESS_PORT);
 export const ponaEventManager = new eventManager();
 export const ytmusic = new PonaYTMusicAPI();
 
-process.on('exit', () => {
-  if (redisClient) {
-    redisClient.redis
-      .quit()
-      .then(() => {
-        console.log(consoleType.info, consolePrefix.redis, 'Redis connection closed.');
-      })
-      .catch((err) => {
-        console.error(consoleType.error, consolePrefix.redis, 'Error closing Redis connection:', err);
-      });
+process.on('exit', async () => {
+  try {
+    await redisClient?.redis.quit();
+    console.log(
+      consoleType.info,
+      consolePrefix.redis,
+      'Redis connection closed.',
+    );
+  } catch (err) {
+    console.error(
+      consoleType.error,
+      consolePrefix.redis,
+      'Error closing Redis:',
+      err,
+    );
   }
-  if (database.pool) {
-    database.pool
-      .end()
-      .then(() => {
-        console.log(consoleType.info, consolePrefix.database, 'Database connection closed.');
-      })
-      .catch((err) => {
-        console.error(consoleType.error, consolePrefix.database, 'Error closing database connection:', err);
-        
-      });
+
+  try {
+    await database.pool?.end();
+    console.log(
+      consoleType.info,
+      consolePrefix.database,
+      'Database connection closed.',
+    );
+  } catch (err) {
+    console.error(
+      consoleType.error,
+      consolePrefix.database,
+      'Error closing database:',
+      err,
+    );
   }
 });

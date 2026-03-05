@@ -1,25 +1,28 @@
-import {
-  pona,
-  lavalink,
-  database,
-  apiServer
-} from './index'
-import { PonaEvents, voiceStateChange } from './client'
-import { Player, PlayerEvents } from './lavalink'
+import { pona, lavalink, database, apiServer } from './index';
+import type { PonaEvents, voiceStateChange } from './client';
+import type { Player, PlayerEvents } from './lavalink';
 
-import ping from './utils/ping'
-import { Client, VoiceState } from 'discord.js'
-import { Track } from './interfaces/player'
+import ping from './utils/ping';
+import type { Client, VoiceState } from 'discord.js';
+import type { Track } from './interfaces/player';
 import os from 'os';
-import { PlayerStateEventType } from './interfaces/manager'
-import { type apiServer as ApiServer } from './server/main'
+import type { PlayerStateEventType } from './interfaces/manager';
+import { type apiServer as ApiServer } from './server/main';
 
 export type EventEmitter = keyof PonaEvents | keyof PlayerEvents;
 
 interface CommonEventHandler {
   heartbeat: (client: Client) => void;
-  voiceStateUpdate: (type: voiceStateChange, oldState?: VoiceState, newState?: VoiceState) => void;
-  playerStateUpdate: (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) => void;
+  voiceStateUpdate: (
+    type: voiceStateChange,
+    oldState?: VoiceState,
+    newState?: VoiceState,
+  ) => void;
+  playerStateUpdate: (
+    oldPlayer: Player,
+    newPlayer: Player,
+    changeType: PlayerStateEventType,
+  ) => void;
   trackStart: (player: Player, track: Track) => void;
   trackPos: (guildId: string, pos: number) => void;
   playerDestroy: (player: Player) => void;
@@ -28,10 +31,18 @@ interface CommonEventHandler {
   queueEnded: (player: Player) => void;
 }
 
-export default class eventManager {
-  private customHandlers: { [K in EventEmitter]?: any[] | CommonEventHandler[keyof CommonEventHandler][] } = {};
+function bangkokNow(): Date {
+  return new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }),
+  );
+}
 
-  constructor () {
+export default class eventManager {
+  private customHandlers: {
+    [K in EventEmitter]?: CommonEventHandler[keyof CommonEventHandler][];
+  } = {};
+
+  constructor() {
     pona.on('heartbeat', this.pona_heartbeat.bind(this));
     pona.on('voiceStateUpdate', this.pona_voiceStateUpdate.bind(this));
 
@@ -42,132 +53,163 @@ export default class eventManager {
     lavalink.on('playerStateUpdate', this.player_playerStateUpdate.bind(this));
   }
 
-  public registerHandler<T extends EventEmitter>(event: T, handler: CommonEventHandler[T & keyof CommonEventHandler]) {
-    if (!this.customHandlers[event]) {
-      this.customHandlers[event] = [];
-    }
+  public registerHandler<T extends EventEmitter>(
+    event: T,
+    handler: CommonEventHandler[T & keyof CommonEventHandler],
+  ) {
+    if (!this.customHandlers[event]) this.customHandlers[event] = [];
     this.customHandlers[event]!.push(handler);
   }
 
-  // define static args for common handlers
-  private async invokeHandlers<T extends EventEmitter>(event: T, ...args: Parameters<CommonEventHandler[T & keyof CommonEventHandler]> | any[]) {
-    if (this.customHandlers[event]) {
-      for (const handler of this.customHandlers[event]!) {
-        await (handler as (...args: Parameters<CommonEventHandler[T & keyof CommonEventHandler]> | any[]) => void)(...args);
-      }
+  private async invokeHandlers<T extends EventEmitter>(
+    event: T,
+    ...args:
+      | Parameters<CommonEventHandler[T & keyof CommonEventHandler]>
+      | unknown[]
+  ) {
+    const handlers = this.customHandlers[event];
+    if (!handlers) return;
+    for (const handler of handlers) {
+      await (handler as (...a: unknown[]) => void)(...args);
     }
   }
 
-  private async pona_heartbeat (client: Client) {
-    const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+  private async pona_heartbeat(client: Client) {
+    const date = bangkokNow();
     const clusterId = os.hostname();
     const shardId = pona.ponaId;
 
-    ping('https://discord.com/api/gateway', 443, async (ping) => {
-      await database.pool?.query(`INSERT INTO pona_heartbeat_interval (time, clusterid, shardid, ptm) VALUES (?, ?, ?, ?)`, [date, clusterId, shardId, ping]);
+    ping('https://discord.com/api/gateway', 443, async (ms) => {
+      await database?.query(
+        'INSERT INTO pona_heartbeat_interval (time, clusterid, shardid, ptm) VALUES (?, ?, ?, ?)',
+        [date, clusterId, shardId, ms],
+      );
     });
     await this.invokeHandlers('heartbeat', client);
   }
-  
-  private async pona_voiceStateUpdate (type: voiceStateChange, oldState: VoiceState, newState: VoiceState) {
-    const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
+
+  private async pona_voiceStateUpdate(
+    type: voiceStateChange,
+    oldState: VoiceState,
+    newState: VoiceState,
+  ) {
+    const date = bangkokNow();
     const guildId = oldState.guild.id || newState.guild.id;
-    const memberid = oldState.member?.id || newState.member?.id;
-    const channelid = oldState.channel?.id || newState.channel?.id;
-    const stateType = type.toString();
-    // const oldchannelid = oldState.channel?.id;
-    // const newchannelid = newState.channel?.id;
-    switch (type) {
-      default : {
-        await database.pool?.query(
-          `INSERT INTO pona_voicestate_history (guildid, memberid, channelid, beforestate, afterstate, date, type)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`
-        , [
-            guildId,
-            memberid,
-            channelid,
-            JSON.stringify(oldState),
-            JSON.stringify(newState),
-            date,
-            stateType
-          ]
-        );
-        break;
-      }
-    }
-    if ( (oldState && !newState) && oldState.member?.id === pona.client.user?.id )
+    const memberId = oldState.member?.id || newState.member?.id;
+    const channelId = oldState.channel?.id || newState.channel?.id;
+
+    // Store only the essential fields instead of the entire VoiceState object
+    // to avoid slow serialisation of large objects holding the connection longer.
+    const serializeVoiceState = (s: VoiceState) =>
+      JSON.stringify({
+        channelId: s.channelId,
+        mute: s.mute,
+        deaf: s.deaf,
+        selfMute: s.selfMute,
+        selfDeaf: s.selfDeaf,
+        selfVideo: s.selfVideo,
+        streaming: s.streaming,
+        serverMute: s.serverMute,
+        serverDeaf: s.serverDeaf,
+        suppress: s.suppress,
+      });
+
+    await database?.query(
+      'INSERT INTO pona_voicestate_history (guildid, memberid, channelid, beforestate, afterstate, date, type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        guildId,
+        memberId,
+        channelId,
+        serializeVoiceState(oldState),
+        serializeVoiceState(newState),
+        date,
+        type.toString(),
+      ],
+    );
+
+    if (oldState && !newState && oldState.member?.id === pona.client.user?.id) {
       (apiServer as ApiServer).io.to(guildId).emit('voiceStateUpdate', false);
+    }
+
     await this.invokeHandlers('voiceStateUpdate', type, oldState, newState);
   }
-  
-  private async player_playerStateUpdate (oldPlayer: Player, newPlayer: Player, changeType: PlayerStateEventType) {
-    await this.invokeHandlers('playerStateUpdate', oldPlayer, newPlayer, changeType);
+
+  private async player_playerStateUpdate(
+    oldPlayer: Player,
+    newPlayer: Player,
+    changeType: PlayerStateEventType,
+  ) {
+    await this.invokeHandlers(
+      'playerStateUpdate',
+      oldPlayer,
+      newPlayer,
+      changeType,
+    );
   }
 
-  private async player_trackPos (guildId: string, pos: number) {
+  private async player_trackPos(guildId: string, pos: number) {
     await this.invokeHandlers('trackPos', guildId, pos);
   }
 
-  private async player_trackStart (player: Player, track: Track) {
-    const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-    await database.pool?.query(
-        `INSERT INTO player_track_history (requestby, uniqueid, time, voicechannel, guildid, track)
-        VALUES (?, ?, ?, ?, ?, ?)`
-    , [
-      track.requester?.id,
-      track.uniqueId,
-      date,
-      player.voiceChannel,
-      player.guild,
-      JSON.stringify(track)
-      ]
-    )
-    await database.pool?.query(
-        `INSERT INTO pona_flipflop_state (time, guildid, active)
-        VALUES (?, ?, ?)`
-    , [
-      date,
-      player.guild,
-      1
-      ]
-    );
+  private async player_trackStart(player: Player, track: Track) {
+    const date = bangkokNow();
+
+    // Run both INSERTs on a single pooled connection so they only occupy
+    // one slot instead of two being acquired concurrently.
+    await database.queryBatch([
+      {
+        sql: 'INSERT INTO player_track_history (requestby, uniqueid, time, voicechannel, guildid, track) VALUES (?, ?, ?, ?, ?, ?)',
+        values: [
+          track.requester?.id,
+          track.uniqueId,
+          date,
+          player.voiceChannel,
+          player.guild,
+          JSON.stringify(track),
+        ],
+      },
+      {
+        sql: 'INSERT INTO pona_flipflop_state (time, guildid, active) VALUES (?, ?, ?)',
+        values: [date, player.guild, 1],
+      },
+    ]);
+
     (apiServer as ApiServer).io.to(player.guild).emit('trackStarted', track);
-    (apiServer as ApiServer).io.to(player.guild).emit('queueUpdated', player.queue);
+    (apiServer as ApiServer).io
+      .to(player.guild)
+      .emit('queueUpdated', player.queue);
     await this.invokeHandlers('trackStart', player, track);
   }
 
-  private async player_playerCreate (player: Player) {
+  private async player_playerCreate(player: Player) {
     await this.invokeHandlers('playerCreate', player);
   }
 
-  public async pona_action (name: string, by: string, data: any, guildId: string, channelId: string): Promise<void> {
-    const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-    await database.pool?.query(
-        `INSERT INTO player_action_history (action_name, actionby, data, guild, channel, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)`
-    , [
-      name,
-      by,
-      JSON.stringify(data),
-      guildId,
-      channelId,
-      date
-      ]
+  public async pona_action(
+    name: string,
+    by: string,
+    data: unknown,
+    guildId: string,
+    channelId: string,
+  ): Promise<void> {
+    const date = bangkokNow();
+
+    await database?.query(
+      'INSERT INTO player_action_history (action_name, actionby, data, guild, channel, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, by, JSON.stringify(data), guildId, channelId, date],
     );
+
     (apiServer as ApiServer).io.to(guildId).emit('action', name, by, data);
   }
 
-  private async player_playerDestroy (player: Player) {
-    const date = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Bangkok"}));
-    await database.pool?.query(
-        `INSERT INTO pona_flipflop_state (time, guildid, active)
-        VALUES (?, ?, ?)`
-    , [
-      date,
-      player.guild,
-      0
-      ]
+  private async player_playerDestroy(player: Player) {
+    const date = bangkokNow();
+
+    await database?.query(
+      'INSERT INTO pona_flipflop_state (time, guildid, active) VALUES (?, ?, ?)',
+      [date, player.guild, 0],
     );
+
     (apiServer as ApiServer).io.to(player.guild).emit('playerDestroyed');
     await this.invokeHandlers('playerDestroy', player);
   }

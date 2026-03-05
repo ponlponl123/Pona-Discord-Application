@@ -1,12 +1,11 @@
 import env from './env';
+
 const { HTTP_PORT, WEBSOCKET_SECRET_ROOT_AUTHORIZED_KEY } = env;
+const port = Number(HTTP_PORT);
 
-var toPort = Number(HTTP_PORT);
-
-if (!HTTP_PORT || !toPort) 
-  throw new Error("Missing environment variables");
+if (!HTTP_PORT || !port) throw new Error('Missing environment variables');
 
 export const config = {
-  WEBSOCKET_PORT: toPort,
-  WEBSOCKET_SECRET_ROOT_AUTHORIZED_KEY
+  WEBSOCKET_PORT: port,
+  WEBSOCKET_SECRET_ROOT_AUTHORIZED_KEY,
 };

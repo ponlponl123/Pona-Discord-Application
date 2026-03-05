@@ -179,7 +179,7 @@ export default new Elysia()
               JSON.stringify(video.result),
             )
             .expire(`user:${user.id}:favorite`, 86400);
-        database.query(
+        await database.query(
           `INSERT IGNORE INTO favorite_track (uid, target, source, cache, cache_lastupdated) VALUES (?, ?, ?, ?, ?)`,
           [
             user.id,
@@ -254,7 +254,7 @@ export default new Elysia()
             .multi()
             .hset(`user:${user.id}:favorite`, channelId, 0)
             .expire(`user:${user.id}:favorite`, 86400);
-        database.query(
+        await database.query(
           `DELETE FROM favorite_track WHERE uid=? AND target=? AND source=?`,
           [user.id, videoId, channelId],
         );

@@ -169,8 +169,8 @@ export default new Elysia()
             GROUP BY \`from\`, \`to\`
             ORDER BY \`from\`;`;
 
-            const rows = await database.pool.query(sql_query, [guildid]);
-            const rows2 = await database.pool.query(sql_query2, [guildid]);
+            const rows = await database.query(sql_query, [guildid]);
+            const rows2 = await database.query(sql_query2, [guildid]);
 
             (rows2 as memberInChannelHistory[]).map((timeline) => {
               timeline.channels.map((channel) => {

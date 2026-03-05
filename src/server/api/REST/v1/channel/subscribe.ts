@@ -190,8 +190,7 @@ export default new Elysia()
                         channel.target,
                       );
                       if (fetchChannel?.result) {
-                        // Fire and forget - don't await cache update
-                        database.pool?.query(
+                        await database.query(
                           `UPDATE subscribe_artist SET cache=?, cache_lastupdated=? WHERE uid=? AND target=?`,
                           [
                             JSON.stringify(fetchChannel.result),
@@ -289,7 +288,7 @@ export default new Elysia()
         if (redisClient?.redis)
           (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
             redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
-        database.query(
+        await database.query(
           `INSERT IGNORE INTO subscribe_artist (uid, target) VALUES (?, ?)`,
           [user.id, channelId],
         );
@@ -345,7 +344,7 @@ export default new Elysia()
         if (redisClient?.redis)
           (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
             redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
-        database.query(
+        await database.query(
           `DELETE FROM subscribe_artist WHERE uid=? AND target=?`,
           [user.id, channelId],
         );

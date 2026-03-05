@@ -1,108 +1,116 @@
-import { Player } from "@lavalink/structures/player";
-import { ClientUser, Guild, TextBasedChannel, User, VoiceBasedChannel } from "discord.js";
-import { ArtistBasic, Sizes, TrackSourceName } from "./lavaUtils";
-import { Queue } from "@/lavalink";
-import { Band } from "@/utils/lavalink/equalizers";
-import { SongDetailed, VideoDetailed } from "ytmusic-api";
+import { Player } from '@lavalink/structures/player';
+import {
+  ClientUser,
+  Guild,
+  TextBasedChannel,
+  User,
+  VoiceBasedChannel,
+} from 'discord.js';
+import { ArtistBasic, Sizes, TrackSourceName } from './lavaUtils';
+import { Queue } from '@/lavalink';
+import { Band } from '@/utils/lavalink/equalizers';
+
+/** Video/Song info from either youtubei.js (v1) or v2 REST API */
+type VideoInfo = Record<string, any>;
 
 export interface lavaPlayer {
-    player: Player;
-    voiceChannel: VoiceBasedChannel;
-    textChannel: TextBasedChannel;
-    guild: Guild;
+  player: Player;
+  voiceChannel: VoiceBasedChannel;
+  textChannel: TextBasedChannel;
+  guild: Guild;
 }
 
 export interface PlayerOptions {
-	guild: string;
-	textChannel: string;
-	voiceChannel?: string;
-	node?: string;
-	volume?: number;
-	selfMute?: boolean;
-	selfDeafen?: boolean;
-	lastActive: number;
+  guild: string;
+  textChannel: string;
+  voiceChannel?: string;
+  node?: string;
+  volume?: number;
+  selfMute?: boolean;
+  selfDeafen?: boolean;
+  lastActive: number;
 }
 
 export interface TimestampLyrics {
-    seconds: number;
-    lyrics: string;
+  seconds: number;
+  lyrics: string;
 }
 
 export type NonTimestampLyrics = string;
 
 export interface Lyric {
-    isTimestamp: boolean;
-    lyrics: TimestampLyrics[] | NonTimestampLyrics[];
+  isTimestamp: boolean;
+  lyrics: TimestampLyrics[] | NonTimestampLyrics[];
 }
 
 export interface Track {
-	readonly track: string;
-	readonly timestamp: number;
-	readonly uniqueId: string;
-	readonly artworkUrl: string;
-	videoInfo?: VideoDetailed | SongDetailed;
-	readonly sourceName: TrackSourceName;
-	title: string;
-	cleanTitle: string;
-	readonly identifier: string;
-	author: string;
-	artist?: ArtistBasic[];
-	cleanAuthor: string;
-	readonly duration: number;
-	readonly isrc: string;
-	readonly isSeekable: boolean;
-	readonly isStream: boolean;
-	readonly uri: string;
-	readonly thumbnail: string | null;
-	lyrics?: Lyric;
-	readonly requester?: User | ClientUser;
-	accentColor?: string;
-	displayThumbnail(size?: Sizes): string;
-	pluginInfo: any;
-	customData: Record<string, unknown>;
+  readonly track: string;
+  readonly timestamp: number;
+  readonly uniqueId: string;
+  readonly artworkUrl: string;
+  videoInfo?: VideoInfo;
+  readonly sourceName: TrackSourceName;
+  title: string;
+  cleanTitle: string;
+  readonly identifier: string;
+  author: string;
+  artist?: ArtistBasic[];
+  cleanAuthor: string;
+  readonly duration: number;
+  readonly isrc: string;
+  readonly isSeekable: boolean;
+  readonly isStream: boolean;
+  readonly uri: string;
+  readonly thumbnail: string | null;
+  lyrics?: Lyric;
+  readonly requester?: User | ClientUser;
+  accentColor?: string;
+  displayThumbnail(size?: Sizes): string;
+  pluginInfo: any;
+  customData: Record<string, unknown>;
 }
 
 export interface UnresolvedTrack extends Partial<Track> {
-	[key: string]: any;
-	title: string;
-	uniqueId: string;
-	author?: string;
-	artist?: ArtistBasic[];
-	duration?: number;
-	resolve(): Promise<void>;
+  [key: string]: any;
+  title: string;
+  uniqueId: string;
+  author?: string;
+  artist?: ArtistBasic[];
+  duration?: number;
+  resolve(): Promise<void>;
 }
 
 export interface PlayOptions {
-	readonly startTime?: number;
-	readonly endTime?: number;
-	readonly noReplace?: boolean;
+  readonly startTime?: number;
+  readonly endTime?: number;
+  readonly noReplace?: boolean;
 }
 
 export interface EqualizerBand {
-	band: number;
-	gain: number;
+  band: number;
+  gain: number;
 }
 
 export interface HTTP_PonaRepeatState {
-	track: boolean;
-	queue: boolean;
-	dynamic: boolean;
+  track: boolean;
+  queue: boolean;
+  dynamic: boolean;
 }
 
 export interface HTTP_PonaCommonState {
-	position: number;
-	length: number;
-	repeat: HTTP_PonaRepeatState;
-	volume: number;
-	equalizer: Band[];
-	paused: boolean;
-	playing: boolean;
-	isAutoplay: boolean;
-	voiceChannel: string;
+  position: number;
+  length: number;
+  repeat: HTTP_PonaRepeatState;
+  volume: number;
+  equalizer: Band[];
+  paused: boolean;
+  playing: boolean;
+  isAutoplay: boolean;
+  voiceChannel: string;
 }
 
 export interface HTTP_PonaCommonStateWithTracks {
-	pona: HTTP_PonaCommonState;
-	current: Track | UnresolvedTrack | null;
-	queue: Queue;
+  pona: HTTP_PonaCommonState;
+  current: Track | UnresolvedTrack | null;
+  queue: Queue;
 }

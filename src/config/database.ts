@@ -1,28 +1,32 @@
-import env, {argv} from './env';
+import env, { argv } from './env';
 
 const {
-  DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASS, DATABASE_NAME
+  DATABASE_HOST,
+  DATABASE_PORT,
+  DATABASE_USER,
+  DATABASE_PASS,
+  DATABASE_NAME,
 } = env;
-
-var host: string = DATABASE_HOST || 'localhost';
-var port: number = Number(DATABASE_PORT) || 3306;
-var user: string = DATABASE_USER || 'me';
-var password: string = DATABASE_PASS || 'secret';
-var database: string = DATABASE_NAME || 'my_db';
-
-if ( argv.includes('--production') || argv.includes('-launch') || env.NODE_ENV === 'production' ) {
-  if (!host ||!port || !user ||!password || !database) {
-    throw new Error("---------------------- Critical missing break!!\n\nMissing Database environment variables for production\n\n----------------------");
-  }
-  console.log( " ---------------------- Connecting Database with production environment. ---------------------- " )
-} else {
-  console.log( " ---------------------- Connecting Database with development environment. ---------------------- " )
-}
+const isProduction =
+  argv.includes('--production') ||
+  argv.includes('-launch') ||
+  env.NODE_ENV === 'production';
 
 export const config = {
-  host: host,
-  port: port,
-  user: user,
-  password: password,
-  database: database
+  host: DATABASE_HOST || 'localhost',
+  port: Number(DATABASE_PORT) || 3306,
+  user: DATABASE_USER || 'me',
+  password: DATABASE_PASS || 'secret',
+  database: DATABASE_NAME || 'my_db',
 };
+
+if (
+  isProduction &&
+  (!config.host ||
+    !config.port ||
+    !config.user ||
+    !config.password ||
+    !config.database)
+) {
+  throw new Error('Missing Database environment variables for production');
+}

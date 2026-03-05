@@ -1,110 +1,67 @@
-import { redisClient, ytmusic } from "@/index";
-import { ArtistFull as ArtistFullV2, ProfileFull } from "@/interfaces/ytmusic-api";
+import type { ArtistFull, ProfileFull } from '@/interfaces/ytmusic-api';
+import { ytmusic } from '@/index';
+import { fetchWithCache, hasCache } from '@/utils/ytmusic-api/cache';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
-import { ArtistFull } from "ytmusic-api";
+import type { YTMusic } from 'youtubei.js';
 
-export async function IsValidChannel(channelId: string): Promise<boolean> {
-    try {
-        if (
-            redisClient?.redis &&
-            (
-                await redisClient.redis.get(`yt:artist:v1:${channelId}`) ||
-                await redisClient.redis.get(`yt:artist:v2:${channelId}:info`) ||
-                await redisClient.redis.get(`yt:user:${channelId}:info`)
-            ) ||
-            (
-                await ytmusic.client.getArtist(channelId) ||
-                await YTMusicAPI('GET', `user/${encodeURIComponent(channelId)}`) ||
-                await YTMusicAPI('GET', `artist/${encodeURIComponent(channelId)}`)
-            )
-        ) return true;
-
-        return false;
-    }
-    catch (error) {
-        return false;
-    }
+export interface ChannelResult {
+  message: string;
+  result: {
+    v1: YTMusic.Artist | undefined;
+    v2: ArtistFull | undefined;
+    user: ProfileFull | undefined;
+  };
 }
 
-export async function getChannel(channelId: string): Promise<false | { message: string, result: {v1: ArtistFull | undefined, v2: ArtistFullV2 | undefined, user: ProfileFull | undefined} }> {
-    if ( redisClient?.redis )
-    {
-        let redis_artist_detail_v1 = await redisClient.redis.get(`yt:artist:v1:${channelId}`);
-        let redis_artist_detail_v2 = await redisClient.redis.get(`yt:artist:v2:${channelId}:info`);
-        let redis_user_detail = await redisClient.redis.get(`yt:user:${channelId}:info`);
-        if ( redis_artist_detail_v1 || redis_artist_detail_v2 || redis_user_detail )
-        {
-            if ( !redis_artist_detail_v1&&redis_artist_detail_v1!=='' )
-            {
-                const fetch = await ytmusic.client.getArtist(channelId).catch(()=>{
-                    redisClient?.redis.setex(`yt:artist:v1:${channelId}`, 600, '');
-                });
-                if ( fetch )
-                {
-                    redis_artist_detail_v1 = JSON.stringify(fetch);
-                    redisClient?.redis.setex(`yt:artist:v1:${channelId}`, 1800, redis_artist_detail_v1);
-                }
-            }
-            if ( !redis_artist_detail_v2&&redis_artist_detail_v2!=='' )
-            {
-                const fetch = await YTMusicAPI('GET', `artist/${encodeURIComponent(channelId)}`).catch(()=>{
-                    redisClient?.redis.setex(`yt:artist:v2:${channelId}:info`, 600, '');
-                });
-                if ( fetch )
-                {
-                    redis_artist_detail_v2 = JSON.stringify(fetch.data.result);
-                    redisClient?.redis.setex(`yt:artist:v2:${channelId}:info`, 1800, redis_artist_detail_v2);
-                }
-            }
-            if ( !redis_user_detail&&redis_user_detail!=='' )
-            {
-                const fetch = await YTMusicAPI('GET', `user/${encodeURIComponent(channelId)}`).catch(()=>{
-                    redisClient?.redis.setex(`yt:user:${channelId}:info`, 600, '');
-                });
-                if ( fetch )
-                {
-                    redis_user_detail = JSON.stringify(fetch.data.result);
-                    redisClient?.redis.setex(`yt:user:${channelId}:info`, 1800, redis_user_detail);
-                }
-            }
-            const safeRedisArtistDetailV1 = redis_artist_detail_v1&&redis_artist_detail_v1!=='' ? JSON.parse(redis_artist_detail_v1) : null;
-            const safeRedisArtistDetailV2 = redis_artist_detail_v2&&redis_artist_detail_v2!=='' ? JSON.parse(redis_artist_detail_v2) : null;
-            const safeRedisUsrDetail = redis_user_detail&&redis_user_detail!=='' ? JSON.parse(redis_user_detail) : null;
-            return {
-                message: 'Ok',
-                result: {
-                    v1: safeRedisArtistDetailV1,
-                    v2: safeRedisArtistDetailV2,
-                    user: safeRedisUsrDetail,
-                }
-            }
-        }
+const KEYS = {
+  v1: (id: string) => `yt:artist:v1:${id}`,
+  v2: (id: string) => `yt:artist:v2:${id}:info`,
+  user: (id: string) => `yt:user:${id}:info`,
+} as const;
+
+export async function IsValidChannel(channelId: string): Promise<boolean> {
+  try {
+    if (
+      await hasCache(
+        KEYS.v1(channelId),
+        KEYS.v2(channelId),
+        KEYS.user(channelId),
+      )
+    ) {
+      return true;
     }
 
-    const artist_detail_v1 = await ytmusic.client.getArtist(channelId).catch(() => {
-        redisClient?.redis.setex(`yt:artist:v1:${channelId}`, 600, '');
-    });
-    const usr_detail = await YTMusicAPI('GET', `user/${encodeURIComponent(channelId)}`).catch(() => {
-        redisClient?.redis.setex(`yt:user:${channelId}:info`, 600, '');
-    });
-    const artist_detail_v2 = await YTMusicAPI('GET', `artist/${encodeURIComponent(channelId)}`).catch(() => {
-        redisClient?.redis.setex(`yt:artist:v2:${channelId}:info`, 600, '');
-    });
+    const encodedId = encodeURIComponent(channelId);
 
-    const safeArtistDetailV1 = artist_detail_v1 ? { ...artist_detail_v1 } : undefined;
-    const safeArtistDetailV2 = artist_detail_v2 ? { ...artist_detail_v2.data.result } : undefined;
-    const safeUsrDetail = usr_detail ? { ...usr_detail.data.result } : undefined;
+    if (await ytmusic.client.music.getArtist(channelId).catch((): null => null))
+      return true;
+    if (await YTMusicAPI('GET', `user/${encodedId}`).catch((): null => null))
+      return true;
+    if (await YTMusicAPI('GET', `artist/${encodedId}`).catch((): null => null))
+      return true;
 
-    if (safeArtistDetailV1) redisClient?.redis.setex(`yt:artist:v1:${channelId}`, 1800, JSON.stringify(safeArtistDetailV1));
-    if (safeArtistDetailV2) redisClient?.redis.setex(`yt:artist:v2:${channelId}:info`, 1800, JSON.stringify(safeArtistDetailV2));
-    if (safeUsrDetail) redisClient?.redis.setex(`yt:user:${channelId}:info`, 1800, JSON.stringify(safeUsrDetail));
+    return false;
+  } catch {
+    return false;
+  }
+}
 
-    return {
-        message: 'Ok',
-        result: {
-            v1: safeArtistDetailV1,
-            v2: safeArtistDetailV2,
-            user: safeUsrDetail,
-        }
-    }
+export async function getChannel(channelId: string): Promise<ChannelResult> {
+  const encodedId = encodeURIComponent(channelId);
+
+  const [v1, v2, user] = await Promise.all([
+    fetchWithCache<YTMusic.Artist>(KEYS.v1(channelId), () =>
+      ytmusic.client.music.getArtist(channelId),
+    ),
+    fetchWithCache<ArtistFull>(KEYS.v2(channelId), async () => {
+      const res = await YTMusicAPI('GET', `artist/${encodedId}`);
+      return res ? res.data.result : null;
+    }),
+    fetchWithCache<ProfileFull>(KEYS.user(channelId), async () => {
+      const res = await YTMusicAPI('GET', `user/${encodedId}`);
+      return res ? res.data.result : null;
+    }),
+  ]);
+
+  return { message: 'Ok', result: { v1, v2, user } };
 }

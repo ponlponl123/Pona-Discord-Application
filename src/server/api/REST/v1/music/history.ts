@@ -47,7 +47,7 @@ export default new Elysia()
           }
         }
 
-        const res = await database.pool.query(
+        const res = await database.query(
           `SELECT id, track
            FROM (
              SELECT id, track,
@@ -146,7 +146,7 @@ export default new Elysia()
               set.status = HttpStatusCode.ServiceUnavailable;
               return { error: 'Service Unavailable' };
             }
-            const search_history = await database.pool.query(
+            const search_history = await database.query(
               `SELECT text FROM (
               SELECT id, text,
                 ROW_NUMBER() OVER (PARTITION BY text ORDER BY id DESC) AS row_num

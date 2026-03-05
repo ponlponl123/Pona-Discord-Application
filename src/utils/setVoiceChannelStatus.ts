@@ -1,45 +1,69 @@
-import { lavalink, discordClient as self } from "..";
-import { config } from "@/config/discord";
-import { prefix as consolePrefix } from "@/config/console";
-import * as discord from "discord.js";
-import { VoiceBasedChannel, Routes } from "discord.js";
+import { lavalink, discordClient as self } from '..';
+import { config } from '@/config/discord';
+import { prefix as consolePrefix } from '@/config/console';
+import * as discord from 'discord.js';
+import type { VoiceBasedChannel } from 'discord.js';
+import { Routes } from 'discord.js';
 
-export default async function setVoiceChannelStatus(voiceChannelRef: VoiceBasedChannel | string, text: string = ''): Promise<unknown> {
-    let voiceChannel: VoiceBasedChannel;
+async function resolveVoiceChannel(
+  ref: VoiceBasedChannel | string,
+): Promise<VoiceBasedChannel | false> {
+  if (typeof ref !== 'string') return ref;
 
-    if ( typeof voiceChannelRef === 'string' )
-        if ( voiceChannelRef.startsWith('guild-') )
-        {
-            const getExistPlayer = lavalink.manager.players.filter( rootPlayer => rootPlayer.guild === voiceChannelRef );
-            if ( getExistPlayer.size > 0 )
-            {
-                voiceChannel = await self.client.channels.fetch(getExistPlayer.at(0)?.voiceChannel as string) as VoiceBasedChannel;
-            }
-            else
-            {
-                console.error( consolePrefix.discord + `\x1b[31mCannot find player for voice channel status. ${ voiceChannelRef }\x1b[0m`);
-                return false;
-            }
-        }
-        else voiceChannel = await self.client.channels.fetch(voiceChannelRef) as VoiceBasedChannel;
-    else voiceChannel = voiceChannelRef as VoiceBasedChannel;
-
-    if ( !voiceChannel.isVoiceBased() ) {
-        console.error( consolePrefix.discord + `\x1b[31mCannot set voice channel status, voice channel is not voice-based or manageable. ${ voiceChannel })\x1b[0m`);
-        return false
+  if (ref.startsWith('guild-')) {
+    const player = lavalink.manager.players
+      .filter((p) => p.guild === ref)
+      .at(0);
+    if (!player?.voiceChannel) {
+      console.error(
+        consolePrefix.discord +
+          `\x1b[31mCannot find player for voice channel status. ${ref}\x1b[0m`,
+      );
+      return false;
     }
+    return (await self.client.channels.fetch(
+      player.voiceChannel,
+    )) as VoiceBasedChannel;
+  }
 
-    const rest = new discord.REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
-    try {
-        const req = await rest.put((Routes.channel(voiceChannel.id) + '/voice-status' as discord.RouteLike), {
-            body: {"status": text}
-        })
-        if ( req )
-            console.error( consolePrefix.discord + `\x1b[32mEdit voice status for ${ voiceChannel.id }(${ voiceChannel.guildId }) successfully!\x1b[0m` );
-    
-        return req;
-    } catch (err) {
-        console.error( consolePrefix.discord + `\x1b[31mError on setting voice status. ${ voiceChannel.id }(${ voiceChannel.guildId })\x1b[0m`);
-        return false;
+  return (await self.client.channels.fetch(ref)) as VoiceBasedChannel;
+}
+
+export default async function setVoiceChannelStatus(
+  voiceChannelRef: VoiceBasedChannel | string,
+  text = '',
+): Promise<unknown> {
+  const voiceChannel = await resolveVoiceChannel(voiceChannelRef);
+  if (!voiceChannel) return false;
+
+  if (!voiceChannel.isVoiceBased()) {
+    console.error(
+      consolePrefix.discord +
+        `\x1b[31mCannot set voice channel status, not voice-based. ${voiceChannel}\x1b[0m`,
+    );
+    return false;
+  }
+
+  const rest = new discord.REST({ version: '10' }).setToken(
+    config.DISCORD_TOKEN,
+  );
+  try {
+    const req = await rest.put(
+      (Routes.channel(voiceChannel.id) + '/voice-status') as discord.RouteLike,
+      { body: { status: text } },
+    );
+    if (req) {
+      console.log(
+        consolePrefix.discord +
+          `\x1b[32mEdit voice status for ${voiceChannel.id}(${voiceChannel.guildId}) successfully!\x1b[0m`,
+      );
     }
+    return req;
+  } catch {
+    console.error(
+      consolePrefix.discord +
+        `\x1b[31mError on setting voice status. ${voiceChannel.id}(${voiceChannel.guildId})\x1b[0m`,
+    );
+    return false;
+  }
 }

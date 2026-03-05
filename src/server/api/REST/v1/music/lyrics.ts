@@ -4,7 +4,6 @@ import https from 'https';
 import { ytmusic } from '@/index';
 import { type Lyric, type TimestampLyrics } from '@/interfaces/player';
 import { parseLyrics } from '@/utils/parser';
-import { TimedLyricsRes } from 'ytmusic-api';
 
 export type SearchLyricEngine =
   | 'ytmusic_android'
@@ -39,31 +38,15 @@ export async function fetchLyrics(
       if (!arg1) throw Error('Missing required arguments');
 
       try {
-        const lyrics = (await ytmusic.client.getLyrics(
-          arg1,
-          true,
-        )) as TimedLyricsRes;
-        if (lyrics) {
-          if (Array.isArray(lyrics)) {
-            return {
-              isTimestamp: false,
-              lyrics: lyrics,
-            } as Lyric;
-          } else if (lyrics.timedLyricsData) {
-            const parsedLyrics = lyrics.timedLyricsData.map((lyric) => {
-              return {
-                lyrics: lyric.lyricLine,
-                seconds: Number(lyric.cueRange.startTimeMilliseconds) / 1000,
-              };
-            }) as TimestampLyrics[];
-
-            return {
-              isTimestamp: true,
-              lyrics: parsedLyrics,
-            } as Lyric;
-          } else {
-            throw Error('Unknown response format');
-          }
+        // youtubei.js does not support timed/synced lyrics natively
+        // Use yt.music.getLyrics() directly (trackInfo.getLyrics() has known issues)
+        const lyricsData = await ytmusic.client.music.getLyrics(arg1);
+        if (lyricsData && lyricsData.description?.text) {
+          const lines = lyricsData.description.text.split('\n').filter(Boolean);
+          return {
+            isTimestamp: false,
+            lyrics: lines,
+          } as Lyric;
         }
         throw Error('Unknown response');
       } catch (err) {
@@ -75,12 +58,14 @@ export async function fetchLyrics(
       if (!arg1) throw Error('Missing required arguments');
 
       try {
-        const lyrics = await ytmusic.client.getLyrics(arg1);
-        if (lyrics && lyrics.length > 0)
+        const lyricsData = await ytmusic.client.music.getLyrics(arg1);
+        if (lyricsData && lyricsData.description?.text) {
+          const lines = lyricsData.description.text.split('\n').filter(Boolean);
           return {
             isTimestamp: false,
-            lyrics: lyrics,
+            lyrics: lines,
           } as Lyric;
+        }
         throw Error('Unknown response');
       } catch (err) {
         console.error(err);

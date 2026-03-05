@@ -20,15 +20,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "type-check": "tsc --noEmit",
-    "dev": "cross-env NODE_ENV=development tsx watch src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "start": "NODE_ENV=production CLUSTER=false node -r ./tsconfig-paths.js dist/index.js",
     "start-shard": "NODE_ENV=production CLUSTER=true node -r ./tsconfig-paths.js dist/shard.js",
     "lint": "eslint . -c .ts",
     "lint:fix": "eslint . -c .ts --fix",
     "build": "tsc --build",
     "format": "prettier --write .",
-    "bun:dev": "cross-env NODE_ENV=development RUNNER=bun bun --watch src/index.ts",
-    "bun:dev-reg": "cross-env NODE_ENV=development RUNNER=default bun --watch src/index.ts",
     "bun:start": "NODE_ENV=production RUNNER=bun AUTO_ROUTE=no bun dist/index.js --target node",
     "bun:start-shard": "NODE_ENV=production RUNNER=bun AUTO_ROUTE=no bun dist/shard.js --target node",
     "bun:start-reg": "NODE_ENV=production RUNNER=default AUTO_ROUTE=no bun dist/index.js --target node",
@@ -88,9 +86,11 @@
     "socket.io": "^4.8.3",
     "socket.io-redis": "^6.1.1",
     "sodium-native": "^5.0.10",
+    "ts-better-console": "^0.1.4",
     "tsconfig-paths": "^4.2.0",
     "ws": "^8.19.0",
-    "xmlhttprequest-ts": "^1.0.1"
+    "xmlhttprequest-ts": "^1.0.1",
+    "youtubei.js": "^16.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

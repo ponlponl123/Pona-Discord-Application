@@ -9,7 +9,9 @@ export default async function addToQueue(
   else player.queue.add(track);
 
   // Checks if the client should play the track if it's the first one added
-  if (!player.playing && !player.paused && player.queue.size)
+  // Use totalSize (current + queued) because the first track goes into queue.current,
+  // not the array, so queue.size (== this.length) would be 0 and play would never trigger.
+  if (!player.playing && !player.paused && player.queue.totalSize)
     await player.play();
 
   if ((track as Track[]).length > 1) {

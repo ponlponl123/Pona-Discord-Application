@@ -48,7 +48,9 @@ export default new Elysia().get(
         return { message: 'Ok', searchSuggestions: searchSuggestions };
       } else {
         if (database && database.pool)
-          database.query(
+          // Await so the connection is released before the handler continues;
+          // fire-and-forget was silently holding pool slots under load.
+          await database.query(
             `INSERT INTO search_history (uid, text) VALUES (?, ?)`,
             [user.id, String(q)],
           );

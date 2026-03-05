@@ -8,7 +8,7 @@ export default new Elysia().get(
   'fetch/:fetch',
   async ({ headers, params, query: queryParams, set }) => {
     try {
-      if (!database || !database.pool || !ytmusic.client) {
+      if (!database || !database.pool || !ytmusic.client?.music) {
         set.status = HttpStatusCode.ServiceUnavailable;
         return { error: 'Service Unavailable' };
       }
@@ -179,7 +179,7 @@ export default new Elysia().get(
                 redis_user_detail
               ) {
                 if (!redis_artist_detail_v1 && redis_artist_detail_v1 !== '') {
-                  const fetch = await ytmusic.client
+                  const fetch = await ytmusic.client.music
                     .getArtist(queryId)
                     .catch(() => {
                       redisClient?.redis.setex(
@@ -261,7 +261,7 @@ export default new Elysia().get(
               }
             }
 
-            const artist_detail_v1 = await ytmusic.client
+            const artist_detail_v1 = await ytmusic.client.music
               .getArtist(queryId)
               .catch(() => {
                 redisClient?.redis.setex(`yt:artist:v1:${queryId}`, 600, '');

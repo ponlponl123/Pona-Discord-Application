@@ -5,14 +5,13 @@ import {
   ClusterManager,
   ReClusterManager,
   HeartbeatManager,
-  BaseMessage,
+  type BaseMessage,
   messageType,
 } from 'discord-hybrid-sharding';
 
 const manager = new ClusterManager(path.join(__dirname, 'index.js'), {
   token: discordConf.DISCORD_TOKEN,
   totalShards: 'auto',
-  // Only use tsconfig-paths in development (when running from src/)
   execArgv:
     process.env.NODE_ENV === 'production' ? [] : ['-r', './tsconfig-paths.js'],
   shardsPerClusters: 2,
@@ -22,52 +21,64 @@ const manager = new ClusterManager(path.join(__dirname, 'index.js'), {
 manager.extend(
   new ReClusterManager(),
   new HeartbeatManager({
-    interval: 2000, // Interval to send a heartbeat
-    maxMissedHeartbeats: 5, // Maximum amount of missed Heartbeats until Cluster will get respawned
+    interval: 2000,
+    maxMissedHeartbeats: 5,
   }),
 );
 
 manager.on('shardCreate', (shard) => {
-  console.log(consoleType.info, consolePrefix.shard + `shardCreate [${shard.id}]`);
+  console.log(
+    consoleType.info,
+    consolePrefix.shard + `shardCreate [${shard.id}]`,
+  );
 });
 
 manager.on('clientRequest', (req) => {
-  console.log(consoleType.info, consolePrefix.shard + `clientRequest`, req);
+  console.log(consoleType.info, consolePrefix.shard + 'clientRequest', req);
 });
 
 manager.on('clusterCreate', (cluster) => {
-  console.log(consoleType.info, consolePrefix.shard + `clusterCreate [${cluster.id}]`);
+  console.log(
+    consoleType.info,
+    consolePrefix.shard + `clusterCreate [${cluster.id}]`,
+  );
   cluster.on('message', (message) => {
     console.log(message);
     if ((message as BaseMessage)['_type'] !== messageType.CUSTOM_REQUEST)
-      return; // Check if the message needs a reply
+      return;
     (message as BaseMessage)['reply']({ content: 'hello world' });
   });
   cluster.on('death', (_cluster) => {
     if (_cluster.restarts.current >= _cluster.restarts.max) {
       new Error(
-        consoleType.error + " " +
-        consolePrefix.shard +
+        consoleType.error +
+          ' ' +
+          consolePrefix.shard +
           `Cluster [${_cluster.id}] has been killed after reaching max restarts.`,
       );
-      process.exit(1); // Exit the process if the cluster has been killed after reaching max restarts
-    } else
+      process.exit(1);
+    } else {
       console.log(
-        consoleType.warn + " " +
-        consolePrefix.shard +
+        consoleType.warn +
+          ' ' +
+          consolePrefix.shard +
           `Cluster [${_cluster.id}] has been killed, restarting...`,
       );
+    }
   });
   setInterval(() => {
-    cluster.send({ content: 'I am alive' }); // Send a message to the client
+    cluster.send({ content: 'I am alive' });
     cluster
       .request({ content: 'Are you alive?', alive: true })
-      .then((e) => console.log(e)); // Send a message to the client
+      .then((e) => console.log(e));
   }, 5000);
 });
 
 manager.on('clusterReady', (cluster) => {
-  console.log(consoleType.info, consolePrefix.shard + `clusterReady [${cluster.id}]`);
+  console.log(
+    consoleType.info,
+    consolePrefix.shard + `clusterReady [${cluster.id}]`,
+  );
 });
 
 manager.on('debug', (debug) => {

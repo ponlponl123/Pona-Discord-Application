@@ -2,7 +2,8 @@ import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
-import { database, redisClient, ytmusic } from '@/index';
+import { redisClient, ytmusic } from '@/index';
+import { prisma } from '@/prisma';
 
 export default new Elysia().get(
   '/search',
@@ -20,7 +21,7 @@ export default new Elysia().get(
       }
       const tokenType = authorization.split(' ')[0];
       const tokenKey = authorization.split(' ')[1];
-      const user = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
+      const user: any = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
       if (!user) {
         set.status = HttpStatusCode.Unauthorized;
         return { error: 'Unauthorized' };
@@ -47,13 +48,14 @@ export default new Elysia().get(
         set.status = HttpStatusCode.Ok;
         return { message: 'Ok', searchSuggestions: searchSuggestions };
       } else {
-        if (database && database.pool)
-          // Await so the connection is released before the handler continues;
-          // fire-and-forget was silently holding pool slots under load.
-          await database.query(
-            `INSERT INTO search_history (uid, text) VALUES (?, ?)`,
-            [user.id, String(q)],
-          );
+        await prisma.search_history.create({
+          data: {
+            uid: user.id,
+            text: String(q),
+            time: new Date(),
+          },
+        });
+        
         if (redisClient?.redis) {
           redisClient.redis
             .multi()

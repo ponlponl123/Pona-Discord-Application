@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { database, redisClient, discordClient as self } from '@/index';
+import { redisClient, discordClient as self } from '@/index';
+import { prisma } from '@/prisma';
 import JSONBig from 'json-bigint';
 
 export interface memberInChannelHistory {
@@ -79,10 +80,7 @@ export default new Elysia()
                 };
               }
             }
-            if (!database.pool) {
-              set.status = HttpStatusCode.ServiceUnavailable;
-              return { message: 'Service Unavailable' };
-            }
+            
             const sql_query = `SELECT
               start_time,
               end_time
@@ -169,8 +167,8 @@ export default new Elysia()
             GROUP BY \`from\`, \`to\`
             ORDER BY \`from\`;`;
 
-            const rows = await database.query(sql_query, [guildid]);
-            const rows2 = await database.query(sql_query2, [guildid]);
+            const rows = await prisma.$queryRawUnsafe<any[]>(sql_query, guildid);
+            const rows2 = await prisma.$queryRawUnsafe<any[]>(sql_query2, guildid);
 
             (rows2 as memberInChannelHistory[]).map((timeline) => {
               timeline.channels.map((channel) => {

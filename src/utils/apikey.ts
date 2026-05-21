@@ -1,4 +1,4 @@
-import { database } from '..';
+import { prisma } from '../prisma';
 
 export interface APIKeyPermission {
   // generic permissions
@@ -121,30 +121,45 @@ export async function isApiKeyInDatabase(
   returnPermissions?: boolean,
   loggingUsage?: boolean,
 ): Promise<APIKeyPermission | boolean> {
-  if (!database.pool) return false;
   try {
-    const result = await database.query(
-      'SELECT permission, ratelimitpermin, allowedipaddresses FROM api_keys WHERE api_key = ? AND (expires_at IS NULL OR expires_at > NOW()) AND (isdisabled IS NULL OR isdisabled > NOW()) AND (isdeleted IS NULL OR isdeleted > NOW())',
-      [key],
-    );
-    if (!result || result.length === 0) return false;
+    const now = new Date();
+    const apiKeyData = await prisma.api_key.findUnique({
+      where: {
+        key: key,
+      },
+    });
 
-    const row = result[0];
-    if (row.allowedipaddresses) {
-      const allowedIPs = row.allowedipaddresses.split(',');
-      if (!allowedIPs.includes(userIP)) return false;
+    if (!apiKeyData) return false;
+
+    // Check expiration and status
+    if (apiKeyData.expiredat && apiKeyData.expiredat < now) return false;
+    if (apiKeyData.isdisabled && apiKeyData.isdisabled < now) return false;
+    if (apiKeyData.isdeleted && apiKeyData.isdeleted < now) return false;
+
+    if (apiKeyData.allowedipaddresses) {
+      try {
+        const allowedIPs = JSON.parse(apiKeyData.allowedipaddresses);
+        if (Array.isArray(allowedIPs) && allowedIPs.length > 0 && !allowedIPs.includes(userIP)) {
+           return false;
+        }
+      } catch {
+        // Fallback for old comma-separated format if necessary
+        const allowedIPs = apiKeyData.allowedipaddresses.split(',');
+        if (allowedIPs.length > 0 && !allowedIPs.includes(userIP)) return false;
+      }
     }
 
-    const logs_result = await database.query(
-      'SELECT count(*) as count FROM api_key_logs WHERE api_key = ? AND timestamp > NOW() - INTERVAL 1 MINUTE ORDER BY time DESC',
-      [key],
-    );
+    const oneMinuteAgo = new Date(now.getTime() - 60000);
+    const logsCount = await prisma.api_key_logs.count({
+      where: {
+        key: key,
+        time: {
+          gt: oneMinuteAgo,
+        },
+      },
+    });
 
-    if (
-      !logs_result ||
-      (logs_result.length > 0 && logs_result[0].count >= row.ratelimitpermin)
-    )
-      return false;
+    if (logsCount >= apiKeyData.ratelimitpermin) return false;
 
     if (loggingUsage) {
       await logApiKeyUsage(key, userIP, userAgent);
@@ -152,15 +167,14 @@ export async function isApiKeyInDatabase(
 
     if (!returnPermissions) return true;
 
-    const permissionValue = parseInt(row.permission) || 0;
-    const allowedIPs = row.allowedipaddresses
-      ? row.allowedipaddresses.split(',')
+    const allowedIPs = apiKeyData.allowedipaddresses
+      ? (JSON.parse(apiKeyData.allowedipaddresses) || [])
       : [];
 
     return decimalToPermissions(
-      permissionValue,
-      row.ratelimitpermin || 60,
-      allowedIPs,
+      apiKeyData.permission,
+      apiKeyData.ratelimitpermin,
+      Array.isArray(allowedIPs) ? allowedIPs : [],
     );
   } catch (error) {
     console.error('Error checking API key in database:', error);
@@ -173,12 +187,15 @@ export async function logApiKeyUsage(
   userIP: string,
   userAgent: string,
 ): Promise<void> {
-  if (!database.pool) return;
   try {
-    await database.query(
-      'INSERT INTO api_key_logs (key, ip, user_agent, time) VALUES (?, ?, ?, NOW())',
-      [apiKey, userIP, userAgent],
-    );
+    await prisma.api_key_logs.create({
+      data: {
+        key: apiKey,
+        ip: userIP,
+        user_agent: userAgent,
+        time: new Date(),
+      },
+    });
   } catch (error) {
     console.error('Error logging API key usage:', error);
   }

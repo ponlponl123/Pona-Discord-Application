@@ -1,4 +1,4 @@
-import { pona, lavalink, database, apiServer } from './index';
+import { pona, lavalink, apiServer } from './index';
 import type { PonaEvents, voiceStateChange } from './client';
 import type { Player, PlayerEvents } from './lavalink';
 
@@ -8,6 +8,7 @@ import type { Client, VoiceState } from 'discord.js';
 import type { PlayerStateEventType } from './interfaces/manager';
 import { type apiServer as ApiServer } from './server/main';
 import os from 'os';
+import { prisma } from './prisma';
 
 export type EventEmitter = keyof PonaEvents | keyof PlayerEvents;
 
@@ -80,10 +81,14 @@ export default class eventManager {
     const shardId = pona.ponaId;
 
     ping('https://discord.com/api/gateway', 443, async (ms) => {
-      await database?.query(
-        'INSERT INTO pona_heartbeat_interval (time, clusterid, shardid, ptm) VALUES (?, ?, ?, ?)',
-        [date, clusterId, shardId, ms],
-      );
+      await prisma.pona_heartbeat_interval.create({
+        data: {
+          time: date,
+          clusterid: clusterId,
+          shardid: shardId.toString(),
+          ptm: ms,
+        },
+      });
     });
     await this.invokeHandlers('heartbeat', client);
   }
@@ -98,8 +103,6 @@ export default class eventManager {
     const memberId = oldState.member?.id || newState.member?.id;
     const channelId = oldState.channel?.id || newState.channel?.id;
 
-    // Store only the essential fields instead of the entire VoiceState object
-    // to avoid slow serialisation of large objects holding the connection longer.
     const serializeVoiceState = (s: VoiceState) =>
       JSON.stringify({
         channelId: s.channelId,
@@ -114,18 +117,17 @@ export default class eventManager {
         suppress: s.suppress,
       });
 
-    await database?.query(
-      'INSERT INTO pona_voicestate_history (guildid, memberid, channelid, beforestate, afterstate, date, type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [
-        guildId,
-        memberId,
-        channelId,
-        serializeVoiceState(oldState),
-        serializeVoiceState(newState),
-        date,
-        type.toString(),
-      ],
-    );
+    await prisma.pona_voicestate_history.create({
+      data: {
+        guildid: guildId,
+        memberid: memberId,
+        channelid: channelId || '',
+        beforestate: serializeVoiceState(oldState),
+        afterstate: serializeVoiceState(newState),
+        date: date,
+        type: type.toString(),
+      },
+    });
 
     if (oldState && !newState && oldState.member?.id === pona.client.user?.id) {
       (apiServer as ApiServer).io.to(guildId).emit('voiceStateUpdate', false);
@@ -154,24 +156,24 @@ export default class eventManager {
   private async player_trackStart(player: Player, track: Track) {
     const date = bangkokNow();
 
-    // Run both INSERTs on a single pooled connection so they only occupy
-    // one slot instead of two being acquired concurrently.
-    await database.queryBatch([
-      {
-        sql: 'INSERT INTO player_track_history (requestby, uniqueid, time, voicechannel, guildid, track) VALUES (?, ?, ?, ?, ?, ?)',
-        values: [
-          track.requester?.id,
-          track.uniqueId,
-          date,
-          player.voiceChannel,
-          player.guild,
-          JSON.stringify(track),
-        ],
-      },
-      {
-        sql: 'INSERT INTO pona_flipflop_state (time, guildid, active) VALUES (?, ?, ?)',
-        values: [date, player.guild, 1],
-      },
+    await prisma.$transaction([
+      prisma.player_track_history.create({
+        data: {
+          requestby: track.requester?.id || '',
+          uniqueid: track.uniqueId,
+          time: date,
+          voicechannel: player.voiceChannel,
+          guildid: player.guild,
+          track: JSON.stringify(track),
+        },
+      }),
+      prisma.pona_flipflop_state.create({
+        data: {
+          time: date,
+          guildid: player.guild,
+          active: true,
+        },
+      }),
     ]);
 
     (apiServer as ApiServer).io.to(player.guild).emit('trackStarted', track);
@@ -194,10 +196,16 @@ export default class eventManager {
   ): Promise<void> {
     const date = bangkokNow();
 
-    await database?.query(
-      'INSERT INTO player_action_history (action_name, actionby, data, guild, channel, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, by, JSON.stringify(data), guildId, channelId, date],
-    );
+    await prisma.player_action_history.create({
+      data: {
+        action_name: name,
+        actionby: by,
+        data: JSON.stringify(data),
+        guild: guildId,
+        channel: channelId,
+        timestamp: date,
+      },
+    });
 
     (apiServer as ApiServer).io.to(guildId).emit('action', name, by, data);
   }
@@ -205,10 +213,13 @@ export default class eventManager {
   private async player_playerDestroy(player: Player) {
     const date = bangkokNow();
 
-    await database?.query(
-      'INSERT INTO pona_flipflop_state (time, guildid, active) VALUES (?, ?, ?)',
-      [date, player.guild, 0],
-    );
+    await prisma.pona_flipflop_state.create({
+      data: {
+        time: date,
+        guildid: player.guild,
+        active: false,
+      },
+    });
 
     (apiServer as ApiServer).io.to(player.guild).emit('playerDestroyed');
     await this.invokeHandlers('playerDestroy', player);

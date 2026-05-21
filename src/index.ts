@@ -13,6 +13,7 @@ import { getInfo } from 'discord-hybrid-sharding';
 import { PonaYTMusicAPI } from './ytmusic';
 import tomlConfig from './config/toml';
 import RedisClient from './redis';
+import { prisma } from './prisma';
 
 export const needCluster = process.env['CLUSTER'] === 'true';
 let shardList: number[] | undefined;
@@ -91,7 +92,7 @@ async function shutdown() {
   }
 
   try {
-    await database.pool?.end();
+    await prisma.$disconnect();
     console.log(
       consoleType.info,
       consolePrefix.database,

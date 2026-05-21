@@ -26,8 +26,9 @@ import { getWelcomeMessage } from '@utils/getWelcomeMessage';
 import type GuildSettings from '@interfaces/guildSettings';
 import type { Node } from '@/lavalink';
 import { getGuildLanguage } from './utils/i18n';
-import { database, lavalink } from '@/index';
+import { lavalink } from '@/index';
 import { EventEmitter } from 'events';
+import { prisma } from './prisma';
 
 export type voiceStateChange =
   | 'clientJoined'
@@ -379,7 +380,7 @@ class Pona extends EventEmitter {
     guildId: string,
     settings: GuildSettings,
   ): Promise<boolean> {
-    if (!guildId || !database?.pool) return false;
+    if (!guildId) return false;
     console.log(
       consoleType.info,
       consolePrefix.discord,
@@ -387,17 +388,19 @@ class Pona extends EventEmitter {
     );
 
     try {
-      const rows = (await database.query(
-        'SELECT args FROM guilds WHERE guildid = ? LIMIT 1',
-        [guildId],
-      )) as Array<{ args?: string }>;
-      const prevSettings = rows?.[0]?.args ? JSON.parse(rows[0].args) : {};
+      const row = await prisma.guilds.findUnique({
+        where: { guildid: guildId },
+        select: { args: true },
+      });
+
+      const prevSettings = row?.args ? JSON.parse(row.args) : {};
       const merged = JSON.stringify({ ...prevSettings, ...settings });
 
-      await database.query(
-        'INSERT IGNORE INTO guilds (guildid, args) VALUES (?, ?) ON DUPLICATE KEY UPDATE args = ?',
-        [guildId, merged, merged],
-      );
+      await prisma.guilds.upsert({
+        where: { guildid: guildId },
+        update: { args: merged },
+        create: { guildid: guildId, args: merged },
+      });
 
       if (settings.language)
         await this.defaultGuildLanguageChangedEvent(guildId);
@@ -422,7 +425,7 @@ class Pona extends EventEmitter {
   public async loadGuildSettings(
     guildId: string,
   ): Promise<GuildSettings | undefined> {
-    if (!guildId || !database?.pool) return;
+    if (!guildId) return;
     console.log(
       consoleType.info,
       consolePrefix.discord,
@@ -430,11 +433,12 @@ class Pona extends EventEmitter {
     );
 
     try {
-      const rows = (await database.query(
-        'SELECT args FROM guilds WHERE guildid = ? LIMIT 1',
-        [guildId],
-      )) as Array<{ args?: string }>;
-      if (rows?.[0]?.args) return JSON.parse(rows[0].args);
+      const row = await prisma.guilds.findUnique({
+        where: { guildid: guildId },
+        select: { args: true },
+      });
+
+      if (row?.args) return JSON.parse(row.args);
       console.log(
         consoleType.info,
         consolePrefix.discord,

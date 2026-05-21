@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { database, redisClient } from '@/index';
+import { redisClient } from '@/index';
+import { prisma } from '@/prisma';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { getChannel, IsValidChannel } from '@/utils/ytmusic-api/getChannel';
 
@@ -9,10 +10,6 @@ export default new Elysia()
     '/subscribe',
     async ({ headers, query, set }) => {
       try {
-        if (!database || !database.pool) {
-          set.status = HttpStatusCode.ServiceUnavailable;
-          return { error: 'Service Unavailable' };
-        }
         const { authorization } = headers;
         const { c } = query;
         if (!authorization) {
@@ -47,11 +44,17 @@ export default new Elysia()
             };
           }
         }
-        const value = await database.query(
-          `SELECT uid, target FROM subscribe_artist WHERE uid=? AND target=?`,
-          [user.id, channelId],
-        );
-        if (value && value.length > 0) {
+        
+        const subscription = await prisma.subscribe_artist.findUnique({
+          where: {
+            uid_target: {
+              uid: user.id,
+              target: channelId,
+            },
+          },
+        });
+
+        if (subscription) {
           if (redisClient?.redis)
             (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
               redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
@@ -86,10 +89,6 @@ export default new Elysia()
     '/subscribe/:options',
     async ({ headers, params, query, set }) => {
       try {
-        if (!database || !database.pool) {
-          set.status = HttpStatusCode.ServiceUnavailable;
-          return { error: 'Service Unavailable' };
-        }
         const { authorization } = headers;
         const { c, limit } = query;
         const { options } = params;
@@ -126,11 +125,17 @@ export default new Elysia()
               };
             }
           }
-          const value = await database.query(
-            `SELECT uid, target FROM subscribe_artist WHERE uid=? AND target=?`,
-            [user.id, channelId],
-          );
-          if (value && value.length > 0) {
+          
+          const subscription = await prisma.subscribe_artist.findUnique({
+            where: {
+              uid_target: {
+                uid: user.id,
+                target: channelId,
+              },
+            },
+          });
+
+          if (subscription) {
             if (redisClient?.redis)
               (redisClient.redis.hset(
                 `user:${user.id}:subscribe`,
@@ -166,39 +171,43 @@ export default new Elysia()
                   return { message: 'Ok', result: JSON.parse(value) };
                 }
               }
-              const channels = await database.query(
-                `SELECT target, cache, cache_lastupdated FROM subscribe_artist WHERE uid=? LIMIT ?`,
-                [user.id, q_limit],
-              );
-              if (channels && channels.length > 0) {
-                const now = new Date().getTime();
-                const nowFormatted = new Date()
-                  .toISOString()
-                  .slice(0, 19)
-                  .replace('T', ' ');
+              
+              const channels = await prisma.subscribe_artist.findMany({
+                where: {
+                  uid: user.id,
+                },
+                take: q_limit,
+              });
 
+              if (channels && channels.length > 0) {
+                const now = new Date();
+                
                 // Process all channels in parallel
                 const subscribed_channels = await Promise.all(
                   channels.map(async (channel: any) => {
                     // Check if cache is stale (older than 24h)
+                    const lastUpdated = channel.cache_lastupdated || new Date(0);
                     const needsFetch =
                       !channel.cache ||
-                      channel.cache_lastupdated < now - 86400000;
+                      lastUpdated.getTime() < now.getTime() - 86400000;
 
                     if (needsFetch) {
                       const fetchChannel: any = await getChannel(
                         channel.target,
                       );
                       if (fetchChannel?.result) {
-                        await database.query(
-                          `UPDATE subscribe_artist SET cache=?, cache_lastupdated=? WHERE uid=? AND target=?`,
-                          [
-                            JSON.stringify(fetchChannel.result),
-                            nowFormatted,
-                            user.id,
-                            channel.target,
-                          ],
-                        );
+                        await prisma.subscribe_artist.update({
+                          where: {
+                            uid_target: {
+                              uid: user.id,
+                              target: channel.target,
+                            },
+                          },
+                          data: {
+                            cache: JSON.stringify(fetchChannel.result),
+                            cache_lastupdated: now,
+                          },
+                        });
                         return {
                           artistId: channel.target,
                           info: fetchChannel.result,
@@ -207,7 +216,7 @@ export default new Elysia()
                     }
                     return {
                       artistId: channel.target,
-                      info: JSON.parse(channel?.cache),
+                      info: JSON.parse(channel?.cache || '{}'),
                     };
                   }),
                 );
@@ -260,10 +269,6 @@ export default new Elysia()
     '/subscribe',
     async ({ headers, query, set }) => {
       try {
-        if (!database || !database.pool) {
-          set.status = HttpStatusCode.ServiceUnavailable;
-          return { error: 'Service Unavailable' };
-        }
         const { authorization } = headers;
         const { c } = query;
         if (!authorization) {
@@ -288,10 +293,21 @@ export default new Elysia()
         if (redisClient?.redis)
           (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
             redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
-        await database.query(
-          `INSERT IGNORE INTO subscribe_artist (uid, target) VALUES (?, ?)`,
-          [user.id, channelId],
-        );
+        
+        await prisma.subscribe_artist.upsert({
+          where: {
+            uid_target: {
+              uid: user.id,
+              target: channelId,
+            },
+          },
+          update: {},
+          create: {
+            uid: user.id,
+            target: channelId,
+          },
+        });
+
         set.status = HttpStatusCode.Ok;
         return { message: 'Ok' };
       } catch (error) {
@@ -316,10 +332,6 @@ export default new Elysia()
     '/subscribe',
     async ({ headers, query, set }) => {
       try {
-        if (!database || !database.pool) {
-          set.status = HttpStatusCode.ServiceUnavailable;
-          return { error: 'Service Unavailable' };
-        }
         const { authorization } = headers;
         const { c } = query;
         if (!authorization) {
@@ -344,10 +356,14 @@ export default new Elysia()
         if (redisClient?.redis)
           (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
             redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
-        await database.query(
-          `DELETE FROM subscribe_artist WHERE uid=? AND target=?`,
-          [user.id, channelId],
-        );
+        
+        await prisma.subscribe_artist.deleteMany({
+          where: {
+            uid: user.id,
+            target: channelId,
+          },
+        });
+
         set.status = HttpStatusCode.Ok;
         return { message: 'Ok' };
       } catch (error) {

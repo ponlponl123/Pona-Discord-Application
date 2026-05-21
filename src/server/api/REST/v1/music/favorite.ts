@@ -1,6 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { database, redisClient } from '@/index';
+import { redisClient } from '@/index';
+import { prisma } from '@/prisma';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { IsValidChannel } from '@/utils/ytmusic-api/getChannel';
 import { getVideo, IsValidVideo } from '@/utils/ytmusic-api/getVideo';
@@ -48,34 +49,42 @@ export default new Elysia()
               return;
             }
           }
-          if (!database || !database.pool) {
-            set.status = HttpStatusCode.ServiceUnavailable;
-            return { error: 'Service Unavailable' };
-          }
-          const fetchDB = await database.query(
-            `SELECT cache_lastupdated FROM favorite_track WHERE uid=? AND target=?`,
-            [user.id, videoId],
-          );
-          if (fetchDB.length > 0) {
+          
+          const fetchDB = await prisma.favorite_track.findFirst({
+            where: {
+              uid: user.id,
+              target: videoId,
+            },
+            select: {
+              cache_lastupdated: true,
+            },
+          });
+
+          if (fetchDB) {
+            const now = new Date();
+            const lastUpdated = fetchDB.cache_lastupdated || new Date(0);
             if (
-              fetchDB[0].cache_lastupdated >
-              new Date().getTime() - 86400000
+              lastUpdated.getTime() >
+              now.getTime() - 86400000
             ) {
               const fetchVideo = await getVideo(videoId);
               if (fetchVideo) {
                 const channelId =
-                  fetchVideo.result.v1?.artist.artistId ||
-                  fetchVideo.result.v2?.artists[0].id;
-                await database.query(
-                  `UPDATE favorite_track SET cache=?, cache_lastupdated=? WHERE uid=? AND target=? AND source=?`,
-                  [
-                    JSON.stringify(fetchVideo.result),
-                    new Date().getTime(),
-                    user.id,
-                    videoId,
-                    channelId,
-                  ],
-                );
+                  (fetchVideo.result as any).v1?.artist.artistId ||
+                  (fetchVideo.result as any).v2?.artists[0].id;
+                
+                await prisma.favorite_track.updateMany({
+                  where: {
+                    uid: user.id,
+                    target: videoId,
+                    source: channelId,
+                  },
+                  data: {
+                    cache: JSON.stringify(fetchVideo.result),
+                    cache_lastupdated: now,
+                  },
+                });
+
                 if (redisClient?.redis)
                   redisClient.redis
                     .multi()
@@ -128,10 +137,6 @@ export default new Elysia()
     '/favorite',
     async ({ headers, query, set }) => {
       try {
-        if (!database || !database.pool) {
-          set.status = HttpStatusCode.ServiceUnavailable;
-          return { error: 'Service Unavailable' };
-        }
         const { authorization } = headers;
         const { c, id } = query;
         if (!authorization) {
@@ -179,16 +184,28 @@ export default new Elysia()
               JSON.stringify(video.result),
             )
             .expire(`user:${user.id}:favorite`, 86400);
-        await database.query(
-          `INSERT IGNORE INTO favorite_track (uid, target, source, cache, cache_lastupdated) VALUES (?, ?, ?, ?, ?)`,
-          [
-            user.id,
-            videoId,
-            channelId,
-            JSON.stringify(video.result),
-            new Date().getTime(),
-          ],
-        );
+
+        await prisma.favorite_track.upsert({
+          where: {
+            uid_target: {
+              uid: user.id,
+              target: videoId,
+            },
+          },
+          update: {
+            source: channelId,
+            cache: JSON.stringify(video.result),
+            cache_lastupdated: new Date(),
+          },
+          create: {
+            uid: user.id,
+            target: videoId,
+            source: channelId,
+            cache: JSON.stringify(video.result),
+            cache_lastupdated: new Date(),
+          },
+        });
+
         set.status = HttpStatusCode.Ok;
         return { message: 'Ok' };
       } catch (error) {
@@ -215,10 +232,6 @@ export default new Elysia()
     '/favorite',
     async ({ headers, query, set }) => {
       try {
-        if (!database || !database.pool) {
-          set.status = HttpStatusCode.ServiceUnavailable;
-          return { error: 'Service Unavailable' };
-        }
         const { authorization } = headers;
         const { c, id } = query;
         if (!authorization) {
@@ -254,10 +267,15 @@ export default new Elysia()
             .multi()
             .hset(`user:${user.id}:favorite`, channelId, 0)
             .expire(`user:${user.id}:favorite`, 86400);
-        await database.query(
-          `DELETE FROM favorite_track WHERE uid=? AND target=? AND source=?`,
-          [user.id, videoId, channelId],
-        );
+
+        await prisma.favorite_track.deleteMany({
+          where: {
+            uid: user.id,
+            target: videoId,
+            source: channelId,
+          },
+        });
+
         set.status = HttpStatusCode.Ok;
         return { message: 'Ok' };
       } catch (error) {

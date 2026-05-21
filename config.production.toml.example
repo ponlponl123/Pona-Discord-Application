@@ -7,8 +7,8 @@ title = "Pona! Discord Application (prod)"
 [redis.sentinel]
 natmap = [
     { nat = "redis-master:6379", host = "redis-master-prod.example.com", port = 6379 },
-    { nat = "redis-replica-1:6380", host = "redis-replica-1-prod.example.com", port = 6380 },
-    { nat = "redis-replica-2:6381", host = "redis-replica-2-prod.example.com", port = 6381 },
+    { nat = "redis-replica-1:6379", host = "redis-replica-1-prod.example.com", port = 6380 },
+    { nat = "redis-replica-2:6379", host = "redis-replica-2-prod.example.com", port = 6381 },
 ]
 
 # Add more production-specific configurations here

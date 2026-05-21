@@ -5,7 +5,7 @@ import dynamicGuildNamespace from './of/guilds';
 import trafficDebugger from '@/server/middlewares/socket/trafficDebugger';
 import { prefix as consolePrefix, type as consoleType } from '@/config/console';
 import { config as redisConfig } from '@/config/redis';
-import { toml } from '@/index';
+import toml from '@/config/toml';
 import Redis, { RedisOptions } from 'ioredis';
 import { createAdapter } from '@socket.io/redis-adapter';
 
@@ -46,6 +46,15 @@ export class initialize {
     if (redisConfig && redisConfig.REDIS_ENABLED) {
       const redis_conf = redisConfig;
 
+      const natMapData = toml?.redis?.sentinel?.natmap;
+      if (natMapData) {
+        console.log(
+          consoleType.info,
+          consolePrefix.redis,
+          `Socket.io: Found ${natMapData.length} NAT mappings in TOML configuration.`,
+        );
+      }
+
       const redisOptions: RedisOptions = {
         password: redis_conf.REDIS_PASSWORD || undefined,
         ...(redis_conf.REDIS_SENTINEL_ENABLED
@@ -57,31 +66,39 @@ export class initialize {
               host: redis_conf.REDIS_HOST || 'localhost',
               port: redis_conf.REDIS_PORT || 6379,
             }),
-        natMap: toml?.redis?.sentinel?.natmap
+        natMap: natMapData
           ? Object.fromEntries(
-              toml.redis.sentinel.natmap.map((nat) => [
+              natMapData.map((nat: any) => [
                 `${nat.nat}`,
                 { host: nat.host, port: nat.port },
               ]),
             )
           : undefined,
         db: redis_conf.REDIS_DB || 0,
-        name: redis_conf.REDIS_NAME || undefined,
+        name: redis_conf.REDIS_NAME || 'mymaster',
         keyPrefix: 'pona:',
         lazyConnect: true,
         enableReadyCheck: true,
         retryStrategy(times) {
-          if (times > 10) {
+          if (times > 20) {
             console.error(
               consoleType.error,
               consolePrefix.redis,
-              '❗ Redis connection failed after 10 attempts',
+              '❗ Redis connection for Socket.io failed after 20 attempts',
             );
             return null; // Stop retrying
           }
-          return Math.min(times * 100, 3000); // Exponential backoff
+          return Math.min(times * 200, 5000); // Exponential backoff
         },
       };
+
+      if (redisOptions.natMap) {
+        console.log(
+          consoleType.info,
+          consolePrefix.redis,
+          `Socket.io Redis natMap: ${JSON.stringify(redisOptions.natMap)}`,
+        );
+      }
 
       console.log(
         consoleType.warn,

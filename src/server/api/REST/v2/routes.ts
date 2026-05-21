@@ -1,3 +1,4 @@
+import blob from './blob';
 import Elysia from 'elysia';
 import guilds from './guilds';
 import music_fetch from './music/fetch';
@@ -10,6 +11,10 @@ if (process.env.NODE_ENV === 'development') {
   player.use(debug);
 }
 
-const routes = new Elysia({ prefix: '/v2' }).use(guilds).use(music).use(player);
+const routes = new Elysia({ prefix: '/v2' })
+  .use(guilds)
+  .use(music)
+  .use(player)
+  .use(blob);
 
 export default routes;

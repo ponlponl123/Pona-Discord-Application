@@ -1,6 +1,6 @@
 import Redis, { type SentinelAddress } from 'ioredis';
 import { prefix as consolePrefix, type as consoleType } from '@config/console';
-import { toml } from '.';
+import toml from './config/toml';
 
 export class RedisClient {
   public redis: Redis;
@@ -8,6 +8,12 @@ export class RedisClient {
 
   constructor() {
     this.redisSentinels = this.buildSentinels();
+    console.log(
+      consoleType.info,
+      consolePrefix.redis,
+      `Configured Redis Sentinel Group: ${process.env['REDIS_NAME'] || 'mymaster'}`,
+    );
+
     this.redisSentinels.forEach((sentinel, i) => {
       console.log(
         consoleType.info,
@@ -15,18 +21,34 @@ export class RedisClient {
         `Configured Redis Sentinel ${i + 1}: ${sentinel.host}:${sentinel.port}`,
       );
     });
-    toml?.redis?.sentinel?.natmap?.forEach((nat, i) => {
+
+    const isSentinel = process.env['REDIS_SENTINEL_ENABLED'] === 'true';
+    const natMapData = toml?.redis?.sentinel?.natmap;
+    
+    if (natMapData) {
       console.log(
         consoleType.info,
         consolePrefix.redis,
-        `Configured Redis Sentinel NAT Mapping ${i + 1}: ${nat.nat} -> ${nat.host}:${nat.port}`,
+        `Found ${natMapData.length} NAT mappings in TOML configuration.`,
       );
-    });
+      natMapData.forEach((nat, i) => {
+        console.log(
+          consoleType.info,
+          consolePrefix.redis,
+          `  Mapping ${i + 1}: ${nat.nat} -> ${nat.host}:${nat.port}`,
+        );
+      });
+    } else {
+      console.log(
+        consoleType.warn,
+        consolePrefix.redis,
+        'No Redis Sentinel NAT mappings found in TOML configuration.',
+      );
+    }
 
-    const isSentinel = process.env['REDIS_SENTINEL_ENABLED'] === 'true';
-    const natMap = toml?.redis?.sentinel?.natmap
+    const natMap = natMapData
       ? Object.fromEntries(
-          toml.redis.sentinel.natmap.map((nat) => [
+          natMapData.map((nat) => [
             `${nat.nat}`,
             { host: nat.host, port: nat.port },
           ]),
@@ -46,15 +68,15 @@ export class RedisClient {
             port: parseInt(process.env['REDIS_PORT'] || '6379'),
           }),
       natMap,
-      name: process.env['REDIS_NAME'] || undefined,
+      name: process.env['REDIS_NAME'] || 'mymaster',
       db: parseInt(process.env['REDIS_DB'] || '0'),
       lazyConnect: true,
       enableReadyCheck: true,
       keyPrefix: 'pona:',
       sentinelReconnectStrategy: (times) =>
-        times > 10 ? null : Math.min(times * 100, 3000),
+        times > 20 ? null : Math.min(times * 200, 5000),
       retryStrategy: (times) =>
-        times > 10 ? null : Math.min(times * 100, 3000),
+        times > 20 ? null : Math.min(times * 200, 5000),
     });
 
     console.log(

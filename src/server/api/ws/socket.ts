@@ -157,7 +157,7 @@ export class initialize {
       );
     }
 
-    dynamicGuildNamespace(this.server);
+    dynamicGuildNamespace();
 
     // Websocket Handshake
     this.server.on('connection', (socket) => {

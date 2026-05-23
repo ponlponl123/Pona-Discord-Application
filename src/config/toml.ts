@@ -1,6 +1,4 @@
 import { TOML } from 'bun';
-import { existsSync, readFileSync } from 'fs';
-import path from 'path';
 import { prefix as consolePrefix, type as consoleType } from './console';
 
 export interface TomlConfig {
@@ -17,17 +15,17 @@ export interface TomlConfig {
   [key: string]: unknown;
 }
 
-export function loadTomlConfig(): TomlConfig {
+export async function loadTomlConfig(): Promise<TomlConfig> {
   const env = process.env.NODE_ENV || 'development';
-  const rootDir = path.join(__dirname, '..', '..');
-  const globalConfigPath = path.join(rootDir, 'config.toml');
-  const envConfigPath = path.join(rootDir, `config.${env}.toml`);
+  const globalConfigPath = 'config.toml';
+  const envConfigPath = `config.${env}.toml`;
 
   let config: TomlConfig = {};
 
   try {
-    if (existsSync(globalConfigPath)) {
-      const globalConfig = TOML.parse(readFileSync(globalConfigPath, 'utf-8'));
+    const globalFile = Bun.file(globalConfigPath);
+    if (await globalFile.exists()) {
+      const globalConfig = TOML.parse(await globalFile.text()) as TomlConfig;
       config = { ...config, ...globalConfig };
       console.log(
         consoleType.info,
@@ -42,9 +40,10 @@ export function loadTomlConfig(): TomlConfig {
       );
     }
 
-    if (existsSync(envConfigPath)) {
-      const envConfig = TOML.parse(readFileSync(envConfigPath, 'utf-8'));
-      config = deepMerge(config, envConfig);
+    const envFile = Bun.file(envConfigPath);
+    if (await envFile.exists()) {
+      const envConfig = TOML.parse(await envFile.text()) as TomlConfig;
+      config = deepMerge(config, envConfig) as TomlConfig;
       console.log(
         consoleType.info,
         consolePrefix.system,
@@ -94,7 +93,10 @@ function isObject(item: unknown): item is Record<string, unknown> {
   return !!item && typeof item === 'object' && !Array.isArray(item);
 }
 
-export const tomlConfig = loadTomlConfig();
+// Since we changed to async, we might need to handle this initialization differently
+// but for now let's keep it as is if we can, or change to a top-level await if Bun supports it in this context.
+// Bun supports top-level await!
+export const tomlConfig = await loadTomlConfig();
 
 export function getConfigValue<T = unknown>(path: string, defaultValue?: T): T {
   const keys = path.split('.');
@@ -112,3 +114,4 @@ export function getConfigValue<T = unknown>(path: string, defaultValue?: T): T {
 }
 
 export default tomlConfig;
+

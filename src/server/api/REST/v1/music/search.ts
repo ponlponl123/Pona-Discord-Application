@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
-import { redisClient, ytmusic } from '@/index';
+import { container } from '@/core/container';
 import { prisma } from '@/prisma';
 
 export default new Elysia().get(
@@ -28,8 +28,8 @@ export default new Elysia().get(
       }
 
       if (is_suggestion === 'true') {
-        if (redisClient?.redis) {
-          const value = await redisClient.redis.get(
+        if (container.redis?.redis) {
+          const value = await container.redis.redis.get(
             `yt:search:suggestions:${String(q)}`,
           );
           if (value) {
@@ -37,10 +37,10 @@ export default new Elysia().get(
             return { message: 'Ok', searchSuggestions: JSON.parse(value) };
           }
         }
-        const searchSuggestions = await ytmusic.client.getSearchSuggestions(
+        const searchSuggestions = await container.ytmusic.client.getSearchSuggestions(
           String(q),
         );
-        redisClient?.redis.setex(
+        container.redis?.redis.setex(
           `yt:search:suggestions:${String(q)}`,
           1800,
           JSON.stringify(searchSuggestions),
@@ -56,15 +56,15 @@ export default new Elysia().get(
           },
         });
         
-        if (redisClient?.redis) {
-          redisClient.redis
+        if (container.redis?.redis) {
+          container.redis.redis
             .multi()
             .lrem(`user:${user.id}:history:search`, 0, String(q))
             .lpush(`user:${user.id}:history:search`, String(q))
             .ltrim(`user:${user.id}:history:search`, 0, 7)
             .expire(`user:${user.id}:history:search`, 600)
             .exec();
-          const value = await redisClient.redis.get(
+          const value = await container.redis.redis.get(
             `yt:search:query:${filter || 'all'}:${String(q)}`,
           );
           if (value) {
@@ -79,7 +79,7 @@ export default new Elysia().get(
           set.status = HttpStatusCode.ServiceUnavailable;
           return { message: 'Service Unavailable' };
         }
-        redisClient?.redis.setex(
+        container.redis?.redis.setex(
           `yt:search:query:${filter || 'all'}:${String(q)}`,
           300,
           JSON.stringify(searchResult.data.result),

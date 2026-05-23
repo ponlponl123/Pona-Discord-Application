@@ -1,4 +1,4 @@
-import { discordClient as self } from '@/index';
+import { container } from '@/core/container';
 import successEmbedBuilder from '@utils/embeds/success';
 import informationEmbedBuilder from '@utils/embeds/infomation';
 import { getGuildLanguage, languageCode, langs } from '@utils/i18n';
@@ -19,6 +19,7 @@ export default async function execute(
   interaction: ChatInputCommandInteraction,
   value: languageCode = 'en-US',
 ) {
+  const self = container.pona;
   try {
     const member = interaction.member as GuildMember;
     const lang = await getGuildLanguage(member.guild.id);
@@ -27,7 +28,7 @@ export default async function execute(
     });
 
     if (member.permissions.has('ManageGuild') && interaction.guild) {
-      await self.saveGuildSettings(interaction.guild.id, {
+      await container.pona.saveGuildSettings(interaction.guild.id, {
         language: value,
       });
       const newlang = langs.filter((language) => language.code === value);

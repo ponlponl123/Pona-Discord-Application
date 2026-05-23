@@ -15,7 +15,7 @@ import {
   InteractionContextType,
   MessageFlags,
 } from 'discord.js';
-import { discordClient as self } from '@/index';
+import { container } from '@/core/container';
 import warningEmbedBuilder from '@utils/embeds/warning';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
 import isVoiceActionRequirement from '@utils/player/isVoiceActionRequirement';
@@ -31,6 +31,7 @@ export const data = new SlashCommandBuilder()
 export default async function execute(
   interaction: ChatInputCommandInteraction,
 ) {
+  const self = container.pona;
   try {
     const member = interaction.member as GuildMember;
     const lang = await getGuildLanguage(member.guild.id);
@@ -183,7 +184,7 @@ export default async function execute(
                   answer.poll.message.deletable &&
                     (await answer.poll.message.delete());
                 } else
-                  self.client.once(Events.MessagePollVoteAdd, listeningAdd);
+                  container.pona.client.once(Events.MessagePollVoteAdd, listeningAdd);
               };
               const listeningRm = async (
                 answer: PollAnswer | PartialPollAnswer,
@@ -200,12 +201,12 @@ export default async function execute(
                   ).size
                 ) {
                   minVotes--;
-                  self.client.once(Events.MessagePollVoteAdd, listeningRm);
+                  container.pona.client.once(Events.MessagePollVoteAdd, listeningRm);
                   return;
                 }
               };
-              self.client.once(Events.MessagePollVoteAdd, listeningAdd);
-              self.client.once(Events.MessagePollVoteRemove, listeningRm);
+              container.pona.client.once(Events.MessagePollVoteAdd, listeningAdd);
+              container.pona.client.once(Events.MessagePollVoteRemove, listeningRm);
               return;
             } else {
               return await remove(selected[0] as Track, false);

@@ -1,15 +1,8 @@
-import { config } from 'dotenv';
 import path from 'node:path';
 
-if (process.env.NODE_ENV === 'development') {
-  const envPath = path.resolve(
-    __dirname,
-    '..',
-    '..',
-    `.env.${process.env.NODE_ENV}`,
-  );
-  config({ path: envPath });
-}
+// Bun handles .env files automatically. 
+// If you need to load a specific file based on NODE_ENV, you can still use Bun.loadEnv or similar, 
+// but for standard .env and .env.development it's automatic.
 
 export const env = process.env;
 export const argv = process.argv;

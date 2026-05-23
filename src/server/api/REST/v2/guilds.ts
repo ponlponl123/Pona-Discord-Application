@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia';
 import axios, { HttpStatusCode } from 'axios';
-import { redisClient, discordClient as self } from '@/index';
+import { container } from '@/core/container';
 import { Guild, type OAuth2Guild } from 'discord.js';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { isApiKeyInDatabase } from '@/utils/apikey';
@@ -34,6 +34,7 @@ async function canDebug(
 export default new Elysia().get(
   '/guilds',
   async ({ cookie: { type, key }, headers, set }) => {
+    const { pona } = container;
     try {
       const authorization_type = String(type?.value || '');
       const authorization_key = String(key?.value || '');
@@ -67,8 +68,8 @@ export default new Elysia().get(
 
       // Check Redis cache FIRST (before Discord API call)
       const cacheKey = `user:${userInfo.id}:guilds`;
-      if (redisClient?.redis) {
-        const cached = await redisClient.redis.get(cacheKey);
+      if (container.redis?.redis) {
+        const cached = await container.redis.redis.get(cacheKey);
         if (cached) {
           set.status = HttpStatusCode.Ok;
           set.headers['Cache-Control'] = 'private, max-age=60'; // Client can cache for 60s
@@ -108,7 +109,7 @@ export default new Elysia().get(
       const guildWithPona: Guild[] = [];
 
       for (const guildId of userGuildIds) {
-        const guildCache = self.client.guilds.cache.get(guildId);
+        const guildCache = pona.client.guilds.cache.get(guildId);
         if (guildCache) guildWithPona.push(guildCache);
       }
 
@@ -118,7 +119,9 @@ export default new Elysia().get(
       }
 
       // Cache in Redis for 5 minutes (fire and forget)
-      redisClient?.redis?.setex(cacheKey, 300, JSON.stringify(guildWithPona));
+      if (container.redis?.redis) {
+        container.redis.redis.setex(cacheKey, 300, JSON.stringify(guildWithPona));
+      }
 
       set.status = HttpStatusCode.Ok;
       set.headers['Cache-Control'] = 'private, max-age=60'; // Client can cache for 60s

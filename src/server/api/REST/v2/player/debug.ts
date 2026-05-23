@@ -1,10 +1,10 @@
-import { lavalink } from '@/index';
+import { container } from '@/core/container';
 import Elysia, { t } from 'elysia';
 
 export default new Elysia().get(
   '/debug',
   async ({ params }) => {
-    const player = lavalink?.manager?.players.get(params['guildId']);
+    const player = container.lavalink?.manager?.players.get(params['guildId']);
     return {
       debug:
         'This endpoint is for debugging purposes. It returns various information about the server and the player state.',

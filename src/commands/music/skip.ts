@@ -12,7 +12,7 @@ import {
   User,
   MessageFlags,
 } from 'discord.js';
-import { discordClient as self } from '@/index';
+import { container } from '@/core/container';
 import warningEmbedBuilder from '@utils/embeds/warning';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
 import isVoiceActionRequirement from '@utils/player/isVoiceActionRequirement';
@@ -28,6 +28,7 @@ export const data = new SlashCommandBuilder()
 export default async function execute(
   interaction: ChatInputCommandInteraction,
 ) {
+  const self = container.pona;
   try {
     const member = interaction.member as GuildMember;
     const lang = await getGuildLanguage(member.guild.id);

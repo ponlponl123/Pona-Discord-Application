@@ -6,7 +6,7 @@ import {
   InteractionContextType,
   MessageFlags,
 } from 'discord.js';
-import { discordClient as self } from '@/index';
+import { container } from '@/core/container';
 import warningEmbedBuilder from '@utils/embeds/warning';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
 import isVoiceActionRequirement from '@utils/player/isVoiceActionRequirement';
@@ -73,7 +73,7 @@ export default async function execute(
           iconURL:
             (playback.queue.current?.requester &&
               (
-                await self.client.users.fetch(
+                await container.pona.client.users.fetch(
                   playback.queue.current.requester.id,
                 )
               ).avatarURL()) ||

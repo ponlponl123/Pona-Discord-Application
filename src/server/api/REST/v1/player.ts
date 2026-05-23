@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { discordClient as discord } from '@/index';
+import { container } from '@/core/container';
 import isPonaInVoiceChannel from '@/utils/isPonaInVoiceChannel';
 
 export default new Elysia().get(
@@ -12,7 +12,7 @@ export default new Elysia().get(
         set.status = HttpStatusCode.BadRequest;
         return { error: 'Missing guildId' };
       }
-      const guild = discord.client.guilds.cache.get(guildid);
+      const guild = container.pona.client.guilds.cache.get(guildid);
       if (!guild) {
         set.status = HttpStatusCode.NotFound;
         return { error: 'Guild not found' };

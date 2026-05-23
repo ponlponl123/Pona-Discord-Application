@@ -1,110 +1,39 @@
-import Pona from './client';
-import eventManager from './events';
-import { Database } from './database';
-import LavalinkServer from './lavalink';
-import { prefix as consolePrefix, type as consoleType } from '@config/console';
-import { config as redisConf } from '@config/redis';
-import { config as discordConf } from '@config/discord';
-import { config as expressConf } from '@config/express';
-import { config as databaseConf } from '@config/database';
-import { apiServer as createAPIServer } from '@server/main';
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
-import { getInfo } from 'discord-hybrid-sharding';
-import { PonaYTMusicAPI } from './ytmusic';
-import tomlConfig from './config/toml';
-import RedisClient from './redis';
-import { prisma } from './prisma';
+import { container } from '@/core/container';
+import { prefix as consolePrefix } from '@config/console';
+import logger from '@/core/logger';
 
-export const needCluster = process.env['CLUSTER'] === 'true';
-let shardList: number[] | undefined;
-let shardCount = 1;
-
-if (needCluster) {
+async function bootstrap() {
   try {
-    const info = getInfo();
-    shardList = info.SHARD_LIST;
-    shardCount = info.TOTAL_SHARDS;
-  } catch {
-    console.info(
-      consoleType.info,
-      consolePrefix.shard,
-      'Cluster info not available.',
-    );
+    await container.initialize();
+    
+    // Inject dependencies into Pona client
+    container.pona.setLavalink(container.lavalink);
+
+    logger.info(consolePrefix.system, 'Pona Backend is fully operational!');
+  } catch (error) {
+    logger.error(consolePrefix.system, 'Failed to bootstrap Pona Backend', error);
+    process.exit(1);
   }
 }
 
-const client = new Client({
-  shards: shardList,
-  shardCount,
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessagePolls,
-    GatewayIntentBits.GuildMessageReactions,
-  ],
-  partials: [Partials.GuildMember],
-});
-
-export const debugMode =
-  process.env['DEBUG_MODE'] === 'true' ||
-  process.env['NODE_ENV'] === 'development';
-export const config = discordConf;
-export const toml = tomlConfig;
-export const runner = process.env['RUNNER'] || 'default';
-export const pona = new Pona(client, needCluster);
-export const discordClient = pona;
-export const database = new Database({
-  host: databaseConf.host || 'localhost',
-  port: databaseConf.port || 3306,
-  user: databaseConf.user || 'localhost',
-  password: databaseConf.password || 'secret',
-  database: databaseConf.database || 'my_db',
-});
-export const redisClient = redisConf.REDIS_ENABLED
-  ? new RedisClient()
-  : undefined;
-export const lavalink = new LavalinkServer(
-  discordClient.client.user?.id || config.DISCORD_CLIENT_ID,
-);
-export const apiServer = new createAPIServer(expressConf.EXPRESS_PORT);
-export const ponaEventManager = new eventManager();
-export const ytmusic = new PonaYTMusicAPI();
-
 async function shutdown() {
+  logger.info(consolePrefix.system, 'Shutting down...');
+  
   try {
-    await redisClient?.redis.quit();
-    console.log(
-      consoleType.info,
-      consolePrefix.redis,
-      'Redis connection closed.',
-    );
+    if (container.redis) {
+      await container.redis.redis.quit();
+      logger.info(consolePrefix.redis, 'Redis connection closed.');
+    }
   } catch (err) {
-    console.error(
-      consoleType.error,
-      consolePrefix.redis,
-      'Error closing Redis:',
-      err,
-    );
+    logger.error(consolePrefix.redis, 'Error closing Redis', err);
   }
 
   try {
+    const { prisma } = await import('./prisma');
     await prisma.$disconnect();
-    console.log(
-      consoleType.info,
-      consolePrefix.database,
-      'Database connection closed.',
-    );
+    logger.info(consolePrefix.database, 'Database connection closed.');
   } catch (err) {
-    console.error(
-      consoleType.error,
-      consolePrefix.database,
-      'Error closing database:',
-      err,
-    );
+    logger.error(consolePrefix.database, 'Error closing database', err);
   }
 
   process.exit(0);
@@ -112,3 +41,7 @@ async function shutdown() {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
+
+bootstrap();
+
+export { container };

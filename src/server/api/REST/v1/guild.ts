@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { redisClient, discordClient as self } from '@/index';
+import { container } from '@/core/container';
 import { prisma } from '@/prisma';
 import JSONBig from 'json-bigint';
 
@@ -25,7 +25,7 @@ export default new Elysia()
         return { message: 'guildId is not a string' };
       }
 
-      const guild = self.client.guilds.cache.get(guildid);
+      const guild = container.pona.client.guilds.cache.get(guildid);
 
       if (!guild) {
         set.status = HttpStatusCode.NotFound;
@@ -55,7 +55,7 @@ export default new Elysia()
           return { message: 'guildId is not a string' };
         }
 
-        const guild = self.client.guilds.cache.get(guildid);
+        const guild = container.pona.client.guilds.cache.get(guildid);
 
         if (!guild) {
           set.status = HttpStatusCode.NotFound;
@@ -64,11 +64,11 @@ export default new Elysia()
 
         switch (query) {
           case 'stats': {
-            if (redisClient?.redis) {
-              const active = await redisClient.redis.get(
+            if (container.redis?.redis) {
+              const active = await container.redis.redis.get(
                 `guild:${guildid}:stats:active`,
               );
-              const history = await redisClient.redis.get(
+              const history = await container.redis.redis.get(
                 `guild:${guildid}:stats:history`,
               );
               if (active && history) {
@@ -175,12 +175,12 @@ export default new Elysia()
                 channel.name = guild.channels.cache.get(channel.id)?.name;
               });
             });
-            redisClient?.redis.setex(
+            container.redis?.redis.setex(
               `guild:${guildid}:stats:active`,
               300,
               JSONBig.stringify(rows),
             );
-            redisClient?.redis.setex(
+            container.redis?.redis.setex(
               `guild:${guildid}:stats:history`,
               300,
               JSONBig.stringify(rows2),

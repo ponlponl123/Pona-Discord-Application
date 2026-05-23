@@ -1,4 +1,4 @@
-import { lavalink } from '@/index';
+import { container } from '@/core/container';
 import { TextBasedChannel, Guild, VoiceBasedChannel } from 'discord.js';
 import { Band } from '../lavalink/equalizers';
 import { Player } from '@/lavalink';
@@ -6,7 +6,7 @@ import { Player } from '@/lavalink';
 export default async function joinChannel(channel: TextBasedChannel, voiceChannel: VoiceBasedChannel, guild: Guild): Promise<Player | undefined> {
     if ( !voiceChannel.isVoiceBased() || !voiceChannel.joinable ) return undefined;
     
-    const player: Player = lavalink.manager.create({
+    const player: Player = container.lavalink.manager.create({
         guild: guild.id,
         voiceChannel: voiceChannel.id,
         textChannel: channel.id,

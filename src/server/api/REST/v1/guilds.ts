@@ -1,9 +1,10 @@
 import { Elysia } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { discordClient as self } from '@/index';
+import { container } from '@/core/container';
 import { Guild } from 'discord.js';
 
 export default new Elysia().get('/guilds', ({ body, set }) => {
+  const { pona } = container;
   try {
     const guilds = body;
 
@@ -19,11 +20,7 @@ export default new Elysia().get('/guilds', ({ body, set }) => {
     const guildWithPona: Guild[] = [];
 
     (guilds as Array<string>).forEach((guild) => {
-      // if (!self.client.guilds.cache.has(guild) ) {
-      //   set.status = HttpStatusCode.NotFound;
-      //   return { error: `Guild ${guild} not found` };
-      // }
-      const guildCache = self.client.guilds.cache.get(guild);
+      const guildCache = pona.client.guilds.cache.get(guild);
       if (guildCache) guildWithPona.push(guildCache);
     });
 

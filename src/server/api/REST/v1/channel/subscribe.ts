@@ -1,9 +1,75 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { redisClient } from '@/index';
+import { container } from '@/core/container';
 import { prisma } from '@/prisma';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { getChannel, IsValidChannel } from '@/utils/ytmusic-api/getChannel';
+
+async function listSubscriptions(user: any, limit?: string | number) {
+  const q_limit = Number(limit) || 14;
+  if (container.redis?.redis) {
+    const value = await container.redis.redis.get(
+      `user:${user.id}:subscribe_cache`,
+    );
+    if (value) {
+      return { message: 'Ok', result: JSON.parse(value) };
+    }
+  }
+
+  const channels = await prisma.subscribe_artist.findMany({
+    where: { uid: user.id },
+    take: q_limit,
+  });
+
+  if (!channels || channels.length === 0) {
+    return { error: 'Not Found' };
+  }
+
+  const now = new Date();
+  const subscribed_channels = await Promise.all(
+    channels.map(async (channel: any) => {
+      const lastUpdated = channel.cache_lastupdated || new Date(0);
+      const needsFetch =
+        !channel.cache || lastUpdated.getTime() < now.getTime() - 86400000;
+
+      if (needsFetch) {
+        const fetchChannel: any = await getChannel(channel.target);
+        if (fetchChannel?.result) {
+          await prisma.subscribe_artist.update({
+            where: {
+              uid_target: { uid: user.id, target: channel.target },
+            },
+            data: {
+              cache: JSON.stringify(fetchChannel.result),
+              cache_lastupdated: now,
+            },
+          });
+          return { artistId: channel.target, info: fetchChannel.result };
+        }
+      }
+      return {
+        artistId: channel.target,
+        info: JSON.parse(channel?.cache || '{}'),
+      };
+    }),
+  );
+
+  if (container.redis?.redis) {
+    const multi = container.redis.redis.multi();
+    for (const channel of channels) {
+      multi.hset(`user:${user.id}:subscribe`, channel.target, 1);
+    }
+    multi.expire(`user:${user.id}:subscribe`, 86400);
+    multi.setex(
+      `user:${user.id}:subscribe_cache`,
+      30,
+      JSON.stringify(subscribed_channels),
+    );
+    multi.exec();
+  }
+
+  return { message: 'Ok', result: subscribed_channels };
+}
 
 export default new Elysia()
   .get(
@@ -11,28 +77,37 @@ export default new Elysia()
     async ({ headers, query, set }) => {
       try {
         const { authorization } = headers;
-        const { c } = query;
+        const { c, limit } = query;
+
         if (!authorization) {
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        const tokenType = authorization.split(' ')[0];
-        const tokenKey = authorization.split(' ')[1];
-        const channelId = String(c);
-        const user: any = await fetchUserByOAuthAccessToken(
-          tokenType,
-          tokenKey,
-        );
+
+        const [tokenType, tokenKey] = authorization.split(' ');
+        const user: any = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
         if (!user) {
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        if (!channelId || !(await IsValidChannel(channelId))) {
+
+        // If no channel ID provided, return list of subscriptions
+        if (!c) {
+          const result: any = await listSubscriptions(user, limit);
+          if (result.error) {
+            set.status = result.error === 'Not Found' ? 404 : 400;
+          }
+          return result;
+        }
+
+        const channelId = String(c);
+        if (!(await IsValidChannel(channelId))) {
           set.status = HttpStatusCode.BadRequest;
           return { error: 'Invalid channelId' };
         }
-        if (redisClient?.redis) {
-          const value = await redisClient.redis.hget(
+
+        if (container.redis?.redis) {
+          const value = await container.redis.redis.hget(
             `user:${user.id}:subscribe`,
             channelId,
           );
@@ -44,34 +119,30 @@ export default new Elysia()
             };
           }
         }
-        
+
         const subscription = await prisma.subscribe_artist.findUnique({
           where: {
-            uid_target: {
-              uid: user.id,
-              target: channelId,
-            },
+            uid_target: { uid: user.id, target: channelId },
           },
         });
 
         if (subscription) {
-          if (redisClient?.redis)
-            (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
-              redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
+          if (container.redis?.redis) {
+            container.redis.redis.hset(`user:${user.id}:subscribe`, channelId, 1);
+            container.redis.redis.expire(`user:${user.id}:subscribe`, 86400);
+          }
           set.status = HttpStatusCode.Ok;
           return { message: 'Subscribed', state: 1 };
         }
-        if (redisClient?.redis)
-          (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
-            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
+
+        if (container.redis?.redis) {
+          container.redis.redis.hset(`user:${user.id}:subscribe`, channelId, 0);
+          container.redis.redis.expire(`user:${user.id}:subscribe`, 86400);
+        }
         set.status = HttpStatusCode.Ok;
         return { message: 'Unsubscribed', state: 0 };
       } catch (error) {
         console.error(error);
-        if (process.env.NODE_ENV === 'development') {
-          set.status = HttpStatusCode.InternalServerError;
-          return { error: String(error) };
-        }
         set.status = HttpStatusCode.InternalServerError;
         return { error: 'Internal Server Error' };
       }
@@ -81,7 +152,8 @@ export default new Elysia()
         authorization: t.String(),
       }),
       query: t.Object({
-        c: t.String(),
+        c: t.Optional(t.String()),
+        limit: t.Optional(t.String()),
       }),
     },
   )
@@ -90,168 +162,33 @@ export default new Elysia()
     async ({ headers, params, query, set }) => {
       try {
         const { authorization } = headers;
-        const { c, limit } = query;
+        const { limit } = query;
         const { options } = params;
+
         if (!authorization) {
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        const tokenType = authorization.split(' ')[0];
-        const tokenKey = authorization.split(' ')[1];
-        const channelId = String(c);
-        const user: any = await fetchUserByOAuthAccessToken(
-          tokenType,
-          tokenKey,
-        );
+
+        const [tokenType, tokenKey] = authorization.split(' ');
+        const user: any = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
         if (!user) {
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        if (!options) {
-          if (!channelId || !(await IsValidChannel(channelId))) {
-            set.status = HttpStatusCode.BadRequest;
-            return { error: 'Invalid channelId' };
+
+        if (options === 's') {
+          const result: any = await listSubscriptions(user, limit);
+          if (result.error) {
+            set.status = result.error === 'Not Found' ? 404 : 400;
           }
-          if (redisClient?.redis) {
-            const value = await redisClient.redis.hget(
-              `user:${user.id}:subscribe`,
-              channelId,
-            );
-            if (value && Number(value)) {
-              set.status = HttpStatusCode.Ok;
-              return {
-                message: value === '1' ? 'Subscribed' : 'Unsubscribed',
-                state: Number(value),
-              };
-            }
-          }
-          
-          const subscription = await prisma.subscribe_artist.findUnique({
-            where: {
-              uid_target: {
-                uid: user.id,
-                target: channelId,
-              },
-            },
-          });
-
-          if (subscription) {
-            if (redisClient?.redis)
-              (redisClient.redis.hset(
-                `user:${user.id}:subscribe`,
-                channelId,
-                1,
-              ),
-                redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
-            set.status = HttpStatusCode.Ok;
-            return { message: 'Subscribed', state: 1 };
-          }
-          if (redisClient?.redis)
-            (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
-              redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
-          set.status = HttpStatusCode.Ok;
-          return { message: 'Unsubscribed', state: 0 };
-        } else {
-          switch (options) {
-            case 's':
-              if (limit && !Number(limit)) {
-                set.status = HttpStatusCode.BadRequest;
-                return {
-                  error:
-                    'limit parameter must be a number and not greater than 100',
-                };
-              }
-              let q_limit = Number(limit) || 14;
-              if (redisClient?.redis) {
-                const value = await redisClient.redis.get(
-                  `user:${user.id}:subscribe_cache`,
-                );
-                if (value) {
-                  set.status = HttpStatusCode.Ok;
-                  return { message: 'Ok', result: JSON.parse(value) };
-                }
-              }
-              
-              const channels = await prisma.subscribe_artist.findMany({
-                where: {
-                  uid: user.id,
-                },
-                take: q_limit,
-              });
-
-              if (channels && channels.length > 0) {
-                const now = new Date();
-                
-                // Process all channels in parallel
-                const subscribed_channels = await Promise.all(
-                  channels.map(async (channel: any) => {
-                    // Check if cache is stale (older than 24h)
-                    const lastUpdated = channel.cache_lastupdated || new Date(0);
-                    const needsFetch =
-                      !channel.cache ||
-                      lastUpdated.getTime() < now.getTime() - 86400000;
-
-                    if (needsFetch) {
-                      const fetchChannel: any = await getChannel(
-                        channel.target,
-                      );
-                      if (fetchChannel?.result) {
-                        await prisma.subscribe_artist.update({
-                          where: {
-                            uid_target: {
-                              uid: user.id,
-                              target: channel.target,
-                            },
-                          },
-                          data: {
-                            cache: JSON.stringify(fetchChannel.result),
-                            cache_lastupdated: now,
-                          },
-                        });
-                        return {
-                          artistId: channel.target,
-                          info: fetchChannel.result,
-                        };
-                      }
-                    }
-                    return {
-                      artistId: channel.target,
-                      info: JSON.parse(channel?.cache || '{}'),
-                    };
-                  }),
-                );
-
-                // Batch Redis operations
-                if (redisClient?.redis) {
-                  const multi = redisClient.redis.multi();
-                  for (const channel of channels) {
-                    multi.hset(`user:${user.id}:subscribe`, channel.target, 1);
-                  }
-                  multi.expire(`user:${user.id}:subscribe`, 86400);
-                  multi.setex(
-                    `user:${user.id}:subscribe_cache`,
-                    30,
-                    JSON.stringify(subscribed_channels),
-                  );
-                  multi.exec(); // Fire and forget
-                }
-
-                set.status = HttpStatusCode.Ok;
-                return { message: 'Ok', result: subscribed_channels };
-              }
-              set.status = HttpStatusCode.NotFound;
-              return { error: 'Not Found' };
-            default:
-              set.status = HttpStatusCode.MethodNotAllowed;
-              return { error: 'Method Not Allowed' };
-          }
+          return result;
         }
+
+        set.status = HttpStatusCode.MethodNotAllowed;
+        return { error: 'Method Not Allowed' };
       } catch (error) {
         console.error(error);
-        if (process.env.NODE_ENV === 'development') {
-          set.status = HttpStatusCode.InternalServerError;
-          return { error: String(error) };
-        }
         set.status = HttpStatusCode.InternalServerError;
         return { error: 'Internal Server Error' };
       }
@@ -262,6 +199,9 @@ export default new Elysia()
       }),
       params: t.Object({
         options: t.String(),
+      }),
+      query: t.Object({
+        limit: t.Optional(t.String()),
       }),
     },
   )
@@ -275,46 +215,39 @@ export default new Elysia()
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        const tokenType = authorization.split(' ')[0];
-        const tokenKey = authorization.split(' ')[1];
-        const channelId = String(c);
-        const user: any = await fetchUserByOAuthAccessToken(
-          tokenType,
-          tokenKey,
-        );
+        if (!c) {
+          set.status = HttpStatusCode.BadRequest;
+          return { error: 'Missing required parameter: c' };
+        }
+        const [tokenType, tokenKey] = authorization.split(' ');
+        const user: any = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
         if (!user) {
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        if (!channelId || !(await IsValidChannel(channelId))) {
+        const channelId = String(c);
+        if (!(await IsValidChannel(channelId))) {
           set.status = HttpStatusCode.BadRequest;
           return { error: 'Invalid channelId' };
         }
-        if (redisClient?.redis)
-          (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 1),
-            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
-        
+
+        if (container.redis?.redis) {
+          container.redis.redis.hset(`user:${user.id}:subscribe`, channelId, 1);
+          container.redis.redis.expire(`user:${user.id}:subscribe`, 86400);
+        }
+
         await prisma.subscribe_artist.upsert({
           where: {
-            uid_target: {
-              uid: user.id,
-              target: channelId,
-            },
+            uid_target: { uid: user.id, target: channelId },
           },
           update: {},
-          create: {
-            uid: user.id,
-            target: channelId,
-          },
+          create: { uid: user.id, target: channelId },
         });
 
         set.status = HttpStatusCode.Ok;
         return { message: 'Ok' };
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          set.status = HttpStatusCode.InternalServerError;
-          return { error: String(error) };
-        }
+        console.error(error);
         set.status = HttpStatusCode.InternalServerError;
         return { error: 'Internal Server Error' };
       }
@@ -324,7 +257,7 @@ export default new Elysia()
         authorization: t.String(),
       }),
       query: t.Object({
-        c: t.String(),
+        c: t.Optional(t.String()),
       }),
     },
   )
@@ -338,40 +271,35 @@ export default new Elysia()
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        const tokenType = authorization.split(' ')[0];
-        const tokenKey = authorization.split(' ')[1];
-        const channelId = String(c);
-        const user: any = await fetchUserByOAuthAccessToken(
-          tokenType,
-          tokenKey,
-        );
+        if (!c) {
+          set.status = HttpStatusCode.BadRequest;
+          return { error: 'Missing required parameter: c' };
+        }
+        const [tokenType, tokenKey] = authorization.split(' ');
+        const user: any = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
         if (!user) {
           set.status = HttpStatusCode.Unauthorized;
           return { error: 'Unauthorized' };
         }
-        if (!channelId || !(await IsValidChannel(channelId))) {
+        const channelId = String(c);
+        if (!(await IsValidChannel(channelId))) {
           set.status = HttpStatusCode.BadRequest;
           return { error: 'Invalid channelId' };
         }
-        if (redisClient?.redis)
-          (redisClient.redis.hset(`user:${user.id}:subscribe`, channelId, 0),
-            redisClient.redis.expire(`user:${user.id}:subscribe`, 86400));
-        
+
+        if (container.redis?.redis) {
+          container.redis.redis.hset(`user:${user.id}:subscribe`, channelId, 0);
+          container.redis.redis.expire(`user:${user.id}:subscribe`, 86400);
+        }
+
         await prisma.subscribe_artist.deleteMany({
-          where: {
-            uid: user.id,
-            target: channelId,
-          },
+          where: { uid: user.id, target: channelId },
         });
 
         set.status = HttpStatusCode.Ok;
         return { message: 'Ok' };
       } catch (error) {
         console.error(error);
-        if (process.env.NODE_ENV === 'development') {
-          set.status = HttpStatusCode.InternalServerError;
-          return { error: String(error) };
-        }
         set.status = HttpStatusCode.InternalServerError;
         return { error: 'Internal Server Error' };
       }
@@ -381,7 +309,7 @@ export default new Elysia()
         authorization: t.String(),
       }),
       query: t.Object({
-        c: t.String(),
+        c: t.Optional(t.String()),
       }),
     },
   );

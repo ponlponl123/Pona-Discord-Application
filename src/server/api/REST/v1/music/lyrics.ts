@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import axios, { HttpStatusCode } from 'axios';
 import https from 'https';
-import { ytmusic } from '@/index';
+import { container } from '@/core/container';
 import { type Lyric, type TimestampLyrics } from '@/interfaces/player';
 import { parseLyrics } from '@/utils/parser';
 
@@ -20,7 +20,7 @@ export async function fetchLyrics(
   engine: 'boidu' | 'lrclib',
   title: string,
   author: string,
-  duration: number,
+  duration?: number,
 ): Promise<false | Lyric>;
 export async function fetchLyrics(
   engine: 'textyl',
@@ -38,17 +38,15 @@ export async function fetchLyrics(
       if (!arg1) throw Error('Missing required arguments');
 
       try {
-        // youtubei.js does not support timed/synced lyrics natively
-        // Use yt.music.getLyrics() directly (trackInfo.getLyrics() has known issues)
-        const lyricsData = await ytmusic.client.music.getLyrics(arg1);
+        const lyricsData = await container.ytmusic.client.music.getLyrics(arg1);
         if (lyricsData && lyricsData.description?.text) {
           const lines = lyricsData.description.text.split('\n').filter(Boolean);
           return {
             isTimestamp: false,
             lyrics: lines,
-          } as Lyric;
+          };
         }
-        throw Error('Unknown response');
+        return false;
       } catch (err) {
         console.error(err);
         throw Error('Error fetching lyrics: ' + err);
@@ -58,100 +56,66 @@ export async function fetchLyrics(
       if (!arg1) throw Error('Missing required arguments');
 
       try {
-        const lyricsData = await ytmusic.client.music.getLyrics(arg1);
+        const lyricsData = await container.ytmusic.client.music.getLyrics(arg1);
         if (lyricsData && lyricsData.description?.text) {
           const lines = lyricsData.description.text.split('\n').filter(Boolean);
           return {
             isTimestamp: false,
             lyrics: lines,
-          } as Lyric;
+          };
         }
-        throw Error('Unknown response');
+        return false;
       } catch (err) {
         console.error(err);
         throw Error('Error fetching lyrics: ' + err);
       }
     }
     case 'boidu': {
-      if (!arg1 || !arg2 || !arg3) throw Error('Missing required arguments');
-      const endpoint = new URL('https://lyrics-api.boidu.dev/getLyrics');
-      endpoint.searchParams.append('s', String(arg1));
-      endpoint.searchParams.append('a', String(arg2));
-      endpoint.searchParams.append('d', String(arg3));
-
-      try {
-        const response = await axios.get(endpoint.toString());
-
-        if (response.status !== 200) throw Error('Failed to fetch lyrics');
-
-        if (response.data.syncedLyrics || response.data.plainLyrics)
-          return parseLyrics(
-            response.data.syncedLyrics || response.data.plainLyrics,
-          );
-
-        throw Error('Unknown response');
-      } catch (err) {
-        console.error(err);
-        throw Error('Error fetching lyrics: ' + err);
+      if (!arg1 || !arg2) throw Error('Missing required arguments');
+      const searchUrl = `https://boidu.ponlponl123.com/api/lyrics?title=${encodeURIComponent(arg1)}&artist=${encodeURIComponent(arg2)}`;
+      const res = await axios.get(searchUrl).catch(() => null);
+      if (res && res.status === 200 && res.data.lyrics) {
+        return {
+          isTimestamp: false,
+          lyrics: res.data.lyrics,
+        };
       }
+      return false;
     }
     case 'lrclib': {
-      if (!arg1 || !arg2 || !arg3) throw Error('Missing required arguments');
-      const endpoint = new URL('https://lrclib.net/api/get');
-      endpoint.searchParams.append('track_name', String(arg1));
-      endpoint.searchParams.append('artist_name', String(arg2));
-      endpoint.searchParams.append('duration', String(arg3));
+      if (!arg1 || !arg2) throw Error('Missing required arguments');
+      let searchUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(arg2)}&track_name=${encodeURIComponent(arg1)}`;
+      if (arg3) searchUrl += `&duration=${Math.floor(arg3 / 1000)}`;
 
-      try {
-        const response = await axios.get(endpoint.toString());
-
-        if (response.status !== 200) throw Error('Failed to fetch lyrics');
-
-        if (response.data.syncedLyrics || response.data.plainLyrics)
-          return parseLyrics(
-            response.data.syncedLyrics || response.data.plainLyrics,
-          );
-
-        throw Error('Unknown response');
-      } catch (err) {
-        console.error(err);
-        throw Error('Error fetching lyrics: ' + err);
+      const res = await axios.get(searchUrl).catch(() => null);
+      if (res && res.status === 200) {
+        const data = res.data;
+        if (data.syncedLyrics) {
+          return parseLyrics(data.syncedLyrics);
+        } else if (data.plainLyrics) {
+          return {
+            isTimestamp: false,
+            lyrics: data.plainLyrics.split('\n'),
+          };
+        }
       }
+      return false;
     }
     case 'textyl': {
       if (!arg1 || !arg2) throw Error('Missing required arguments');
-
-      const agent = new https.Agent({
-        rejectUnauthorized: false,
-      });
-
-      const endpoint = new URL('https://api.textyl.co/api/lyrics');
-      endpoint.searchParams.append(
-        'q',
-        `${String(arg2).toLowerCase()} - ${String(arg1).toLowerCase()}`,
-      );
-
-      try {
-        const response = await axios.get(endpoint.toString(), {
-          httpsAgent: agent,
-        });
-
-        if (response.status !== 200) throw Error('Failed to fetch lyrics');
-
-        if (response.data.length > 0)
-          return {
-            isTimestamp: true,
-            lyrics: response.data as TimestampLyrics[],
-          } as Lyric;
-
-        throw Error('Unknown response');
-      } catch (err) {
-        console.error(err);
-        throw Error('Error fetching lyrics: ' + err);
+      const searchUrl = `https://textyl.ponlponl123.com/api/lyrics?q=${encodeURIComponent(`${arg1} ${arg2}`)}`;
+      const res = await axios.get(searchUrl).catch(() => null);
+      if (res && res.status === 200 && res.data.lyrics) {
+        return {
+          isTimestamp: false,
+          lyrics: res.data.lyrics,
+        };
       }
+      return false;
     }
+    default:
+      return false;
   }
-  throw Error('Unknown search engine');
 }
 
 export default new Elysia().get(
@@ -159,12 +123,30 @@ export default new Elysia().get(
   async ({ query, set }) => {
     try {
       const { title, author, duration, v, engine } = query;
+      const searchEngine = (engine || 'dynamic') as
+        | SearchLyricEngine
+        | 'dynamic'
+        | 'ytmusic';
 
-      switch (engine) {
+      switch (searchEngine) {
         case 'dynamic': {
-          if (!v || !title || !author || !duration) {
+          if (!title || !author) {
             set.status = 400;
             return { error: 'Missing required parameters' };
+          }
+
+          let lyrics;
+
+          // prioritize lrclib for timestamped lyrics
+          lyrics = await fetchLyrics(
+            'lrclib',
+            String(title),
+            String(author),
+            duration,
+          );
+          if (lyrics) {
+            set.status = 200;
+            return lyrics;
           }
 
           // fetch all search engines when lyrics are still not found
@@ -175,7 +157,6 @@ export default new Elysia().get(
             'boidu',
             'textyl',
           ] as SearchLyricEngine[];
-          let lyrics;
 
           for (const engine of engines) {
             try {
@@ -191,18 +172,19 @@ export default new Elysia().get(
                 );
               } else {
                 lyrics = await fetchLyrics(
-                  engine as 'boidu' | 'lrclib',
+                  engine,
                   String(title),
                   String(author),
-                  Number(duration),
+                  duration,
                 );
               }
+
               if (lyrics) {
                 set.status = 200;
                 return lyrics;
               }
-            } catch (err) {
-              console.error(err);
+            } catch {
+              continue;
             }
           }
 
@@ -228,83 +210,37 @@ export default new Elysia().get(
             set.status = 404;
             return { error: 'Lyrics not found' };
           } catch (err) {
-            console.error(err);
-            set.status = 404;
-            return { error: 'Invalid lyrics', debug: err };
-          }
-        }
-        case 'boidu': {
-          set.status = HttpStatusCode.ServiceUnavailable;
-          return { error: 'Service Unavailable' };
-        }
-        case 'lrclib': {
-          if (!title || !author || !duration || !Number(duration)) {
-            set.status = 400;
-            return { error: 'Missing required parameters' };
-          }
-
-          try {
-            const lyrics = await fetchLyrics(
-              'lrclib',
-              String(title),
-              String(author),
-              Number(duration),
-            );
-
-            if (lyrics) {
-              set.status = 200;
-              return lyrics;
-            }
-
-            set.status = 404;
-            return {
-              error: 'No lyrics found for the provided title and author',
-            };
-          } catch (err) {
-            console.error(err);
-            set.status = 400;
-            return { error: 'No lyrics found.' };
+            set.status = 500;
+            return { error: String(err) };
           }
         }
         default: {
-          if (!title || !author) {
-            set.status = 400;
-            return { error: 'Missing required parameters' };
-          }
-
           try {
             const lyrics = await fetchLyrics(
-              'textyl',
+              searchEngine as any,
               String(title),
               String(author),
+              duration,
             );
-
             if (lyrics) {
               set.status = 200;
               return lyrics;
             }
-
             set.status = 404;
-            return {
-              error: 'No lyrics found for the provided title and author',
-            };
+            return { error: 'Lyrics not found' };
           } catch (err) {
-            console.error(err);
-            set.status = 400;
-            return { error: 'No lyrics found.' };
+            set.status = 500;
+            return { error: String(err) };
           }
         }
       }
     } catch (err) {
       console.error(err);
-      set.status = HttpStatusCode.InternalServerError;
+      set.status = 500;
       return { error: 'Internal Server Error' };
     }
   },
   {
-    headers: t.Object({
-      authorization: t.String(),
-    }),
     query: t.Object({
       title: t.Optional(t.String()),
       author: t.Optional(t.String()),

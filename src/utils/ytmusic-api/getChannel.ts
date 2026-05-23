@@ -1,5 +1,5 @@
 import type { ArtistFull, ProfileFull } from '@/interfaces/ytmusic-api';
-import { ytmusic } from '@/index';
+import { container } from '@/core/container';
 import { fetchWithCache, hasCache } from '@/utils/ytmusic-api/cache';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
 import type { YTMusic } from 'youtubei.js';
@@ -33,7 +33,7 @@ export async function IsValidChannel(channelId: string): Promise<boolean> {
 
     const encodedId = encodeURIComponent(channelId);
 
-    if (await ytmusic.client.music.getArtist(channelId).catch((): null => null))
+    if (await container.ytmusic.client.music.getArtist(channelId).catch((): null => null))
       return true;
     if (await YTMusicAPI('GET', `user/${encodedId}`).catch((): null => null))
       return true;
@@ -51,7 +51,7 @@ export async function getChannel(channelId: string): Promise<ChannelResult> {
 
   const [v1, v2, user] = await Promise.all([
     fetchWithCache<YTMusic.Artist>(KEYS.v1(channelId), () =>
-      ytmusic.client.music.getArtist(channelId),
+      container.ytmusic.client.music.getArtist(channelId),
     ),
     fetchWithCache<ArtistFull>(KEYS.v2(channelId), async () => {
       const res = await YTMusicAPI('GET', `artist/${encodedId}`);
@@ -65,3 +65,4 @@ export async function getChannel(channelId: string): Promise<ChannelResult> {
 
   return { message: 'Ok', result: { v1, v2, user } };
 }
+

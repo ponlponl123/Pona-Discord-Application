@@ -1,15 +1,16 @@
-import { lavalink, discordClient } from '@/index';
+import { container } from '@/core/container';
 import type { Player } from '@/lavalink';
 import { fetchIsUserInVoiceChannel } from './isUserIsInVoiceChannel';
 
 export default async function isPonaInVoiceChannel(
   guildId: string,
 ): Promise<Player | undefined> {
-  if (!discordClient.client.user?.id) return;
+  const { pona, lavalink } = container;
+  if (!pona.client.user?.id) return;
 
   const inVoice = await fetchIsUserInVoiceChannel(
     guildId,
-    discordClient.client.user.id,
+    pona.client.user.id,
   );
   if (!inVoice) return;
 
@@ -19,3 +20,4 @@ export default async function isPonaInVoiceChannel(
     undefined
   );
 }
+

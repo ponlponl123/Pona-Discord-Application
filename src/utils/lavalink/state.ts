@@ -1,8 +1,8 @@
-import { lavalink } from '@/index';
+import { container } from '@/core/container';
 
 export default async function reloadState(): Promise<void> {
-    lavalink.lavanodes.forEach(async node => {
+    container.lavalink.lavanodes.forEach(async node => {
         if ( !node.identifier ) return;
-        await lavalink.manager.loadPlayerStates(node.identifier)
+        await container.lavalink.manager.loadPlayerStates(node.identifier)
     })
 }

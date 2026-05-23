@@ -1,4 +1,4 @@
-import { lavalink, discordClient as self } from '..';
+import { container } from '@/core/container';
 import { config } from '@/config/discord';
 import { prefix as consolePrefix } from '@/config/console';
 import * as discord from 'discord.js';
@@ -8,11 +8,12 @@ import { Routes } from 'discord.js';
 async function resolveVoiceChannel(
   ref: VoiceBasedChannel | string,
 ): Promise<VoiceBasedChannel | false> {
+  const { pona, lavalink } = container;
   if (typeof ref !== 'string') return ref;
 
   if (ref.startsWith('guild-')) {
     const player = lavalink.manager.players
-      .filter((p) => p.guild === ref)
+      .filter((p: any) => p.guild === ref)
       .at(0);
     if (!player?.voiceChannel) {
       console.error(
@@ -21,12 +22,12 @@ async function resolveVoiceChannel(
       );
       return false;
     }
-    return (await self.client.channels.fetch(
+    return (await pona.client.channels.fetch(
       player.voiceChannel,
     )) as VoiceBasedChannel;
   }
 
-  return (await self.client.channels.fetch(ref)) as VoiceBasedChannel;
+  return (await pona.client.channels.fetch(ref)) as VoiceBasedChannel;
 }
 
 export default async function setVoiceChannelStatus(

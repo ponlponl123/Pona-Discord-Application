@@ -1,9 +1,9 @@
 import { Elysia } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { apiServer } from '@/index';
+import { container } from '@/core/container';
 
 export default new Elysia().get('/', ({ set }) => {
-  if (!('io' in apiServer)) {
+  if (!('io' in container.apiServer)) {
     set.status = HttpStatusCode.ServiceUnavailable;
     return {
       message: 'Service Unavailable',

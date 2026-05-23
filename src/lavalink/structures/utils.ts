@@ -10,7 +10,7 @@ import { Buffer } from 'buffer';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { parseYouTubeTitle } from '@/utils/parser';
 import randomString from '@/utils/randomString';
-import { ytmusic } from '@/index';
+import { container } from '@/core/container';
 
 const structures = {
   Player: require('./player').Player,
@@ -333,7 +333,7 @@ export async function constructTrack<T = User | ClientUser>(
     track.info.cleanAuthor = parsed.cleanAuthor;
     switch (version) {
       case 1:
-        const searchResult = await ytmusic.client.music.getInfo(
+        const searchResult = await container.ytmusic.client.music.getInfo(
           track.info.identifier,
         );
         if (!searchResult) break;
@@ -421,3 +421,4 @@ export class LavalinkTrackEncoder {
     return Buffer.from(combined).toString('base64');
   }
 }
+

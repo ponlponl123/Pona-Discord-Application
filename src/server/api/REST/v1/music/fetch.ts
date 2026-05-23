@@ -1,13 +1,13 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
-import { database, redisClient, ytmusic } from '@/index';
+import { container } from '@/core/container';
 
 export default new Elysia().get(
   '/fetch',
   async ({ headers, query: queryParams, set }) => {
     try {
-      if (!database || !database.pool || !ytmusic.client?.music) {
+      if (!container.database || !container.ytmusic.client?.music) {
         set.status = HttpStatusCode.ServiceUnavailable;
         return { error: 'Service Unavailable' };
       }
@@ -32,23 +32,23 @@ export default new Elysia().get(
 
       switch (type) {
         case 'album': {
-          if (redisClient?.redis) {
-            const value = await redisClient.redis.get(`yt:album:v1:${queryId}`);
+          if (container.redis?.redis) {
+            const value = await container.redis.redis.get(`yt:album:v1:${queryId}`);
             if (value) {
               set.status = HttpStatusCode.Ok;
               return { message: 'Ok', result: JSON.parse(value) };
             }
           }
-          const searchResult = await ytmusic.client.music
+          const searchResult = await container.ytmusic.client.music
             .getAlbum(queryId)
             .catch(() => {
-              redisClient?.redis.setex(`yt:album:v1:${queryId}`, 600, '');
+              container.redis?.redis?.setex(`yt:album:v1:${queryId}`, 600, '');
             });
           if (!searchResult) {
             set.status = HttpStatusCode.NotFound;
             return { message: 'Not Found' };
           }
-          redisClient?.redis.setex(
+          container.redis?.redis?.setex(
             `yt:album:v1:${queryId}`,
             5400,
             JSON.stringify(searchResult),
@@ -57,23 +57,23 @@ export default new Elysia().get(
           return { message: 'Ok', result: searchResult };
         }
         case 'song': {
-          if (redisClient?.redis) {
-            const value = await redisClient.redis.get(`yt:song:v1:${queryId}`);
+          if (container.redis?.redis) {
+            const value = await container.redis.redis.get(`yt:song:v1:${queryId}`);
             if (value) {
               set.status = HttpStatusCode.Ok;
               return { message: 'Ok', result: JSON.parse(value) };
             }
           }
-          const searchResult = await ytmusic.client.music
+          const searchResult = await container.ytmusic.client.music
             .getInfo(queryId)
             .catch(() => {
-              redisClient?.redis.setex(`yt:song:v1:${queryId}`, 600, '');
+              container.redis?.redis?.setex(`yt:song:v1:${queryId}`, 600, '');
             });
           if (!searchResult) {
             set.status = HttpStatusCode.NotFound;
             return { message: 'Not Found' };
           }
-          redisClient?.redis.setex(
+          container.redis?.redis?.setex(
             `yt:song:v1:${queryId}`,
             5400,
             JSON.stringify(searchResult),
@@ -82,23 +82,23 @@ export default new Elysia().get(
           return { message: 'Ok', result: searchResult };
         }
         case 'video': {
-          if (redisClient?.redis) {
-            const value = await redisClient.redis.get(`yt:video:v1:${queryId}`);
+          if (container.redis?.redis) {
+            const value = await container.redis.redis.get(`yt:video:v1:${queryId}`);
             if (value) {
               set.status = HttpStatusCode.Ok;
               return { message: 'Ok', result: JSON.parse(value) };
             }
           }
-          const searchResult = await ytmusic.client.music
+          const searchResult = await container.ytmusic.client.music
             .getInfo(queryId)
             .catch(() => {
-              redisClient?.redis.setex(`yt:video:v1:${queryId}`, 600, '');
+              container.redis?.redis?.setex(`yt:video:v1:${queryId}`, 600, '');
             });
           if (!searchResult) {
             set.status = HttpStatusCode.NotFound;
             return { message: 'Not Found' };
           }
-          redisClient?.redis.setex(
+          container.redis?.redis?.setex(
             `yt:video:v1:${queryId}`,
             5400,
             JSON.stringify(searchResult),
@@ -108,11 +108,11 @@ export default new Elysia().get(
         }
         case 'artist': {
           if (!query) {
-            if (redisClient?.redis) {
-              const value = await redisClient.redis
+            if (container.redis?.redis) {
+              const value = await container.redis.redis
                 .get(`yt:artist:v1:info:${queryId}`)
                 .catch(() => {
-                  redisClient?.redis.setex(
+                  container.redis?.redis?.setex(
                     `yt:artist:v1:info:${queryId}`,
                     600,
                     '',
@@ -123,12 +123,12 @@ export default new Elysia().get(
                 return { message: 'Ok', result: JSON.parse(value) };
               }
             }
-            const searchResult = await ytmusic.client.music.getArtist(queryId);
+            const searchResult = await container.ytmusic.client.music.getArtist(queryId);
             if (!searchResult) {
               set.status = HttpStatusCode.NotFound;
               return { message: 'Not Found' };
             }
-            redisClient?.redis.setex(
+            container.redis?.redis?.setex(
               `yt:artist:v1:${queryId}`,
               1800,
               JSON.stringify(searchResult),
@@ -138,8 +138,8 @@ export default new Elysia().get(
           } else {
             switch (query) {
               case 'albums': {
-                if (redisClient?.redis) {
-                  const value = await redisClient.redis.get(
+                if (container.redis?.redis) {
+                  const value = await container.redis.redis.get(
                     `yt:artist:v1:albums:${queryId}`,
                   );
                   if (value) {
@@ -147,10 +147,10 @@ export default new Elysia().get(
                     return { message: 'Ok', result: JSON.parse(value) };
                   }
                 }
-                const artistData = await ytmusic.client.music
+                const artistData = await container.ytmusic.client.music
                   .getArtist(queryId)
                   .catch((): null => {
-                    redisClient?.redis.setex(
+                    container.redis?.redis?.setex(
                       `yt:artist:v1:albums:${queryId}`,
                       600,
                       '',
@@ -168,7 +168,7 @@ export default new Elysia().get(
                   set.status = HttpStatusCode.NotFound;
                   return { message: 'Not Found' };
                 }
-                redisClient?.redis.setex(
+                container.redis?.redis?.setex(
                   `yt:artist:v1:albums:${queryId}`,
                   1800,
                   JSON.stringify(searchResult),
@@ -177,8 +177,8 @@ export default new Elysia().get(
                 return { message: 'Ok', result: searchResult };
               }
               case 'songs': {
-                if (redisClient?.redis) {
-                  const value = await redisClient.redis.get(
+                if (container.redis?.redis) {
+                  const value = await container.redis.redis.get(
                     `yt:artist:v1:songs:${queryId}`,
                   );
                   if (value) {
@@ -186,10 +186,10 @@ export default new Elysia().get(
                     return { message: 'Ok', result: JSON.parse(value) };
                   }
                 }
-                const artistData = await ytmusic.client.music
+                const artistData = await container.ytmusic.client.music
                   .getArtist(queryId)
                   .catch((): null => {
-                    redisClient?.redis.setex(
+                    container.redis?.redis?.setex(
                       `yt:artist:v1:songs:${queryId}`,
                       600,
                       '',
@@ -203,7 +203,7 @@ export default new Elysia().get(
                   set.status = HttpStatusCode.NotFound;
                   return { message: 'Not Found' };
                 }
-                redisClient?.redis.setex(
+                container.redis?.redis?.setex(
                   `yt:artist:v1:songs:${queryId}`,
                   1800,
                   JSON.stringify(searchResult),
@@ -219,8 +219,8 @@ export default new Elysia().get(
           }
         }
         case 'playlist': {
-          if (redisClient?.redis) {
-            const value = await redisClient.redis.get(
+          if (container.redis?.redis) {
+            const value = await container.redis.redis.get(
               `yt:playlist:v1:${queryId}`,
             );
             if (value) {
@@ -228,10 +228,10 @@ export default new Elysia().get(
               return { message: 'Ok', result: JSON.parse(value) };
             }
           }
-          const searchResult = await ytmusic.client.music
+          const searchResult = await container.ytmusic.client.music
             .getPlaylist(queryId)
             .catch(() => {
-              redisClient?.redis.setex(`yt:playlist:v1:${queryId}`, 600, '');
+              container.redis?.redis?.setex(`yt:playlist:v1:${queryId}`, 600, '');
             });
           if (!searchResult) {
             set.status = HttpStatusCode.NotFound;
@@ -248,7 +248,7 @@ export default new Elysia().get(
             videos: items,
           };
 
-          redisClient?.redis.setex(
+          container.redis?.redis?.setex(
             `yt:playlist:v1:${queryId}`,
             1800,
             JSON.stringify(sanitizedResult),

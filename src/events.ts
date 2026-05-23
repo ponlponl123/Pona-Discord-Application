@@ -1,4 +1,3 @@
-import { pona, lavalink, apiServer } from './index';
 import type { PonaEvents, voiceStateChange } from './client';
 import type { Player, PlayerEvents } from './lavalink';
 
@@ -9,6 +8,8 @@ import type { PlayerStateEventType } from './interfaces/manager';
 import { type apiServer as ApiServer } from './server/main';
 import os from 'os';
 import { prisma } from './prisma';
+import type Pona from './client';
+import type LavalinkServer from './lavalink';
 
 export type EventEmitter = keyof PonaEvents | keyof PlayerEvents;
 
@@ -43,15 +44,19 @@ export default class eventManager {
     [K in EventEmitter]?: CommonEventHandler[keyof CommonEventHandler][];
   } = {};
 
-  constructor() {
-    pona.on('heartbeat', this.pona_heartbeat.bind(this));
-    pona.on('voiceStateUpdate', this.pona_voiceStateUpdate.bind(this));
+  constructor(
+    private readonly pona: Pona,
+    private readonly lavalink: LavalinkServer,
+    private readonly apiServer: ApiServer,
+  ) {
+    this.pona.on('heartbeat', this.pona_heartbeat.bind(this));
+    this.pona.on('voiceStateUpdate', this.pona_voiceStateUpdate.bind(this));
 
-    lavalink.on('trackPos', this.player_trackPos.bind(this));
-    lavalink.on('trackStart', this.player_trackStart.bind(this));
-    lavalink.on('playerCreate', this.player_playerCreate.bind(this));
-    lavalink.on('playerDestroy', this.player_playerDestroy.bind(this));
-    lavalink.on('playerStateUpdate', this.player_playerStateUpdate.bind(this));
+    this.lavalink.on('trackPos', this.player_trackPos.bind(this));
+    this.lavalink.on('trackStart', this.player_trackStart.bind(this));
+    this.lavalink.on('playerCreate', this.player_playerCreate.bind(this));
+    this.lavalink.on('playerDestroy', this.player_playerDestroy.bind(this));
+    this.lavalink.on('playerStateUpdate', this.player_playerStateUpdate.bind(this));
   }
 
   public registerHandler<T extends EventEmitter>(
@@ -78,7 +83,7 @@ export default class eventManager {
   private async pona_heartbeat(client: Client) {
     const date = bangkokNow();
     const clusterId = os.hostname();
-    const shardId = pona.ponaId;
+    const shardId = this.pona.ponaId;
 
     ping('https://discord.com/api/gateway', 443, async (ms) => {
       await prisma.pona_heartbeat_interval.create({
@@ -99,7 +104,9 @@ export default class eventManager {
     newState: VoiceState,
   ) {
     const date = bangkokNow();
-    const guildId = oldState.guild.id || newState.guild.id;
+    const guildId = oldState?.guild?.id || newState?.guild?.id;
+    if (!guildId) return;
+
     const memberId = oldState.member?.id || newState.member?.id;
     const channelId = oldState.channel?.id || newState.channel?.id;
 
@@ -120,7 +127,7 @@ export default class eventManager {
     await prisma.pona_voicestate_history.create({
       data: {
         guildid: guildId,
-        memberid: memberId,
+        memberid: memberId || 'unknown',
         channelid: channelId || '',
         beforestate: serializeVoiceState(oldState),
         afterstate: serializeVoiceState(newState),
@@ -129,8 +136,8 @@ export default class eventManager {
       },
     });
 
-    if (oldState && !newState && oldState.member?.id === pona.client.user?.id) {
-      (apiServer as ApiServer).io.to(guildId).emit('voiceStateUpdate', false);
+    if (oldState && !newState && oldState.member?.id === this.pona.client.user?.id) {
+      this.apiServer.io.to(guildId).emit('voiceStateUpdate', false);
     }
 
     await this.invokeHandlers('voiceStateUpdate', type, oldState, newState);
@@ -162,7 +169,7 @@ export default class eventManager {
           requestby: track.requester?.id || '',
           uniqueid: track.uniqueId,
           time: date,
-          voicechannel: player.voiceChannel,
+          voicechannel: player.voiceChannel || '',
           guildid: player.guild,
           track: JSON.stringify(track),
         },
@@ -176,8 +183,8 @@ export default class eventManager {
       }),
     ]);
 
-    (apiServer as ApiServer).io.to(player.guild).emit('trackStarted', track);
-    (apiServer as ApiServer).io
+    this.apiServer.io.to(player.guild).emit('trackStarted', track);
+    this.apiServer.io
       .to(player.guild)
       .emit('queueUpdated', player.queue);
     await this.invokeHandlers('trackStart', player, track);
@@ -207,7 +214,7 @@ export default class eventManager {
       },
     });
 
-    (apiServer as ApiServer).io.to(guildId).emit('action', name, by, data);
+    this.apiServer.io.to(guildId).emit('action', name, by, data);
   }
 
   private async player_playerDestroy(player: Player) {
@@ -221,7 +228,7 @@ export default class eventManager {
       },
     });
 
-    (apiServer as ApiServer).io.to(player.guild).emit('playerDestroyed');
+    this.apiServer.io.to(player.guild).emit('playerDestroyed');
     await this.invokeHandlers('playerDestroy', player);
   }
 }

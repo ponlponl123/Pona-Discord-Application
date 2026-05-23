@@ -1,5 +1,6 @@
 import th_TH from '@/locates/th-TH.json';
 import en_US from '@/locates/en-US.json';
+import { container } from '@/core/container';
 
 const defaultLangCode = process.env['LANG'] || 'en-US';
 
@@ -19,10 +20,11 @@ export const langs: language[] = [
 export const lang = langs.find((l) => l.code === defaultLangCode) ?? langs[1];
 
 export async function getGuildLanguage(guildId: string): Promise<language> {
-  const { pona } = await import('../index.js');
+  const { pona } = container;
+  if (!pona) return lang;
 
   const guildSetting = await pona.loadGuildSettings(guildId);
   const code = guildSetting?.language ?? defaultLangCode;
 
-  return langs.find((l) => l.code === code) ?? lang;
+  return (langs.find((l) => l.code === code) as language) ?? lang;
 }

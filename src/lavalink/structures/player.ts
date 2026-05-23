@@ -1,4 +1,3 @@
-import * as _ from 'lodash';
 import { Manager } from './manager';
 import { Node, SponsorBlockSegment } from './node';
 import { Structure, TrackUtils } from './utils';
@@ -399,13 +398,12 @@ export class Player {
 
       this.dynamicLoopInterval = setInterval(() => {
         if (!this.dynamicRepeat) return;
-        const shuffled = _.shuffle(this.queue);
+        const shuffled = [...this.queue].sort(() => Math.random() - 0.5);
         this.queue.clear();
         shuffled.forEach((track) => {
           this.queue.add(track);
         });
-      }, ms) as NodeJS.Timeout;
-    } else {
+      }, ms) as NodeJS.Timeout;    } else {
       clearInterval(this.dynamicLoopInterval);
       this.trackRepeat = false;
       this.queueRepeat = false;

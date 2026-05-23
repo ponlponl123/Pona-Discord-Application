@@ -1,6 +1,5 @@
 import { Server } from 'socket.io';
-import eventManager from '@/events';
-import { lavalink, redisClient, discordClient as self } from '@/index';
+import { container } from '@/core/container';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import trafficDebugger from '@/server/middlewares/socket/trafficDebugger';
 import {
@@ -13,7 +12,7 @@ import {
   getHTTP_PlayerState,
 } from '@/utils/player/httpReq';
 import { MemberVoiceChangedState } from '@/interfaces/member';
-import { VoiceBasedChannel } from 'discord.js';
+import { VoiceBasedChannel, VoiceState } from 'discord.js';
 import joinChannel from '@/utils/player/joinVoiceChannelAsPlayer';
 import { Player, Queue } from '@/lavalink';
 import {
@@ -22,800 +21,146 @@ import {
 } from '@/utils/isUserIsInVoiceChannel';
 import { config as expressConfig } from '@/config/express';
 import getSongs from '@/utils/player/getSongs';
-import { SearchPlatform } from '@/interfaces/manager';
-import addToQueue from '@/utils/player/addToQueue';
-import { parseYouTubeAuthorTitle } from '@/utils/parser';
-import isPonaInVoiceChannel from '@/utils/isPonaInVoiceChannel';
+import { getGuildLanguage } from '@/utils/i18n';
+import axios from 'axios';
 
-// Performance optimizations
-const namespaceCache = new Map<string, ReturnType<Server['of']>>();
-const userAuthCache = new Map<string, { user: any; timestamp: number }>();
-const AUTH_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-// Helper to encode data efficiently
-function encodeData(data: any): string {
-  return Buffer.from(JSON.stringify(data), 'utf-8').toString('base64');
-}
-
-// Helper to batch emit operations
-function batchEmit(
-  namespace: ReturnType<Server['of']>,
-  room: string,
-  events: Array<{ event: string; data: any }>,
-) {
-  for (const { event, data } of events) {
-    namespace.to(room).emit(event, data);
-  }
-}
-
-export type GuildEvents =
-  | 'player_created'
-  | 'player_destroyed'
-  | 'pause_updated'
-  | 'volume_updated'
-  | 'autoplay_updated'
-  | 'repeat_updated'
+type GuildEvents =
+  | 'state_updated'
   | 'track_started'
-  | 'track_pos_updated'
   | 'track_updated'
-  | 'channel_updated'
-  | 'connection_updated'
   | 'queue_updated'
-  | 'queue_ended';
+  | 'repeat_updated'
+  | 'member_voice_changed';
 
-async function connectToVoiceChannelBySocket(
-  guildId: string,
-  voiceBasedChannelId: string,
-) {
-  try {
-    if (guildId && voiceBasedChannelId) {
-      const guild = self.client.guilds.cache.get(guildId);
-      if (!guild) throw new Error('Guild not found');
-      const textChannel = guild.systemChannel;
-      if (!textChannel) throw new Error('TextChannel not found');
-      const voiceChannel = guild.channels.cache.get(
-        voiceBasedChannelId,
-      ) as VoiceBasedChannel;
-      if (!voiceChannel) throw new Error('VoiceChannel not found');
-      await joinChannel(textChannel, voiceChannel, guild);
-    }
-  } catch (e: any) {
-    throw new Error(
-      `Failed to connect to voice channel\n\tReason: ${e?.message || e}\n${
-        e?.stack || ''
-      }`,
-    );
-  }
+function encodeData(data: unknown): string {
+  return JSON.stringify(data);
 }
 
-export default async function dynamicGuildNamespace(io: Server) {
-  const io_guild = io.of(/^\/guild\/\d+$/);
-  const events = new eventManager();
+const namespaces = new Map<string, Server>();
 
-  // Helper to get or create cached namespace
-  function getNamespace(guildId: string) {
-    const key = `/guild/${guildId}`;
-    if (!namespaceCache.has(key)) {
-      namespaceCache.set(key, io.of(key));
+function getNamespace(guildId: string): Server {
+  if (namespaces.has(guildId)) return namespaces.get(guildId)!;
+  const namespace = (container.apiServer as any).io.of(`/guilds/${guildId}`);
+  namespaces.set(guildId, namespace);
+  return namespace;
+}
+
+export default function setupGuildWS() {
+  const self = container.pona;
+  const events = container.eventManager;
+
+  events.registerHandler('voiceStateUpdate', async (type, oldState, newState) => {
+    try {
+      if (
+        type === 'clientJoined' ||
+        type === 'clientLeaved' ||
+        type === 'clientSwitched'
+      )
+        return;
+      const guildId = oldState?.guild.id || newState?.guild.id;
+      if (!guildId) return;
+      const memberId = oldState?.member?.id || newState?.member?.id;
+      const namespace_io = getNamespace(guildId);
+      
+      const isUserJoined = oldState?.channel === undefined && newState?.channel !== undefined;
+      const isUserSwitched = oldState?.channel !== undefined && newState?.channel !== undefined && oldState?.channel?.id !== newState?.channel?.id;
+      const isUserLeaved = oldState?.channel !== undefined && newState?.channel === undefined;
+      const isSameVC = guildId && memberId ? await fetchIsUserInVoiceChannel(guildId, memberId) : false;
+
+      const data: MemberVoiceChangedState = {
+        oldVC: (oldState?.channel as VoiceBasedChannel) || null,
+        newVC: (newState?.channel as VoiceBasedChannel) || null,
+        isUserJoined,
+        isUserSwitched,
+        isUserLeaved,
+        isSameVC: !!isSameVC,
+      };
+
+      namespace_io
+        .to('pona! voice')
+        .emit('member_voice_changed' as GuildEvents, encodeData(data));
+    } catch {
+      return;
     }
-    return namespaceCache.get(key)!;
-  }
+  });
 
-  async function playerUpdate(player: Player, event: GuildEvents) {
-    const guildId = player.guild;
-    const namespace_io = getNamespace(guildId);
-    const httpPlayer = convertTo_HTTPPlayerState(player);
-    namespace_io.to('pona! music').emit(event, encodeData(httpPlayer));
-  }
+  events.registerHandler('playerStateUpdate', async (oldPlayer, newPlayer, changeType) => {
+    const namespace_io = getNamespace(newPlayer.guild);
+    const data = await getHTTP_PlayerState(newPlayer.guild);
+    namespace_io
+      .to('pona! music')
+      .emit('state_updated' as GuildEvents, encodeData(data));
+
+    if (changeType === 'trackChange' || changeType === 'queueChange') {
+      namespace_io
+        .to('pona! music')
+        .emit('queue_updated' as GuildEvents, encodeData(newPlayer.queue));
+    }
+
+    if (changeType === 'repeatChange') {
+      const repeatData: HTTP_PonaRepeatState = {
+        track: newPlayer.trackRepeat,
+        queue: newPlayer.queueRepeat,
+        dynamic: newPlayer.dynamicRepeat,
+      };
+      namespace_io
+        .to('pona! music')
+        .emit('repeat_updated' as GuildEvents, encodeData(repeatData));
+    }
+  });
 
   events.registerHandler('trackStart', async (player, track) => {
-    const guildId = player.guild;
-    const namespace_io = getNamespace(guildId);
-
-    // Batch initial emissions
+    const namespace_io = getNamespace(player.guild);
     const initialEvents = [
-      { event: 'track_started' as GuildEvents, data: encodeData(track) },
+      {
+        event: 'track_started' as GuildEvents,
+        data: encodeData(track),
+      },
       {
         event: 'queue_updated' as GuildEvents,
         data: encodeData([track, ...player.queue]),
       },
     ];
-    batchEmit(namespace_io, 'pona! music', initialEvents);
+    
+    initialEvents.forEach(e => namespace_io.to('pona! music').emit(e.event, e.data));
 
-    if (redisClient?.redis) {
-      const value = await redisClient.redis.get(
+    if (container.redis?.redis) {
+      const value = await container.redis.redis.get(
         `yt:lyrics:${track.identifier}`,
       );
       if (value) {
         track.lyrics = JSON.parse(value) as Lyric;
-        return namespace_io
+        namespace_io
           .to('pona! music')
           .emit('track_updated' as GuildEvents, encodeData(track));
+        return;
       }
     }
-    const endpoint = `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics`;
-    const fetchLyric = new URL(endpoint);
-    fetchLyric.searchParams.append('engine', 'dynamic');
-    fetchLyric.searchParams.append('title', track.title);
-    fetchLyric.searchParams.append(
-      'author',
-      parseYouTubeAuthorTitle(track.author),
-    );
-    fetchLyric.searchParams.append('v', track.identifier);
-    fetchLyric.searchParams.append('duration', String(track.duration / 1000));
+
     try {
-      const fetchLyricByInternalAPI = await fetch(fetchLyric.toString(), {
-        headers: {
-          Authorization: `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY}`,
+      const fetchLyricByInternalAPI = await fetch(
+        `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?id=${track.identifier}`,
+        {
+          headers: {
+            Authorization: `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY || ''}`,
+          },
         },
-      });
+      );
       if (fetchLyricByInternalAPI.ok) {
         track.lyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
         namespace_io
           .to('pona! music')
           .emit('track_updated' as GuildEvents, encodeData(track));
-        if (redisClient?.redis)
-          redisClient.redis.setex(
+        if (container.redis?.redis)
+          container.redis.redis.setex(
             `yt:lyrics:${track.identifier}`,
             10800,
             JSON.stringify(track.lyrics),
           );
-      } else if (fetchLyricByInternalAPI.status === 404 && redisClient?.redis)
-        redisClient.redis.setex(`yt:lyrics:${track.identifier}`, 3600, '');
+      } else if (fetchLyricByInternalAPI.status === 404 && container.redis?.redis)
+        container.redis.redis.setex(`yt:lyrics:${track.identifier}`, 3600, '');
     } catch {
       console.log('failed to fetch lyrics');
-    }
-  });
-
-  events.registerHandler('trackPos', (guildId, pos) => {
-    try {
-      const namespace_io = getNamespace(guildId);
-      namespace_io
-        .to('pona! music')
-        .emit('track_pos_updated' as GuildEvents, pos);
-    } catch {
-      return;
-    }
-  });
-
-  events.registerHandler(
-    'playerStateUpdate',
-    (oldPlayer, newPlayer, changeType) => {
-      try {
-        const guildId = oldPlayer?.options?.guild || newPlayer?.options?.guild;
-        if (!guildId) return;
-        const namespace_io = getNamespace(guildId);
-        switch (changeType) {
-          case 'channelChange':
-            namespace_io
-              .to('pona! music')
-              .emit(
-                'channel_updated' as GuildEvents,
-                encodeData(newPlayer.voiceChannel),
-              );
-            break;
-          case 'queueChange':
-            namespace_io
-              .to('pona! music')
-              .emit(
-                'queue_updated' as GuildEvents,
-                encodeData([newPlayer.queue.current, ...newPlayer.queue]),
-              );
-            break;
-          case 'connectionChange':
-            namespace_io
-              .to('pona! music')
-              .emit('connection_updated' as GuildEvents);
-            break;
-          case 'trackChange':
-            namespace_io
-              .to('pona! music')
-              .emit(
-                'track_updated' as GuildEvents,
-                encodeData(newPlayer.queue.current),
-              );
-            break;
-          case 'volumeChange':
-            namespace_io
-              .to('pona! music')
-              .emit('volume_updated' as GuildEvents, newPlayer.volume);
-            break;
-          case 'repeatChange':
-            namespace_io.to('pona! music').emit(
-              'repeat_updated' as GuildEvents,
-              encodeData({
-                track: newPlayer.trackRepeat,
-                queue: newPlayer.queueRepeat,
-                dynamic: newPlayer.dynamicRepeat,
-              } as HTTP_PonaRepeatState),
-            );
-            break;
-          case 'autoplayChange':
-            namespace_io
-              .to('pona! music')
-              .emit(
-                'autoplay_updated' as GuildEvents,
-                newPlayer.isAutoplay ? 1 : 0,
-              );
-            break;
-          case 'pauseChange':
-            namespace_io
-              .to('pona! music')
-              .emit('pause_updated' as GuildEvents, newPlayer.paused ? 1 : 0);
-            break;
-          default:
-            namespace_io
-              .to('pona! music')
-              .emit('unknown_updated' as GuildEvents);
-            break;
-        }
-      } catch {
-        return;
-      }
-    },
-  );
-
-  events.registerHandler(
-    'voiceStateUpdate',
-    async (type, oldState, newState) => {
-      try {
-        if (
-          type === 'clientJoined' ||
-          type === 'clientLeaved' ||
-          type === 'clientSwitched'
-        )
-          return;
-        const guildId = oldState?.guild.id || newState?.guild.id;
-        const memberId = oldState?.member?.id || newState?.member?.id;
-        const namespace_io = getNamespace(guildId);
-        const isUserJoined =
-          oldState?.channel === undefined && newState?.channel !== undefined;
-        const isUserSwitched =
-          oldState?.channel !== undefined && newState?.channel !== undefined;
-        const isUserLeaved =
-          oldState?.channel !== undefined && newState?.channel === undefined;
-        const isSameVC =
-          guildId && memberId
-            ? await fetchIsUserInVoiceChannel(guildId, memberId)
-            : false;
-        const memberVoiceState: MemberVoiceChangedState = {
-          oldVC: oldState?.channel || null,
-          newVC: newState?.channel || null,
-          isUserJoined,
-          isUserSwitched,
-          isUserLeaved,
-          isSameVC,
-        };
-        namespace_io
-          .to(`stream:${memberId}`)
-          .emit('member_state_updated', encodeData(memberVoiceState));
-      } catch {
-        return;
-      }
-    },
-  );
-
-  events.registerHandler('playerCreate', (player) => {
-    playerUpdate(player, 'player_created');
-  });
-  events.registerHandler('playerDestroy', (player) => {
-    playerUpdate(player, 'player_destroyed');
-  });
-
-  events.registerHandler('queueEnded', (player) => {
-    try {
-      const guildId = player.guild;
-      const namespace_io = getNamespace(guildId);
-      namespace_io.to('pona! music').emit('queue_ended' as GuildEvents);
-    } catch {
-      return;
-    }
-  });
-
-  io_guild.use(async (socket, next) => {
-    try {
-      trafficDebugger(socket);
-      const guildId = socket.nsp.name.split('/')[2];
-      const authorization = socket.handshake.headers.authorization;
-      const accesstoken_type = socket.handshake.auth['type'];
-      const accesstoken_key = socket.handshake.auth['key'];
-      if (
-        !Number.isInteger(Number(guildId)) ||
-        (!authorization && (!accesstoken_type || !accesstoken_key))
-      )
-        return next(new Error('Authentication token required'));
-
-      const guild = self.client.guilds.cache.get(guildId);
-
-      // Check cache first for OAuth tokens
-      const cacheKey =
-        authorization || `${accesstoken_type}:${accesstoken_key}`;
-      const cached = userAuthCache.get(cacheKey);
-      let user;
-
-      if (cached && Date.now() - cached.timestamp < AUTH_CACHE_TTL) {
-        user = cached.user;
-      } else {
-        user = authorization
-          ? await fetchUserByOAuth(authorization)
-          : await fetchUserByOAuthAccessToken(
-              accesstoken_type,
-              accesstoken_key,
-            );
-
-        if (user) {
-          userAuthCache.set(cacheKey, { user, timestamp: Date.now() });
-          // Clean up old cache entries periodically
-          if (userAuthCache.size > 1000) {
-            const now = Date.now();
-            for (const [key, value] of userAuthCache.entries()) {
-              if (now - value.timestamp >= AUTH_CACHE_TTL) {
-                userAuthCache.delete(key);
-              }
-            }
-          }
-        }
-      }
-
-      if (!user) return next(new Error('unauthorized'));
-      if (!guild) return next(new Error('invalid guild'));
-
-      const member = await guild.members.fetch(user.id);
-
-      if (!member) return next(new Error('not a member of this guild'));
-      socket.data.member = member;
-      next();
-    } catch {
-      return;
-    }
-  });
-
-  io_guild.on('connection', async (socket) => {
-    try {
-      const guildId = socket.nsp.name.split('/')[2];
-      socket.join('pona! music');
-      socket.join(`stream:${socket.data.member.id}`);
-      const playerState = await getHTTP_PlayerState(guildId);
-      let newPlayerState: HTTP_PonaCommonStateWithTracks | undefined;
-      if (playerState?.current && playerState?.queue) {
-        newPlayerState = {
-          ...playerState,
-          queue: [playerState.queue.current, ...playerState.queue] as Queue,
-        };
-      }
-      const member = await self.client.guilds.cache
-        .get(guildId)
-        ?.members.fetch(socket.data.member.id);
-      const memberVC = member?.voice.channel;
-      const data: {
-        pona: HTTP_PonaCommonStateWithTracks | null;
-        isMemberInVC: VoiceBasedChannel | null;
-      } = {
-        pona: newPlayerState || playerState,
-        isMemberInVC: memberVC || null,
-      };
-      socket.emit('handshake', encodeData(data));
-      socket.on(
-        'join',
-        async (guildId: string, voiceBasedChannelId: string) => {
-          try {
-            if (!lavalink.manager.useableNodes.connected) return;
-            if (member && (await fetchIsUserInVoiceChannel(guildId, member.id)))
-              connectToVoiceChannelBySocket(guildId, voiceBasedChannelId);
-          } catch {
-            return;
-          }
-        },
-      );
-      socket.on(
-        'repeat',
-        async (type: 'none' | 'track' | 'queue', callback) => {
-          try {
-            if (
-              !member ||
-              !type ||
-              !(await fetchIsUserInSameVoiceChannel(guildId, member.id))
-            )
-              return callback ? callback({ status: 'error' }) : false;
-            const player = await isPonaInVoiceChannel(guildId);
-            if (!player)
-              return callback ? callback({ status: 'error' }) : false;
-            let repeatType: typeof type = 'none';
-            switch (type) {
-              case 'track':
-                player.setTrackRepeat(true);
-                repeatType = 'track';
-                break;
-              case 'queue':
-                player.setQueueRepeat(true);
-                repeatType = 'queue';
-                break;
-              default:
-                player.setTrackRepeat(false);
-                repeatType = 'none';
-                break;
-            }
-            if (callback)
-              callback({
-                status: 'ok',
-              });
-            events.pona_action(
-              'repeat',
-              member.id,
-              repeatType,
-              guildId,
-              player.voiceChannel || '',
-            );
-          } catch {
-            return callback ? callback({ status: 'error' }) : false;
-          }
-        },
-      );
-      socket.on('move', async (from: number, to: number, callback) => {
-        try {
-          if (
-            !member ||
-            !(await fetchIsUserInSameVoiceChannel(guildId, member.id))
-          )
-            return callback ? callback({ status: 'error' }) : false;
-          const player = await isPonaInVoiceChannel(guildId);
-          if (!player) return callback ? callback({ status: 'error' }) : false;
-          console.log('Moving!', from, to);
-          io_guild.to('pona! music').emit('queue_updating');
-          setTimeout(async () => {
-            try {
-              player.queue.move(from, to);
-              if (callback)
-                callback({
-                  status: 'ok',
-                });
-            } catch (e) {
-              console.log('Error While moving track: ', e);
-              if (callback)
-                callback({
-                  status: 'error',
-                });
-              try {
-                io_guild
-                  .to('pona! music')
-                  .emit(
-                    'queue_updated' as GuildEvents,
-                    encodeData(player.queue),
-                  );
-              } catch (e) {
-                console.error('Failed to emit queue_updated', e);
-                return callback ? callback({ status: 'error' }) : false;
-              }
-            }
-            io_guild.emit('track_moved', encodeData(member));
-            events.pona_action(
-              'queue-move',
-              member.id,
-              `from ${from} to ${to}`,
-              guildId,
-              player.voiceChannel || '',
-            );
-          }, 320);
-        } catch {
-          return callback ? callback({ status: 'error' }) : false;
-        }
-      });
-      socket.on('pause', async (callback) => {
-        try {
-          if (
-            !member ||
-            !(await fetchIsUserInSameVoiceChannel(guildId, member.id))
-          )
-            return callback ? callback({ status: 'error' }) : false;
-          const player = await isPonaInVoiceChannel(guildId);
-          if (!player) return callback ? callback({ status: 'error' }) : false;
-          player.pause(true);
-          if (callback)
-            callback({
-              status: 'ok',
-            });
-          events.pona_action(
-            'pause',
-            member.id,
-            'true',
-            guildId,
-            player.voiceChannel || '',
-          );
-        } catch {
-          return callback ? callback({ status: 'error' }) : false;
-        }
-      });
-      socket.on('seek', async (position: number, callback) => {
-        try {
-          if (
-            !member ||
-            !(await fetchIsUserInSameVoiceChannel(guildId, member.id))
-          )
-            return callback ? callback({ status: 'error' }) : false;
-          const player = await isPonaInVoiceChannel(guildId);
-          if (!player) return callback ? callback({ status: 'error' }) : false;
-          player.seek(position);
-          player.pause(false);
-          if (callback)
-            callback({
-              status: 'ok',
-            });
-          events.pona_action(
-            'seek',
-            member.id,
-            position,
-            guildId,
-            player.voiceChannel || '',
-          );
-        } catch {
-          return callback ? callback({ status: 'error' }) : false;
-        }
-      });
-      socket.on('skipto', async (index: number, callback) => {
-        try {
-          if (
-            !member ||
-            !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ||
-            !Number(index)
-          )
-            return callback ? callback({ status: 'error' }) : false;
-          const player = await isPonaInVoiceChannel(guildId);
-          if (!player) return callback ? callback({ status: 'error' }) : false;
-          player.skipto(index);
-          player.pause(false);
-          if (callback)
-            callback({
-              status: 'ok',
-            });
-          events.pona_action(
-            'skipto',
-            member.id,
-            index,
-            guildId,
-            player.voiceChannel || '',
-          );
-        } catch {
-          return callback ? callback({ status: 'error' }) : false;
-        }
-      });
-      socket.on('rm', async (uniqueId: string, callback) => {
-        try {
-          if (
-            !member ||
-            !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ||
-            !String(uniqueId)
-          )
-            return callback ? callback({ status: 'error' }) : false;
-          const player = await isPonaInVoiceChannel(guildId);
-          if (!player) return callback ? callback({ status: 'error' }) : false;
-          const index = player.queue.findIndex(
-            (track) => track.uniqueId === uniqueId,
-          );
-          if (index === -1)
-            return callback ? callback({ status: 'error' }) : false;
-          io_guild.to('pona! music').emit('queue_updating');
-          setTimeout(async () => {
-            try {
-              player.queue.remove(index);
-              if (callback)
-                callback({
-                  status: 'ok',
-                });
-            } catch (e) {
-              console.log('Error While removing track: ', e);
-              if (callback)
-                callback({
-                  status: 'error',
-                });
-              try {
-                io_guild
-                  .to('pona! music')
-                  .emit(
-                    'queue_updated' as GuildEvents,
-                    encodeData(player.queue),
-                  );
-              } catch (e) {
-                console.error('Failed to emit queue_updated', e);
-                return callback ? callback({ status: 'error' }) : false;
-              }
-            }
-            io_guild.emit('track_removed', encodeData(member));
-            events.pona_action(
-              'trackremove',
-              member.id,
-              uniqueId,
-              guildId,
-              player.voiceChannel || '',
-            );
-          }, 320);
-        } catch {
-          return callback ? callback({ status: 'error' }) : false;
-        }
-      });
-      socket.on('play', async (callback) => {
-        try {
-          if (
-            !member ||
-            !(await fetchIsUserInSameVoiceChannel(guildId, member.id))
-          )
-            return callback ? callback({ status: 'error' }) : false;
-          const player = await isPonaInVoiceChannel(guildId);
-          if (!player) return callback ? callback({ status: 'error' }) : false;
-          player.pause(false);
-          if (callback)
-            callback({
-              status: 'ok',
-            });
-          events.pona_action(
-            'pause',
-            member.id,
-            'false',
-            guildId,
-            player.voiceChannel || '',
-          );
-        } catch {
-          return callback ? callback({ status: 'error' }) : false;
-        }
-      });
-      socket.on(
-        'add',
-        async (uri: string, searchengine: SearchPlatform, callback) => {
-          try {
-            if (
-              !member ||
-              !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ||
-              !uri ||
-              !searchengine
-            )
-              return callback
-                ? callback({ status: 'error', message: 'invalid parameters' })
-                : false;
-            const player = await isPonaInVoiceChannel(guildId);
-            if (!player)
-              return callback
-                ? callback({ status: 'error', message: 'player not found' })
-                : false;
-            const track = await getSongs(uri, 'youtube music', member);
-            if (typeof track === 'string')
-              return callback
-                ? callback({ status: 'error', message: 'track not found' })
-                : false;
-            addToQueue(track.tracks, player);
-            if (callback)
-              callback({
-                status: 'ok',
-              });
-            events.pona_action(
-              'trackadd',
-              member.id,
-              JSON.stringify(track),
-              guildId,
-              player.voiceChannel || '',
-            );
-          } catch (err) {
-            console.error('Error while adding track:', err);
-            return callback ? callback({ status: 'error' }) : false;
-          }
-        },
-      );
-      socket.on(
-        'add-playlist',
-        async (
-          uri: string[],
-          playlistDetailed: {
-            title: string;
-            author: string;
-            thumbnails: string[];
-          },
-          callback,
-        ) => {
-          try {
-            if (
-              !member ||
-              !(await fetchIsUserInSameVoiceChannel(guildId, member.id)) ||
-              !uri.length
-            )
-              return callback ? callback({ status: 'error' }) : false;
-            const player = await isPonaInVoiceChannel(guildId);
-            if (!player)
-              return callback ? callback({ status: 'error' }) : false;
-
-            // Fetch all songs in parallel for better performance
-            const trackResults = await Promise.all(
-              uri.map((singleUri) =>
-                getSongs(singleUri, 'youtube music', member),
-              ),
-            );
-
-            // Filter out failed fetches and collect all tracks
-            const allTracks = trackResults.flatMap((result) =>
-              typeof result === 'string' ? [] : result.tracks,
-            );
-
-            if (allTracks.length === 0)
-              return callback ? callback({ status: 'error' }) : false;
-
-            // Add all tracks to queue in one batch
-            addToQueue(allTracks, player);
-
-            if (callback)
-              callback({
-                status: 'ok',
-              });
-            events.pona_action(
-              'trackadd-playlist',
-              member.id,
-              JSON.stringify(playlistDetailed),
-              guildId,
-              player.voiceChannel || '',
-            );
-          } catch (err) {
-            console.error('Error while adding playlist:', err);
-
-            return callback ? callback({ status: 'error' }) : false;
-          }
-        },
-      );
-      socket.on('previous', async (callback) => {
-        try {
-          if (
-            !member ||
-            !(await fetchIsUserInSameVoiceChannel(guildId, member.id))
-          )
-            return callback({
-              status: 'error',
-            });
-          const player = await isPonaInVoiceChannel(guildId);
-          if (!player || !player.queue.previous)
-            return callback ? callback({ status: 'error' }) : false;
-          player.previous();
-          player.pause(false);
-          if (callback)
-            callback({
-              status: 'ok',
-            });
-          events.pona_action(
-            'previous',
-            member.id,
-            'true',
-            guildId,
-            player.voiceChannel || '',
-          );
-        } catch {
-          return callback ? callback({ status: 'error' }) : false;
-        }
-      });
-      socket.on('next', async (callback) => {
-        try {
-          if (
-            !member ||
-            !(await fetchIsUserInSameVoiceChannel(guildId, member.id))
-          )
-            return callback ? callback({ status: 'error' }) : false;
-          const player = await isPonaInVoiceChannel(guildId);
-          if (!player || !(player.queue.length > 0))
-            return callback({
-              status: 'error',
-            });
-          player.skipto(0);
-          player.pause(false);
-          if (callback)
-            callback({
-              status: 'ok',
-            });
-          events.pona_action(
-            'next',
-            member.id,
-            'true',
-            guildId,
-            player.voiceChannel || '',
-          );
-        } catch {
-          return callback ? callback({ status: 'error' }) : false;
-        }
-      });
-    } catch {
-      return;
     }
   });
 }

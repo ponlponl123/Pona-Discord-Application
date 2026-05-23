@@ -6,7 +6,7 @@ import { Rest } from './rest';
 import WebSocket from 'ws';
 
 import { prefix as consolePrefix, type as consoleType } from '@/config/console';
-import { redisClient } from '@/index';
+import { container } from '@/core/container';
 
 import nodeCheck from '@utils/lavalink/nodeCheck';
 import { Track, UnresolvedTrack } from '@interfaces/player';
@@ -143,18 +143,18 @@ export class Node {
   }
 
   public async getSessionId(): Promise<string | null> {
-    if (!redisClient?.redis) return null;
+    if (!container.redis?.redis) return null;
     try {
-      return await redisClient.redis.get(this.sessionRedisKey());
+      return await container.redis.redis.get(this.sessionRedisKey());
     } catch {
       return null;
     }
   }
 
   public async updateSessionId(): Promise<void> {
-    if (!redisClient?.redis || !this.sessionId) return;
+    if (!container.redis?.redis || !this.sessionId) return;
     try {
-      await redisClient.redis.setex(
+      await container.redis.redis.setex(
         this.sessionRedisKey(),
         SESSION_TTL,
         this.sessionId,

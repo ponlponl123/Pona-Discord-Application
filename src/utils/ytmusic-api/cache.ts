@@ -1,4 +1,4 @@
-import { redisClient } from '@/index';
+import { container } from '@/core/container';
 
 const TTL = {
   SUCCESS: 1800,
@@ -9,8 +9,8 @@ export async function fetchWithCache<T>(
   key: string,
   fetcher: () => Promise<T | null | undefined | false>,
 ): Promise<T | undefined> {
-  if (redisClient?.redis) {
-    const cached = await redisClient.redis.get(key);
+  if (container.redis?.redis) {
+    const cached = await container.redis.redis.get(key);
     if (cached === '') return undefined;
     if (cached !== null) return JSON.parse(cached) as T;
   }
@@ -18,19 +18,19 @@ export async function fetchWithCache<T>(
   try {
     const result = await fetcher();
     if (result) {
-      redisClient?.redis?.setex(key, TTL.SUCCESS, JSON.stringify(result));
+      container.redis?.redis?.setex(key, TTL.SUCCESS, JSON.stringify(result));
       return result as T;
     }
   } catch {}
 
-  redisClient?.redis?.setex(key, TTL.FAILURE, '');
+  container.redis?.redis?.setex(key, TTL.FAILURE, '');
   return undefined;
 }
 
 export async function hasCache(...keys: string[]): Promise<boolean> {
-  if (!redisClient?.redis) return false;
+  if (!container.redis?.redis) return false;
   for (const key of keys) {
-    const value = await redisClient.redis.get(key);
+    const value = await container.redis.redis.get(key);
     if (value) return true;
   }
   return false;

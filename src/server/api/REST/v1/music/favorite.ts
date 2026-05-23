@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { redisClient } from '@/index';
+import { container } from '@/core/container';
 import { prisma } from '@/prisma';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { IsValidChannel } from '@/utils/ytmusic-api/getChannel';
@@ -39,8 +39,8 @@ export default new Elysia()
         const fetched: { [key: string]: boolean } = {};
         const promises = bulk_fetch.map(async (videoId) => {
           if (!videoId) return;
-          if (redisClient?.redis) {
-            const value = await redisClient.redis.hget(
+          if (container.redis?.redis) {
+            const value = await container.redis.redis.hget(
               `user:${user.id}:favorite`,
               videoId,
             );
@@ -85,8 +85,8 @@ export default new Elysia()
                   },
                 });
 
-                if (redisClient?.redis)
-                  redisClient.redis
+                if (container.redis?.redis)
+                  container.redis.redis
                     .multi()
                     .hset(
                       `user:${user.id}:favorite`,
@@ -99,8 +99,8 @@ export default new Elysia()
             fetched[videoId] = true;
             return;
           }
-          if (redisClient?.redis)
-            redisClient.redis
+          if (container.redis?.redis)
+            container.redis.redis
               .multi()
               .hset(`user:${user.id}:favorite`, videoId, 0)
               .expire(`user:${user.id}:favorite`, 86400);
@@ -175,8 +175,8 @@ export default new Elysia()
               'Cannot authorized this video, please ensure artistId is correct?',
           };
         }
-        if (redisClient?.redis)
-          redisClient.redis
+        if (container.redis?.redis)
+          container.redis.redis
             .multi()
             .hset(
               `user:${user.id}:favorite`,
@@ -262,8 +262,8 @@ export default new Elysia()
           set.status = HttpStatusCode.BadRequest;
           return { error: 'Invalid videoId' };
         }
-        if (redisClient?.redis)
-          redisClient.redis
+        if (container.redis?.redis)
+          container.redis.redis
             .multi()
             .hset(`user:${user.id}:favorite`, channelId, 0)
             .expire(`user:${user.id}:favorite`, 86400);
@@ -298,3 +298,4 @@ export default new Elysia()
       }),
     },
   );
+

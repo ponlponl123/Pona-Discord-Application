@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { HttpStatusCode } from 'axios';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
-import { redisClient } from '@/index';
+import { container } from '@/core/container';
 import { prisma } from '@/prisma';
 import JSONBig from 'json-bigint';
 
@@ -38,8 +38,8 @@ export default new Elysia()
         }
 
         const cacheKey = `user:${user.id}:history:track:${limit}`;
-        if (redisClient?.redis) {
-          const cached = await redisClient.redis.get(cacheKey);
+        if (container.redis?.redis) {
+          const cached = await container.redis.redis.get(cacheKey);
           if (cached) {
             set.status = HttpStatusCode.Ok;
             return { message: 'Ok', tracks: JSONBig.parse(cached) };
@@ -70,8 +70,8 @@ export default new Elysia()
 
         const tracks = JSONBig.parse(JSONBig.stringify(res));
 
-        if (redisClient?.redis) {
-          redisClient.redis.setex(cacheKey, 15, JSONBig.stringify(tracks));
+        if (container.redis?.redis) {
+          container.redis.redis.setex(cacheKey, 15, JSONBig.stringify(tracks));
         }
 
         set.status = HttpStatusCode.Ok;
@@ -114,11 +114,11 @@ export default new Elysia()
           return { error: 'Unauthorized' };
         }
 
-        if (redisClient?.redis) {
-          const keyType = await redisClient.redis.type(`user:${user.id}:history:search`);
+        if (container.redis?.redis) {
+          const keyType = await container.redis.redis.type(`user:${user.id}:history:search`);
           const value = keyType === 'SET' 
-            ? await redisClient.redis.smembers(`user:${user.id}:history:search`)
-            : await redisClient.redis.lrange(`user:${user.id}:history:search`, 0, 7);
+            ? await container.redis.redis.smembers(`user:${user.id}:history:search`)
+            : await container.redis.redis.lrange(`user:${user.id}:history:search`, 0, 7);
           
           if (value && value.length > 0) {
             set.status = HttpStatusCode.Ok;
@@ -147,8 +147,8 @@ export default new Elysia()
 
         const parsed_to_array = search_history.map(item => item.text);
         
-        if (redisClient?.redis) {
-          await redisClient.redis
+        if (container.redis?.redis) {
+          await container.redis.redis
             .multi()
             .sadd(`user:${user.id}:history:search`, ...parsed_to_array)
             .expire(`user:${user.id}:history:search`, 600)
@@ -169,3 +169,4 @@ export default new Elysia()
       }),
     },
   );
+

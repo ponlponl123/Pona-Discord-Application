@@ -1,4 +1,4 @@
-import { lavalink } from '@/index';
+import { container } from '@/core/container';
 import { GuildMember, User } from 'discord.js';
 import { SearchPlatform, SearchResult } from '@interfaces/manager';
 import { config as apiServerConf } from '@/config/express';
@@ -18,6 +18,7 @@ export default async function getSongs(
   author: GuildMember,
 ): Promise<string | trackResult> {
   let res: SearchResult;
+  const { lavalink } = container;
 
   if (search.startsWith('https://pona.ponlponl123.com/share/')) {
     const playlistId = search.replace(
@@ -100,7 +101,6 @@ export default async function getSongs(
         tracks: res.playlist?.tracks as Track[],
         type: 'playlist',
       };
-      return 'Playlists are not supported with this command.';
     }
   } catch (err: any) {
     console.error('Error while searching:', err);

@@ -1,9 +1,9 @@
 import { Elysia } from 'elysia';
 import { HttpStatusCode } from 'axios';
-import { lavalink } from '@/index';
+import { container } from '@/core/container';
 
 export default new Elysia().get('/', ({ set }) => {
-  if (lavalink.lavanodes.length === 0) {
+  if (container.lavalink.lavanodes.length === 0) {
     set.status = HttpStatusCode.ServiceUnavailable;
     return {
       message: 'Service Unavailable',

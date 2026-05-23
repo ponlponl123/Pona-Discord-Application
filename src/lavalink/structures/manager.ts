@@ -30,7 +30,7 @@ import {
   SearchResult,
 } from '@/interfaces/manager';
 import { parseYouTubeTitle } from '@/utils/parser';
-import { redisClient } from '@/index';
+import { container } from '@/core/container';
 import { createTrackData } from '@/utils/lavalink/track';
 
 interface LavaPlayer {
@@ -86,17 +86,17 @@ export class Manager extends EventEmitter {
   public async loadPlayerStates(nodeId: string): Promise<void> {
     const node = this.nodes.get(nodeId);
     if (!node) throw new Error(`Could not find node: ${nodeId}`);
-    if (!redisClient || !redisClient.redis)
+    if (!container.redis || !container.redis.redis)
       throw new Error('Redis is not initialized.');
 
     const info = (await node.rest.getAllPlayers()) as LavaPlayer[];
 
-    const keyPrefix = redisClient.redis.options.keyPrefix || '';
+    const keyPrefix = container.redis.redis.options.keyPrefix || '';
 
     let cursor = '0';
     let playerKeys: string[] = [];
     do {
-      const [nextCursor, foundKeys] = await redisClient.redis.scan(
+      const [nextCursor, foundKeys] = await container.redis.redis.scan(
         cursor,
         'MATCH',
         `${keyPrefix}state:*`,
@@ -115,7 +115,7 @@ export class Manager extends EventEmitter {
     this.lastSaveTimes.clear();
 
     for (const playerKey of playerKeys) {
-      const data = await redisClient.redis.get(playerKey);
+      const data = await container.redis.redis.get(playerKey);
       if (!data) continue;
       const state = JSON.parse(data);
 
@@ -264,9 +264,9 @@ export class Manager extends EventEmitter {
   }
 
   public async readPlayerState(guildId: string): Promise<Player | undefined> {
-    if (!redisClient || !redisClient.redis)
+    if (!container.redis || !container.redis.redis)
       throw new Error('Redis is not initialized.');
-    const raw_state = await redisClient.redis.get(`state:${guildId}`);
+    const raw_state = await container.redis.redis.get(`state:${guildId}`);
     if (!raw_state) return;
     const state = JSON.parse(raw_state);
 
@@ -333,16 +333,16 @@ export class Manager extends EventEmitter {
   }
 
   public async savePlayerState(guildId: string): Promise<void> {
-    if (!redisClient || !redisClient.redis)
+    if (!container.redis || !container.redis.redis)
       throw new Error('Redis is not initialized.');
 
     const player = this.players.get(guildId);
     if (!player || player.state === 'DISCONNECTED' || !player.voiceChannel) {
-      await redisClient.redis.del([`state:${guildId}`]);
+      await container.redis.redis.del([`state:${guildId}`]);
       return;
     }
     const serializedPlayer = this.serializePlayer(player) as unknown as Player;
-    await redisClient.redis.setex(
+    await container.redis.redis.setex(
       `state:${guildId}`,
       7200,
       JSON.stringify(serializedPlayer, null, 2),
@@ -356,12 +356,12 @@ export class Manager extends EventEmitter {
   }
 
   public async delPlayerState(guildId: string): Promise<void> {
-    if (!redisClient || !redisClient.redis)
+    if (!container.redis || !container.redis.redis)
       throw new Error('Redis is not initialized.');
 
     const player = this.players.get(guildId);
     if (!player) return;
-    await redisClient.redis.del([`state:${guildId}`]);
+    await container.redis.redis.del([`state:${guildId}`]);
 
     console.log(
       consoleType.info,
@@ -790,3 +790,4 @@ export class Manager extends EventEmitter {
     return;
   }
 }
+

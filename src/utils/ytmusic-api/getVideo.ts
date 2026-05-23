@@ -1,5 +1,5 @@
 import type { SongDetailed } from '@/interfaces/ytmusic-api';
-import { ytmusic } from '@/index';
+import { container } from '@/core/container';
 import { fetchWithCache, hasCache } from '@/utils/ytmusic-api/cache';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
 import type { YTMusic } from 'youtubei.js';
@@ -23,7 +23,7 @@ export async function IsValidVideo(videoId: string): Promise<boolean> {
 
     const encodedId = encodeURIComponent(videoId);
 
-    if (await ytmusic.client.music.getInfo(videoId).catch((): null => null))
+    if (await container.ytmusic.client.music.getInfo(videoId).catch((): null => null))
       return true;
     if (await YTMusicAPI('GET', `song/${encodedId}`).catch((): null => null))
       return true;
@@ -39,7 +39,7 @@ export async function getVideo(videoId: string): Promise<VideoResult> {
 
   const [v1, v2] = await Promise.all([
     fetchWithCache<YTMusic.TrackInfo>(KEYS.v1(videoId), () =>
-      ytmusic.client.music.getInfo(videoId),
+      container.ytmusic.client.music.getInfo(videoId),
     ),
     fetchWithCache<SongDetailed>(KEYS.v2(videoId), async () => {
       const res = await YTMusicAPI('GET', `song/${encodedId}`);
@@ -49,3 +49,4 @@ export async function getVideo(videoId: string): Promise<VideoResult> {
 
   return { message: 'Ok', result: { v1, v2 } };
 }
+

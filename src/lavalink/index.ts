@@ -5,7 +5,6 @@ import { Node } from './structures/node';
 import type { NodeOptions } from '@interfaces/node';
 import type { Track } from '@interfaces/player';
 import type { PlayerStateEventType } from '@/interfaces/manager';
-import { discordClient as self } from '@/index';
 import { prefix as consolePrefix, type as consoleType } from '@config/console';
 import { config as discordConf } from '@config/discord';
 import { config } from '@config/lavalink';
@@ -15,6 +14,7 @@ import setVoiceChannelStatus from '@/utils/setVoiceChannelStatus';
 import axios, { type AxiosError } from 'axios';
 import * as discord from 'discord.js';
 import { Routes } from 'discord.js';
+import type Pona from '@/client';
 
 export interface PlayerEvents {
   trackPos: (guildId: string, pos: number) => void;
@@ -61,7 +61,7 @@ class LavalinkServer extends EventEmitter {
     }
   }
 
-  constructor(public readonly clientId: string) {
+  constructor(public readonly clientId: string, private readonly pona: Pona) {
     super();
     console.log(
       consoleType.info,
@@ -87,7 +87,7 @@ class LavalinkServer extends EventEmitter {
       clientId: discordConf.DISCORD_CLIENT_ID,
       defaultSearchPlatform: 'pona! search',
       send: (id, payload) => {
-        const guild = self.client.guilds.cache.get(id);
+        const guild = this.pona.client.guilds.cache.get(id);
         if (guild) guild.shard.send(payload);
         console.log(
           consoleType.info,
@@ -96,7 +96,7 @@ class LavalinkServer extends EventEmitter {
       },
     });
 
-    self.client.on('raw', (d) => this.manager.updateVoiceState(d));
+    this.pona.client.on('raw', (d) => this.manager.updateVoiceState(d));
     this.registerManagerEvents();
   }
 

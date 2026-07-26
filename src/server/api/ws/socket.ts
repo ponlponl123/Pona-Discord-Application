@@ -15,9 +15,25 @@ export class initialize {
   private redis_sub?: Redis;
 
   constructor(http: HttpServer) {
+    const allowedOrigins = [
+      'https://pona.ponlponl123.com',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://127.0.0.1:3000',
+    ];
+
     const socketServer = new Server(http, {
       cors: {
-        origin: 'https://pona.ponlponl123.com',
+        origin: (origin, callback) => {
+          if (!origin || process.env.NODE_ENV !== 'production') {
+            return callback(null, true);
+          }
+          if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
+            return callback(null, true);
+          }
+          return callback(new Error('Not allowed by CORS'));
+        },
+        credentials: true,
         methods: ['GET', 'POST'],
       },
       maxHttpBufferSize: 15e6, // 15 MB

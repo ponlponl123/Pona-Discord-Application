@@ -23,8 +23,25 @@ export class apiServer {
     const httpServer = createServer();
     const socket = new initializeSocket(httpServer);
 
+    const allowedOrigins = [
+      'https://pona.ponlponl123.com',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://127.0.0.1:3000',
+    ];
+
     const app = new Elysia()
-      .use(cors({ origin: 'https://pona.ponlponl123.com', credentials: true }))
+      .use(
+        cors({
+          origin: (request) => {
+            const origin = request.headers.get('origin');
+            if (!origin) return true;
+            if (process.env.NODE_ENV !== 'production') return true;
+            return allowedOrigins.includes(origin) || origin.startsWith('http://localhost:');
+          },
+          credentials: true,
+        }),
+      )
       .use(
         swagger({
           documentation: {

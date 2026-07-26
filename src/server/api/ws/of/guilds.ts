@@ -38,16 +38,26 @@ function encodeData(data: unknown): string {
 
 const namespaces = new Map<string, Server>();
 
-function getNamespace(guildId: string): Server {
-  if (namespaces.has(guildId)) return namespaces.get(guildId)!;
-  const namespace = (container.apiServer as any).io.of(`/guilds/${guildId}`);
-  namespaces.set(guildId, namespace);
-  return namespace;
+function emitToGuild(guildId: string, event: GuildEvents, payload: unknown, room: string = 'pona! music') {
+  const io = (container.apiServer as any)?.io;
+  if (!io) return;
+  io.of(`/guild/${guildId}`).to(room).emit(event, payload);
+  io.of(`/guilds/${guildId}`).to(room).emit(event, payload);
 }
 
 export default function setupGuildWS() {
   const self = container.pona;
   const events = container.eventManager;
+
+  const io = (container.apiServer as any)?.io;
+  if (io) {
+    const dynamicGuildRegexp = /^\/(?:guild|guilds)\/([0-9]+)$/;
+    io.of(dynamicGuildRegexp).on('connection', (socket: any) => {
+      socket.join('pona! music');
+      socket.join('pona! voice');
+      register(socket);
+    });
+  }
 
   events.registerHandler('voiceStateUpdate', async (type, oldState, newState) => {
     try {
@@ -76,25 +86,18 @@ export default function setupGuildWS() {
         isSameVC: !!isSameVC,
       };
 
-      namespace_io
-        .to('pona! voice')
-        .emit('member_voice_changed' as GuildEvents, encodeData(data));
+      emitToGuild(guildId, 'member_voice_changed', encodeData(data), 'pona! voice');
     } catch {
       return;
     }
   });
 
   events.registerHandler('playerStateUpdate', async (oldPlayer, newPlayer, changeType) => {
-    const namespace_io = getNamespace(newPlayer.guild);
     const data = await getHTTP_PlayerState(newPlayer.guild);
-    namespace_io
-      .to('pona! music')
-      .emit('state_updated' as GuildEvents, encodeData(data));
+    emitToGuild(newPlayer.guild, 'state_updated', encodeData(data), 'pona! music');
 
     if (changeType === 'trackChange' || changeType === 'queueChange') {
-      namespace_io
-        .to('pona! music')
-        .emit('queue_updated' as GuildEvents, encodeData(newPlayer.queue));
+      emitToGuild(newPlayer.guild, 'queue_updated', encodeData(newPlayer.queue), 'pona! music');
     }
 
     if (changeType === 'repeatChange') {
@@ -103,26 +106,13 @@ export default function setupGuildWS() {
         queue: newPlayer.queueRepeat,
         dynamic: newPlayer.dynamicRepeat,
       };
-      namespace_io
-        .to('pona! music')
-        .emit('repeat_updated' as GuildEvents, encodeData(repeatData));
+      emitToGuild(newPlayer.guild, 'repeat_updated', encodeData(repeatData), 'pona! music');
     }
   });
 
   events.registerHandler('trackStart', async (player, track) => {
-    const namespace_io = getNamespace(player.guild);
-    const initialEvents = [
-      {
-        event: 'track_started' as GuildEvents,
-        data: encodeData(track),
-      },
-      {
-        event: 'queue_updated' as GuildEvents,
-        data: encodeData([track, ...player.queue]),
-      },
-    ];
-    
-    initialEvents.forEach(e => namespace_io.to('pona! music').emit(e.event, e.data));
+    emitToGuild(player.guild, 'track_started', encodeData(track), 'pona! music');
+    emitToGuild(player.guild, 'queue_updated', encodeData([track, ...player.queue]), 'pona! music');
 
     if (container.redis?.redis) {
       const value = await container.redis.redis.get(
@@ -130,9 +120,7 @@ export default function setupGuildWS() {
       );
       if (value) {
         track.lyrics = JSON.parse(value) as Lyric;
-        namespace_io
-          .to('pona! music')
-          .emit('track_updated' as GuildEvents, encodeData(track));
+        emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
         return;
       }
     }
@@ -148,9 +136,7 @@ export default function setupGuildWS() {
       );
       if (fetchLyricByInternalAPI.ok) {
         track.lyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
-        namespace_io
-          .to('pona! music')
-          .emit('track_updated' as GuildEvents, encodeData(track));
+        emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
         if (container.redis?.redis)
           container.redis.redis.setex(
             `yt:lyrics:${track.identifier}`,

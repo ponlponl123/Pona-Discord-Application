@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { container } from '@/core/container';
 import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import trafficDebugger from '@/server/middlewares/socket/trafficDebugger';
+import register from '../register';
 import {
   HTTP_PonaCommonStateWithTracks,
   HTTP_PonaRepeatState,
@@ -12,8 +13,10 @@ import {
   getHTTP_PlayerState,
 } from '@/utils/player/httpReq';
 import { MemberVoiceChangedState } from '@/interfaces/member';
-import { VoiceBasedChannel, VoiceState } from 'discord.js';
+import { VoiceBasedChannel, VoiceState, GuildMember } from 'discord.js';
 import joinChannel from '@/utils/player/joinVoiceChannelAsPlayer';
+import leaveVoiceChannelAsPlayer from '@/utils/player/leaveVoiceChannelAsPlayer';
+import addToQueue from '@/utils/player/addToQueue';
 import { Player, Queue } from '@/lavalink';
 import {
   fetchIsUserInSameVoiceChannel,
@@ -30,10 +33,10 @@ type GuildEvents =
   | 'track_updated'
   | 'queue_updated'
   | 'repeat_updated'
-  | 'member_voice_changed';
+  | 'member_state_updated';
 
 function encodeData(data: unknown): string {
-  return JSON.stringify(data);
+  return Buffer.from(JSON.stringify(data)).toString('base64');
 }
 
 const namespaces = new Map<string, Server>();
@@ -45,17 +48,391 @@ function emitToGuild(guildId: string, event: GuildEvents, payload: unknown, room
   io.of(`/guilds/${guildId}`).to(room).emit(event, payload);
 }
 
-export default function setupGuildWS() {
+export default function setupGuildWS(ioInstance?: Server) {
   const self = container.pona;
   const events = container.eventManager;
 
-  const io = (container.apiServer as any)?.io;
+  const io = ioInstance || (container.apiServer as any)?.io;
   if (io) {
     const dynamicGuildRegexp = /^\/(?:guild|guilds)\/([0-9]+)$/;
-    io.of(dynamicGuildRegexp).on('connection', (socket: any) => {
+    io.of(dynamicGuildRegexp).on('connection', async (socket: any) => {
       socket.join('pona! music');
       socket.join('pona! voice');
       register(socket);
+
+      try {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+
+        let isMemberInVC = null;
+        const { type, key } = socket.handshake.auth || {};
+        if (type && key && guildId) {
+          const user: any = await fetchUserByOAuthAccessToken(type, key);
+          if (user?.id) {
+            const member = await container.pona.client.guilds.cache
+              .get(guildId)
+              ?.members.fetch(user.id)
+              .catch(() => null);
+            if (member?.voice?.channel) {
+              const vc = member.voice.channel;
+              isMemberInVC = {
+                id: vc.id,
+                name: vc.name,
+                type: vc.type,
+                userLimit: (vc as any).userLimit ?? 0,
+              };
+            }
+          }
+        }
+
+        const ponaState = guildId ? await getHTTP_PlayerState(guildId) : null;
+        const handshakePayload = {
+          pona: ponaState,
+          isMemberInVC,
+        };
+
+        socket.emit('handshake', encodeData(handshakePayload));
+      } catch (err) {
+        console.error('Handshake error on WS connection:', err);
+      }
+
+      // 1. Join Voice Channel
+      socket.on('join', async (guildIdParam?: string, voiceChannelIdParam?: string) => {
+        try {
+          const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+          const guildId =
+            typeof guildIdParam === 'string' && /^\d+$/.test(guildIdParam)
+              ? guildIdParam
+              : match
+                ? match[1]
+                : null;
+          if (!guildId) return;
+
+          const guild = container.pona.client.guilds.cache.get(guildId);
+          if (!guild) return;
+
+          let targetVoiceChannel =
+            typeof voiceChannelIdParam === 'string' && /^\d+$/.test(voiceChannelIdParam)
+              ? guild.channels.cache.get(voiceChannelIdParam)
+              : null;
+
+          if (!targetVoiceChannel) {
+            const { type, key } = socket.handshake.auth || {};
+            if (type && key) {
+              const user: any = await fetchUserByOAuthAccessToken(type, key);
+              if (user?.id) {
+                const member = await guild.members.fetch(user.id).catch(() => null);
+                if (member?.voice?.channel) {
+                  targetVoiceChannel = member.voice.channel;
+                }
+              }
+            }
+          }
+
+          if (!targetVoiceChannel || !targetVoiceChannel.isVoiceBased()) return;
+
+          const textChannel =
+            guild.systemChannel ||
+            guild.channels.cache.find(
+              (ch) =>
+                ch.isTextBased() &&
+                ch.permissionsFor(guild.members.me!)?.has('SendMessages'),
+            ) ||
+            (targetVoiceChannel as any);
+
+          const player = await joinChannel(
+            textChannel as any,
+            targetVoiceChannel as VoiceBasedChannel,
+            guild,
+          );
+
+          if (player) {
+            const ponaState = await getHTTP_PlayerState(guildId);
+            socket.emit('player_created', encodeData(ponaState));
+            emitToGuild(guildId, 'state_updated', encodeData(ponaState), 'pona! music');
+          }
+        } catch (err) {
+          console.error('Error handling join socket event:', err);
+        }
+      });
+
+      // 2. Play (Resume)
+      socket.on('play', async () => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player) {
+          await player.pause(false);
+          emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+        }
+      });
+
+      // 3. Pause
+      socket.on('pause', async () => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player) {
+          await player.pause(true);
+          emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+        }
+      });
+
+      // 4. Next / Skip
+      socket.on('next', async () => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player) {
+          await player.stop();
+        }
+      });
+
+      // 5. Previous
+      socket.on('previous', async () => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player) {
+          if (player.position > 5000) {
+            await player.seek(0);
+          } else if (player.queue.previous) {
+            player.queue.add([player.queue.previous, ...player.queue]);
+            await player.stop();
+          }
+        }
+      });
+
+      // 6. Skipto
+      socket.on('skipto', async (index: number) => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player && typeof index === 'number' && index >= 0 && index < player.queue.length) {
+          player.queue.splice(0, index);
+          await player.stop();
+        }
+      });
+
+      // 7. Seek
+      socket.on('seek', async (val: number) => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player && typeof val === 'number') {
+          const posMs = val > 100000 ? val : val * 1000;
+          await player.seek(posMs);
+          const ponaState = await getHTTP_PlayerState(guildId);
+          emitToGuild(guildId, 'state_updated', encodeData(ponaState), 'pona! music');
+        }
+      });
+
+      // 8. Add track
+      socket.on('add', async (uri: string, cb?: (res: any) => void) => {
+        try {
+          const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+          const guildId = match ? match[1] : null;
+          if (!guildId || !uri) {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid arguments' });
+            return;
+          }
+
+          let player = container.lavalink.manager.get(guildId);
+          if (!player) {
+            const guild = container.pona.client.guilds.cache.get(guildId);
+            const { type, key } = socket.handshake.auth || {};
+            if (type && key && guild) {
+              const user: any = await fetchUserByOAuthAccessToken(type, key);
+              if (user?.id) {
+                const member = await guild.members.fetch(user.id).catch(() => null);
+                if (member?.voice?.channel) {
+                  const textChannel =
+                    guild.systemChannel ||
+                    guild.channels.cache.find(
+                      (ch) =>
+                        ch.isTextBased() &&
+                        ch.permissionsFor(guild.members.me!)?.has('SendMessages'),
+                    ) ||
+                    (member.voice.channel as any);
+
+                  player = await joinChannel(textChannel as any, member.voice.channel, guild);
+                }
+              }
+            }
+          }
+
+          if (!player) {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'No voice connection' });
+            return;
+          }
+
+          const user: any = socket.handshake.auth?.key
+            ? await fetchUserByOAuthAccessToken(
+                socket.handshake.auth.type,
+                socket.handshake.auth.key,
+              ).catch(() => null)
+            : null;
+
+          const member = user?.id && player?.guild
+            ? await container.pona.client.guilds.cache.get(player.guild)?.members.fetch(user.id).catch(() => null)
+            : null;
+
+          const result = await getSongs(uri, 'pona! search', member as GuildMember);
+          if (typeof result !== 'string' && result.tracks && result.tracks.length > 0) {
+            await addToQueue(result.tracks, player);
+            if (typeof cb === 'function') cb({ status: 'ok' });
+            emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
+            emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+          } else {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'Track not found' });
+          }
+        } catch (err: any) {
+          if (typeof cb === 'function') cb({ status: 'error', message: err?.message || 'Error adding track' });
+        }
+      });
+
+      // 9. Add playlist
+      socket.on('add-playlist', async (tracks: string[], metadata: any, cb?: (res: any) => void) => {
+        try {
+          const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+          const guildId = match ? match[1] : null;
+          if (!guildId || !Array.isArray(tracks) || !tracks.length) {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid parameters' });
+            return;
+          }
+
+          let player = container.lavalink.manager.get(guildId);
+          if (!player) {
+            const guild = container.pona.client.guilds.cache.get(guildId);
+            const { type, key } = socket.handshake.auth || {};
+            if (type && key && guild) {
+              const user: any = await fetchUserByOAuthAccessToken(type, key);
+              if (user?.id) {
+                const member = await guild.members.fetch(user.id).catch(() => null);
+                if (member?.voice?.channel) {
+                  const textChannel =
+                    guild.systemChannel ||
+                    guild.channels.cache.find(
+                      (ch) =>
+                        ch.isTextBased() &&
+                        ch.permissionsFor(guild.members.me!)?.has('SendMessages'),
+                    ) ||
+                    (member.voice.channel as any);
+
+                  player = await joinChannel(textChannel as any, member.voice.channel, guild);
+                }
+              }
+            }
+          }
+
+          if (!player) {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'No voice connection' });
+            return;
+          }
+
+          const user: any = socket.handshake.auth?.key
+            ? await fetchUserByOAuthAccessToken(
+                socket.handshake.auth.type,
+                socket.handshake.auth.key,
+              ).catch(() => null)
+            : null;
+
+          const member = user?.id && player?.guild
+            ? await container.pona.client.guilds.cache.get(player.guild)?.members.fetch(user.id).catch(() => null)
+            : null;
+
+          const loadedTracks: any[] = [];
+          for (const trackUri of tracks) {
+            const result = await getSongs(trackUri, 'pona! search', member as GuildMember);
+            if (typeof result !== 'string' && result.tracks && result.tracks.length > 0) {
+              loadedTracks.push(result.tracks[0]);
+            }
+          }
+
+          if (loadedTracks.length > 0) {
+            await addToQueue(loadedTracks, player);
+            if (typeof cb === 'function') cb({ status: 'ok' });
+            emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
+            emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+          } else {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'No valid tracks loaded' });
+          }
+        } catch (err: any) {
+          if (typeof cb === 'function') cb({ status: 'error', message: err?.message || 'Error adding playlist' });
+        }
+      });
+
+      // 10. Remove track (rm)
+      socket.on('rm', async (uniqueId: string, cb?: (res: any) => void) => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player) {
+          const index = player.queue.findIndex(
+            (t: any) => t.uniqueId === uniqueId || t.identifier === uniqueId,
+          );
+          if (index !== -1) {
+            player.queue.remove(index);
+            emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
+            if (typeof cb === 'function') cb({ status: 'ok' });
+            return;
+          }
+        }
+        if (typeof cb === 'function') cb({ status: 'error', message: 'Track not found' });
+      });
+
+      // 11. Move track in queue
+      socket.on('move', async (oldIndex: number, newIndex: number) => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (
+          player &&
+          typeof oldIndex === 'number' &&
+          typeof newIndex === 'number' &&
+          oldIndex >= 0 &&
+          oldIndex < player.queue.length &&
+          newIndex >= 0 &&
+          newIndex < player.queue.length
+        ) {
+          const track = player.queue[oldIndex];
+          player.queue.splice(oldIndex, 1);
+          player.queue.splice(newIndex, 0, track);
+          emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
+        }
+      });
+
+      // 12. Volume
+      socket.on('volume', async (vol: number) => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player && typeof vol === 'number') {
+          player.setVolume(vol);
+          emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+        }
+      });
+
+      // 13. Leave / Destroy
+      socket.on('leave', async () => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player) {
+          await leaveVoiceChannelAsPlayer(guildId);
+          emitToGuild(guildId, 'state_updated', encodeData(null), 'pona! music');
+        }
+      });
     });
   }
 
@@ -70,23 +447,32 @@ export default function setupGuildWS() {
       const guildId = oldState?.guild.id || newState?.guild.id;
       if (!guildId) return;
       const memberId = oldState?.member?.id || newState?.member?.id;
-      const namespace_io = getNamespace(guildId);
-      
+
       const isUserJoined = oldState?.channel === undefined && newState?.channel !== undefined;
       const isUserSwitched = oldState?.channel !== undefined && newState?.channel !== undefined && oldState?.channel?.id !== newState?.channel?.id;
       const isUserLeaved = oldState?.channel !== undefined && newState?.channel === undefined;
       const isSameVC = guildId && memberId ? await fetchIsUserInVoiceChannel(guildId, memberId) : false;
 
+      const formatVC = (ch: any) =>
+        ch
+          ? {
+              id: ch.id,
+              name: ch.name,
+              type: ch.type,
+              userLimit: ch.userLimit ?? 0,
+            }
+          : null;
+
       const data: MemberVoiceChangedState = {
-        oldVC: (oldState?.channel as VoiceBasedChannel) || null,
-        newVC: (newState?.channel as VoiceBasedChannel) || null,
+        oldVC: formatVC(oldState?.channel) as any,
+        newVC: formatVC(newState?.channel) as any,
         isUserJoined,
         isUserSwitched,
         isUserLeaved,
         isSameVC: !!isSameVC,
       };
 
-      emitToGuild(guildId, 'member_voice_changed', encodeData(data), 'pona! voice');
+      emitToGuild(guildId, 'member_state_updated', encodeData(data), 'pona! voice');
     } catch {
       return;
     }

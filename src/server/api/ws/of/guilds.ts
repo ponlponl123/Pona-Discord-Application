@@ -147,7 +147,7 @@ export default function setupGuildWS(ioInstance?: Server) {
           );
 
           if (player) {
-            const ponaState = await getHTTP_PlayerState(guildId);
+            const ponaState = (await getHTTP_PlayerState(guildId)) || convertTo_HTTPPlayerState(player);
             socket.emit('player_created', encodeData(ponaState));
             emitToGuild(guildId, 'state_updated', encodeData(ponaState), 'pona! music');
           }

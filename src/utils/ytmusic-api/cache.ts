@@ -8,8 +8,9 @@ const TTL = {
 export async function fetchWithCache<T>(
   key: string,
   fetcher: () => Promise<T | null | undefined | false>,
+  forceRefetch: boolean = false,
 ): Promise<T | undefined> {
-  if (container.redis?.redis) {
+  if (!forceRefetch && container.redis?.redis) {
     const cached = await container.redis.redis.get(key);
     if (cached === '') return undefined;
     if (cached !== null) return JSON.parse(cached) as T;

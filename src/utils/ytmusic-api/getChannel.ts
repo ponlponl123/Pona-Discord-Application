@@ -46,21 +46,34 @@ export async function IsValidChannel(channelId: string): Promise<boolean> {
   }
 }
 
-export async function getChannel(channelId: string): Promise<ChannelResult> {
+export async function getChannel(
+  channelId: string,
+  forceRefetch: boolean = false,
+): Promise<ChannelResult> {
   const encodedId = encodeURIComponent(channelId);
 
   const [v1, v2, user] = await Promise.all([
-    fetchWithCache<YTMusic.Artist>(KEYS.v1(channelId), () =>
-      container.ytmusic.client.music.getArtist(channelId),
+    fetchWithCache<YTMusic.Artist>(
+      KEYS.v1(channelId),
+      () => container.ytmusic.client.music.getArtist(channelId),
+      forceRefetch,
     ),
-    fetchWithCache<ArtistFull>(KEYS.v2(channelId), async () => {
-      const res = await YTMusicAPI('GET', `artist/${encodedId}`);
-      return res ? res.data.result : null;
-    }),
-    fetchWithCache<ProfileFull>(KEYS.user(channelId), async () => {
-      const res = await YTMusicAPI('GET', `user/${encodedId}`);
-      return res ? res.data.result : null;
-    }),
+    fetchWithCache<ArtistFull>(
+      KEYS.v2(channelId),
+      async () => {
+        const res = await YTMusicAPI('GET', `artist/${encodedId}`);
+        return res ? res.data.result : null;
+      },
+      forceRefetch,
+    ),
+    fetchWithCache<ProfileFull>(
+      KEYS.user(channelId),
+      async () => {
+        const res = await YTMusicAPI('GET', `user/${encodedId}`);
+        return res ? res.data.result : null;
+      },
+      forceRefetch,
+    ),
   ]);
 
   return { message: 'Ok', result: { v1, v2, user } };

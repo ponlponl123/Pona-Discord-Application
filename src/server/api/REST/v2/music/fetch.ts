@@ -70,6 +70,9 @@ export default new Elysia().get(
           const searchResult = await YTMusicAPI(
             'GET',
             api_request.toString(),
+            undefined,
+            undefined,
+            user.id,
           ).catch(() => {
             container.redis?.redis.setex(`yt:av:${queryId}:${type}`, 300, '');
           });
@@ -121,12 +124,18 @@ export default new Elysia().get(
           const getSongWatchPlaylist = await YTMusicAPI(
             'GET',
             `watch/playlist/${queryId}`,
+            undefined,
+            undefined,
+            user.id,
           ).catch(() => {
             container.redis?.redis.setex(`yt:watch_playlist:${queryId}`, 600, '');
           });
           const getSongRelated = await YTMusicAPI(
             'GET',
             `browse/song_related/${queryId}`,
+            undefined,
+            undefined,
+            user.id,
           ).catch(() => {
             container.redis?.redis.setex(`yt:related:${queryId}`, 600, '');
           });
@@ -201,6 +210,9 @@ export default new Elysia().get(
                   const fetch = await YTMusicAPI(
                     'GET',
                     `browse/artist/${encodeURIComponent(queryId)}`,
+                    undefined,
+                    undefined,
+                    user.id,
                   ).catch(() => {
                     container.redis?.redis.setex(
                       `yt:artist:v2:${queryId}:info`,
@@ -221,6 +233,9 @@ export default new Elysia().get(
                   const fetch = await YTMusicAPI(
                     'GET',
                     `browse/user/${encodeURIComponent(queryId)}`,
+                    undefined,
+                    undefined,
+                    user.id,
                   ).catch(() => {
                     container.redis?.redis.setex(
                       `yt:user:${queryId}:info`,
@@ -269,12 +284,18 @@ export default new Elysia().get(
             const usr_detail = await YTMusicAPI(
               'GET',
               `browse/user/${encodeURIComponent(queryId)}`,
+              undefined,
+              undefined,
+              user.id,
             ).catch(() => {
               container.redis?.redis.setex(`yt:user:${queryId}:info`, 600, '');
             });
             const artist_detail_v2 = await YTMusicAPI(
               'GET',
               `browse/artist/${encodeURIComponent(queryId)}`,
+              undefined,
+              undefined,
+              user.id,
             ).catch(() => {
               container.redis?.redis.setex(`yt:artist:v2:${queryId}:info`, 600, '');
             });

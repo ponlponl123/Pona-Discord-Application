@@ -74,7 +74,7 @@ export default new Elysia().get(
         }
         let URL = `search?query=${encodeURIComponent(String(q))}`;
         URL += filter ? `&filter=${filter}` : '';
-        const searchResult: any = await YTMusicAPI('GET', URL.toString());
+        const searchResult: any = await YTMusicAPI('GET', URL.toString(), undefined, undefined, user.id);
         if (!searchResult) {
           set.status = HttpStatusCode.ServiceUnavailable;
           return { message: 'Service Unavailable' };

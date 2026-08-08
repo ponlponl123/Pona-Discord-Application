@@ -19,7 +19,7 @@ const KEYS = {
   user: (id: string) => `yt:user:${id}:info`,
 } as const;
 
-export async function IsValidChannel(channelId: string): Promise<boolean> {
+export async function IsValidChannel(channelId: string, userId?: string): Promise<boolean> {
   try {
     if (
       await hasCache(
@@ -35,9 +35,9 @@ export async function IsValidChannel(channelId: string): Promise<boolean> {
 
     if (await container.ytmusic.client.music.getArtist(channelId).catch((): null => null))
       return true;
-    if (await YTMusicAPI('GET', `user/${encodedId}`).catch((): null => null))
+    if (await YTMusicAPI('GET', `user/${encodedId}`, undefined, undefined, userId).catch((): null => null))
       return true;
-    if (await YTMusicAPI('GET', `artist/${encodedId}`).catch((): null => null))
+    if (await YTMusicAPI('GET', `artist/${encodedId}`, undefined, undefined, userId).catch((): null => null))
       return true;
 
     return false;
@@ -49,6 +49,7 @@ export async function IsValidChannel(channelId: string): Promise<boolean> {
 export async function getChannel(
   channelId: string,
   forceRefetch: boolean = false,
+  userId?: string,
 ): Promise<ChannelResult> {
   const encodedId = encodeURIComponent(channelId);
 
@@ -61,7 +62,7 @@ export async function getChannel(
     fetchWithCache<ArtistFull>(
       KEYS.v2(channelId),
       async () => {
-        const res = await YTMusicAPI('GET', `artist/${encodedId}`);
+        const res = await YTMusicAPI('GET', `artist/${encodedId}`, undefined, undefined, userId);
         return res ? res.data.result : null;
       },
       forceRefetch,
@@ -69,7 +70,7 @@ export async function getChannel(
     fetchWithCache<ProfileFull>(
       KEYS.user(channelId),
       async () => {
-        const res = await YTMusicAPI('GET', `user/${encodedId}`);
+        const res = await YTMusicAPI('GET', `user/${encodedId}`, undefined, undefined, userId);
         return res ? res.data.result : null;
       },
       forceRefetch,
@@ -78,4 +79,3 @@ export async function getChannel(
 
   return { message: 'Ok', result: { v1, v2, user } };
 }
-

@@ -18,6 +18,7 @@ export const config = {
   user: DATABASE_USER || 'me',
   password: DATABASE_PASS || 'secret',
   database: DATABASE_NAME || 'my_db',
+  url: `mysql://${DATABASE_USER}:${DATABASE_PASS}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}`,
 };
 
 if (

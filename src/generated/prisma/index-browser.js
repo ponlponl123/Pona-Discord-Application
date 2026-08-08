@@ -24,12 +24,12 @@ exports.Prisma = Prisma
 exports.$Enums = {}
 
 /**
- * Prisma Client JS version: 7.8.0
- * Query Engine version: 3c6e192761c0362d496ed980de936e2f3cebcd3a
+ * Prisma Client JS version: 7.9.1
+ * Query Engine version: e922089b7d7502aff4249d5da3420f6fa55fc6ad
  */
 Prisma.prismaVersion = {
-  client: "7.8.0",
-  engine: "3c6e192761c0362d496ed980de936e2f3cebcd3a"
+  client: "7.9.1",
+  engine: "e922089b7d7502aff4249d5da3420f6fa55fc6ad"
 }
 
 Prisma.PrismaClientKnownRequestError = () => {
@@ -251,6 +251,15 @@ exports.Prisma.Subscribe_newsScalarFieldEnum = {
   target: 'target'
 };
 
+exports.Prisma.User_sessionScalarFieldEnum = {
+  id: 'id',
+  uid: 'uid',
+  ytmusic_visitor_id: 'ytmusic_visitor_id',
+  ytmusic_cookie: 'ytmusic_cookie',
+  created_at: 'created_at',
+  updated_at: 'updated_at'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -353,6 +362,12 @@ exports.Prisma.subscribe_newsOrderByRelevanceFieldEnum = {
   target: 'target'
 };
 
+exports.Prisma.user_sessionOrderByRelevanceFieldEnum = {
+  uid: 'uid',
+  ytmusic_visitor_id: 'ytmusic_visitor_id',
+  ytmusic_cookie: 'ytmusic_cookie'
+};
+
 
 exports.Prisma.ModelName = {
   api_key: 'api_key',
@@ -368,7 +383,8 @@ exports.Prisma.ModelName = {
   pona_voicestate_history: 'pona_voicestate_history',
   search_history: 'search_history',
   subscribe_artist: 'subscribe_artist',
-  subscribe_news: 'subscribe_news'
+  subscribe_news: 'subscribe_news',
+  user_session: 'user_session'
 };
 
 /**

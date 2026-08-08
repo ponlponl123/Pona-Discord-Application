@@ -345,9 +345,16 @@ export async function constructTrack<T = User | ClientUser>(
         ];
         break;
       case 2:
+        const requesterId =
+          typeof requester === 'string'
+            ? requester
+            : (requester as any)?.id || (requester as any)?.user?.id;
         const fetchVideoDetail = await YTMusicAPI(
           'GET',
           `song/${track.info.identifier}`,
+          undefined,
+          undefined,
+          requesterId,
         );
         if (fetchVideoDetail && fetchVideoDetail.status === 200) {
           track.info.artist = [

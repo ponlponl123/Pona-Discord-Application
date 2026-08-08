@@ -151,3 +151,12 @@ model subscribe_news {
 
   @@unique([uid(length: 100), type(length: 100), target(length: 100)], map: "unique_uid_type_target")
 }
+
+model user_session {
+  id                 BigInt    @id @default(autoincrement())
+  uid                String    @unique(map: "uid") @db.VarChar(100)
+  ytmusic_visitor_id String    @unique(map: "ytmusic_visitor_id") @db.VarChar(255)
+  ytmusic_cookie     String?   @db.LongText
+  created_at         DateTime  @default(now()) @db.Timestamp(0)
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamp(0)
+}

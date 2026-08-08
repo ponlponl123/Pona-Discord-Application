@@ -83,6 +83,11 @@ export type subscribe_artist = $Result.DefaultSelection<Prisma.$subscribe_artist
  * 
  */
 export type subscribe_news = $Result.DefaultSelection<Prisma.$subscribe_newsPayload>
+/**
+ * Model user_session
+ * 
+ */
+export type user_session = $Result.DefaultSelection<Prisma.$user_sessionPayload>
 
 /**
  * ##  Prisma Client ʲˢ
@@ -124,7 +129,7 @@ export class PrismaClient<
    * Read more in our [docs](https://pris.ly/d/client).
    */
 
-  constructor(optionsArg ?: Prisma.Subset<ClientOptions, Prisma.PrismaClientOptions>);
+  constructor(optionsArg ?: Prisma.PrismaClientConstructorArgs<ClientOptions>);
   $on<V extends U>(eventType: V, callback: (event: V extends 'query' ? Prisma.QueryEvent : Prisma.LogEvent) => void): PrismaClient;
 
   /**
@@ -344,6 +349,16 @@ export class PrismaClient<
     * ```
     */
   get subscribe_news(): Prisma.subscribe_newsDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.user_session`: Exposes CRUD operations for the **user_session** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more User_sessions
+    * const user_sessions = await prisma.user_session.findMany()
+    * ```
+    */
+  get user_session(): Prisma.user_sessionDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -394,8 +409,8 @@ export namespace Prisma {
   export import Exact = $Public.Exact
 
   /**
-   * Prisma Client JS version: 7.8.0
-   * Query Engine version: 3c6e192761c0362d496ed980de936e2f3cebcd3a
+   * Prisma Client JS version: 7.9.1
+   * Query Engine version: e922089b7d7502aff4249d5da3420f6fa55fc6ad
    */
   export type PrismaVersion = {
     client: string
@@ -530,6 +545,19 @@ export namespace Prisma {
   };
 
   /**
+   * Resolved type of the argument passed to the `PrismaClient` constructor.
+   *
+   * When called without a narrower options type (the common case), this resolves
+   * to `PrismaClientOptions` directly, which produces a clear TypeScript error
+   * message (`not assignable to parameter of type 'PrismaClientOptions'`) when
+   * the argument is missing or incomplete. When the user supplies a narrower
+   * options type (e.g. via a literal), it falls back to `Subset` to keep
+   * filtering out unknown properties.
+   */
+  export type PrismaClientConstructorArgs<Options extends PrismaClientOptions> =
+    [PrismaClientOptions] extends [Options] ? PrismaClientOptions : Subset<Options, PrismaClientOptions>;
+
+  /**
    * SelectSubset
    * @desc From `T` pick properties that exist in `U`. Simple version of Intersection.
    * Additionally, it validates, if both select and include are present. If the case, it errors.
@@ -561,7 +589,7 @@ export namespace Prisma {
   type XOR<T, U> =
     T extends object ?
     U extends object ?
-      (Without<T, U> & U) | (Without<U, T> & T)
+      ((Without<T, U> & U) | (Without<U, T> & T)) & object
     : U : T
 
 
@@ -791,7 +819,8 @@ export namespace Prisma {
     pona_voicestate_history: 'pona_voicestate_history',
     search_history: 'search_history',
     subscribe_artist: 'subscribe_artist',
-    subscribe_news: 'subscribe_news'
+    subscribe_news: 'subscribe_news',
+    user_session: 'user_session'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -807,7 +836,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "api_key" | "api_key_logs" | "channel_notify_webhook" | "favorite_track" | "feedback" | "guilds" | "player_action_history" | "player_track_history" | "pona_flipflop_state" | "pona_heartbeat_interval" | "pona_voicestate_history" | "search_history" | "subscribe_artist" | "subscribe_news"
+      modelProps: "api_key" | "api_key_logs" | "channel_notify_webhook" | "favorite_track" | "feedback" | "guilds" | "player_action_history" | "player_track_history" | "pona_flipflop_state" | "pona_heartbeat_interval" | "pona_voicestate_history" | "search_history" | "subscribe_artist" | "subscribe_news" | "user_session"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1735,6 +1764,72 @@ export namespace Prisma {
           }
         }
       }
+      user_session: {
+        payload: Prisma.$user_sessionPayload<ExtArgs>
+        fields: Prisma.user_sessionFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.user_sessionFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.user_sessionFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload>
+          }
+          findFirst: {
+            args: Prisma.user_sessionFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.user_sessionFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload>
+          }
+          findMany: {
+            args: Prisma.user_sessionFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload>[]
+          }
+          create: {
+            args: Prisma.user_sessionCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload>
+          }
+          createMany: {
+            args: Prisma.user_sessionCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          delete: {
+            args: Prisma.user_sessionDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload>
+          }
+          update: {
+            args: Prisma.user_sessionUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload>
+          }
+          deleteMany: {
+            args: Prisma.user_sessionDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.user_sessionUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          upsert: {
+            args: Prisma.user_sessionUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$user_sessionPayload>
+          }
+          aggregate: {
+            args: Prisma.User_sessionAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateUser_session>
+          }
+          groupBy: {
+            args: Prisma.user_sessionGroupByArgs<ExtArgs>
+            result: $Utils.Optional<User_sessionGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.user_sessionCountArgs<ExtArgs>
+            result: $Utils.Optional<User_sessionCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -1803,11 +1898,26 @@ export namespace Prisma {
       isolationLevel?: Prisma.TransactionIsolationLevel
     }
     /**
-     * Instance of a Driver Adapter, e.g., like one provided by `@prisma/adapter-planetscale`
+     * A driver adapter that PrismaClient uses to connect to your database, such as the ones provided by `@prisma/adapter-pg`, `@prisma/adapter-libsql`, `@prisma/adapter-planetscale`, etc.
+     * 
+     * A driver adapter is **required** unless you connect to your database through Prisma Accelerate (in which case use `accelerateUrl` instead).
+     * 
+     * Learn more: https://pris.ly/d/driver-adapters
+     * 
+     * @example
+     * ```ts
+     * import { PrismaPg } from '@prisma/adapter-pg'
+     * import { PrismaClient } from './generated/prisma/client'
+     * 
+     * const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+     * const prisma = new PrismaClient({ adapter })
+     * ```
      */
     adapter?: runtime.SqlDriverAdapterFactory
     /**
-     * Prisma Accelerate URL allowing the client to connect through Accelerate instead of a direct database.
+     * The Prisma Accelerate connection URL. Use this option to connect to your database through Prisma Accelerate instead of using a driver adapter to connect directly.
+     * 
+     * Learn more: https://pris.ly/d/accelerate
      */
     accelerateUrl?: string
     /**
@@ -1857,6 +1967,7 @@ export namespace Prisma {
     search_history?: search_historyOmit
     subscribe_artist?: subscribe_artistOmit
     subscribe_news?: subscribe_newsOmit
+    user_session?: user_sessionOmit
   }
 
   /* Types for Logging */
@@ -15207,6 +15318,938 @@ export namespace Prisma {
 
 
   /**
+   * Model user_session
+   */
+
+  export type AggregateUser_session = {
+    _count: User_sessionCountAggregateOutputType | null
+    _avg: User_sessionAvgAggregateOutputType | null
+    _sum: User_sessionSumAggregateOutputType | null
+    _min: User_sessionMinAggregateOutputType | null
+    _max: User_sessionMaxAggregateOutputType | null
+  }
+
+  export type User_sessionAvgAggregateOutputType = {
+    id: number | null
+  }
+
+  export type User_sessionSumAggregateOutputType = {
+    id: bigint | null
+  }
+
+  export type User_sessionMinAggregateOutputType = {
+    id: bigint | null
+    uid: string | null
+    ytmusic_visitor_id: string | null
+    ytmusic_cookie: string | null
+    created_at: Date | null
+    updated_at: Date | null
+  }
+
+  export type User_sessionMaxAggregateOutputType = {
+    id: bigint | null
+    uid: string | null
+    ytmusic_visitor_id: string | null
+    ytmusic_cookie: string | null
+    created_at: Date | null
+    updated_at: Date | null
+  }
+
+  export type User_sessionCountAggregateOutputType = {
+    id: number
+    uid: number
+    ytmusic_visitor_id: number
+    ytmusic_cookie: number
+    created_at: number
+    updated_at: number
+    _all: number
+  }
+
+
+  export type User_sessionAvgAggregateInputType = {
+    id?: true
+  }
+
+  export type User_sessionSumAggregateInputType = {
+    id?: true
+  }
+
+  export type User_sessionMinAggregateInputType = {
+    id?: true
+    uid?: true
+    ytmusic_visitor_id?: true
+    ytmusic_cookie?: true
+    created_at?: true
+    updated_at?: true
+  }
+
+  export type User_sessionMaxAggregateInputType = {
+    id?: true
+    uid?: true
+    ytmusic_visitor_id?: true
+    ytmusic_cookie?: true
+    created_at?: true
+    updated_at?: true
+  }
+
+  export type User_sessionCountAggregateInputType = {
+    id?: true
+    uid?: true
+    ytmusic_visitor_id?: true
+    ytmusic_cookie?: true
+    created_at?: true
+    updated_at?: true
+    _all?: true
+  }
+
+  export type User_sessionAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which user_session to aggregate.
+     */
+    where?: user_sessionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of user_sessions to fetch.
+     */
+    orderBy?: user_sessionOrderByWithRelationInput | user_sessionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: user_sessionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` user_sessions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` user_sessions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned user_sessions
+    **/
+    _count?: true | User_sessionCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: User_sessionAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: User_sessionSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: User_sessionMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: User_sessionMaxAggregateInputType
+  }
+
+  export type GetUser_sessionAggregateType<T extends User_sessionAggregateArgs> = {
+        [P in keyof T & keyof AggregateUser_session]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateUser_session[P]>
+      : GetScalarType<T[P], AggregateUser_session[P]>
+  }
+
+
+
+
+  export type user_sessionGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: user_sessionWhereInput
+    orderBy?: user_sessionOrderByWithAggregationInput | user_sessionOrderByWithAggregationInput[]
+    by: User_sessionScalarFieldEnum[] | User_sessionScalarFieldEnum
+    having?: user_sessionScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: User_sessionCountAggregateInputType | true
+    _avg?: User_sessionAvgAggregateInputType
+    _sum?: User_sessionSumAggregateInputType
+    _min?: User_sessionMinAggregateInputType
+    _max?: User_sessionMaxAggregateInputType
+  }
+
+  export type User_sessionGroupByOutputType = {
+    id: bigint
+    uid: string
+    ytmusic_visitor_id: string
+    ytmusic_cookie: string | null
+    created_at: Date
+    updated_at: Date
+    _count: User_sessionCountAggregateOutputType | null
+    _avg: User_sessionAvgAggregateOutputType | null
+    _sum: User_sessionSumAggregateOutputType | null
+    _min: User_sessionMinAggregateOutputType | null
+    _max: User_sessionMaxAggregateOutputType | null
+  }
+
+  type GetUser_sessionGroupByPayload<T extends user_sessionGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<User_sessionGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof User_sessionGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], User_sessionGroupByOutputType[P]>
+            : GetScalarType<T[P], User_sessionGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type user_sessionSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    uid?: boolean
+    ytmusic_visitor_id?: boolean
+    ytmusic_cookie?: boolean
+    created_at?: boolean
+    updated_at?: boolean
+  }, ExtArgs["result"]["user_session"]>
+
+
+
+  export type user_sessionSelectScalar = {
+    id?: boolean
+    uid?: boolean
+    ytmusic_visitor_id?: boolean
+    ytmusic_cookie?: boolean
+    created_at?: boolean
+    updated_at?: boolean
+  }
+
+  export type user_sessionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "uid" | "ytmusic_visitor_id" | "ytmusic_cookie" | "created_at" | "updated_at", ExtArgs["result"]["user_session"]>
+
+  export type $user_sessionPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "user_session"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: bigint
+      uid: string
+      ytmusic_visitor_id: string
+      ytmusic_cookie: string | null
+      created_at: Date
+      updated_at: Date
+    }, ExtArgs["result"]["user_session"]>
+    composites: {}
+  }
+
+  type user_sessionGetPayload<S extends boolean | null | undefined | user_sessionDefaultArgs> = $Result.GetResult<Prisma.$user_sessionPayload, S>
+
+  type user_sessionCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<user_sessionFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: User_sessionCountAggregateInputType | true
+    }
+
+  export interface user_sessionDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['user_session'], meta: { name: 'user_session' } }
+    /**
+     * Find zero or one User_session that matches the filter.
+     * @param {user_sessionFindUniqueArgs} args - Arguments to find a User_session
+     * @example
+     * // Get one User_session
+     * const user_session = await prisma.user_session.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends user_sessionFindUniqueArgs>(args: SelectSubset<T, user_sessionFindUniqueArgs<ExtArgs>>): Prisma__user_sessionClient<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one User_session that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {user_sessionFindUniqueOrThrowArgs} args - Arguments to find a User_session
+     * @example
+     * // Get one User_session
+     * const user_session = await prisma.user_session.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends user_sessionFindUniqueOrThrowArgs>(args: SelectSubset<T, user_sessionFindUniqueOrThrowArgs<ExtArgs>>): Prisma__user_sessionClient<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first User_session that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {user_sessionFindFirstArgs} args - Arguments to find a User_session
+     * @example
+     * // Get one User_session
+     * const user_session = await prisma.user_session.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends user_sessionFindFirstArgs>(args?: SelectSubset<T, user_sessionFindFirstArgs<ExtArgs>>): Prisma__user_sessionClient<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first User_session that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {user_sessionFindFirstOrThrowArgs} args - Arguments to find a User_session
+     * @example
+     * // Get one User_session
+     * const user_session = await prisma.user_session.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends user_sessionFindFirstOrThrowArgs>(args?: SelectSubset<T, user_sessionFindFirstOrThrowArgs<ExtArgs>>): Prisma__user_sessionClient<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more User_sessions that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {user_sessionFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all User_sessions
+     * const user_sessions = await prisma.user_session.findMany()
+     * 
+     * // Get first 10 User_sessions
+     * const user_sessions = await prisma.user_session.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const user_sessionWithIdOnly = await prisma.user_session.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends user_sessionFindManyArgs>(args?: SelectSubset<T, user_sessionFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a User_session.
+     * @param {user_sessionCreateArgs} args - Arguments to create a User_session.
+     * @example
+     * // Create one User_session
+     * const User_session = await prisma.user_session.create({
+     *   data: {
+     *     // ... data to create a User_session
+     *   }
+     * })
+     * 
+     */
+    create<T extends user_sessionCreateArgs>(args: SelectSubset<T, user_sessionCreateArgs<ExtArgs>>): Prisma__user_sessionClient<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many User_sessions.
+     * @param {user_sessionCreateManyArgs} args - Arguments to create many User_sessions.
+     * @example
+     * // Create many User_sessions
+     * const user_session = await prisma.user_session.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends user_sessionCreateManyArgs>(args?: SelectSubset<T, user_sessionCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Delete a User_session.
+     * @param {user_sessionDeleteArgs} args - Arguments to delete one User_session.
+     * @example
+     * // Delete one User_session
+     * const User_session = await prisma.user_session.delete({
+     *   where: {
+     *     // ... filter to delete one User_session
+     *   }
+     * })
+     * 
+     */
+    delete<T extends user_sessionDeleteArgs>(args: SelectSubset<T, user_sessionDeleteArgs<ExtArgs>>): Prisma__user_sessionClient<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one User_session.
+     * @param {user_sessionUpdateArgs} args - Arguments to update one User_session.
+     * @example
+     * // Update one User_session
+     * const user_session = await prisma.user_session.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends user_sessionUpdateArgs>(args: SelectSubset<T, user_sessionUpdateArgs<ExtArgs>>): Prisma__user_sessionClient<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more User_sessions.
+     * @param {user_sessionDeleteManyArgs} args - Arguments to filter User_sessions to delete.
+     * @example
+     * // Delete a few User_sessions
+     * const { count } = await prisma.user_session.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends user_sessionDeleteManyArgs>(args?: SelectSubset<T, user_sessionDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more User_sessions.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {user_sessionUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many User_sessions
+     * const user_session = await prisma.user_session.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends user_sessionUpdateManyArgs>(args: SelectSubset<T, user_sessionUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create or update one User_session.
+     * @param {user_sessionUpsertArgs} args - Arguments to update or create a User_session.
+     * @example
+     * // Update or create a User_session
+     * const user_session = await prisma.user_session.upsert({
+     *   create: {
+     *     // ... data to create a User_session
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the User_session we want to update
+     *   }
+     * })
+     */
+    upsert<T extends user_sessionUpsertArgs>(args: SelectSubset<T, user_sessionUpsertArgs<ExtArgs>>): Prisma__user_sessionClient<$Result.GetResult<Prisma.$user_sessionPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of User_sessions.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {user_sessionCountArgs} args - Arguments to filter User_sessions to count.
+     * @example
+     * // Count the number of User_sessions
+     * const count = await prisma.user_session.count({
+     *   where: {
+     *     // ... the filter for the User_sessions we want to count
+     *   }
+     * })
+    **/
+    count<T extends user_sessionCountArgs>(
+      args?: Subset<T, user_sessionCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], User_sessionCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a User_session.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {User_sessionAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends User_sessionAggregateArgs>(args: Subset<T, User_sessionAggregateArgs>): Prisma.PrismaPromise<GetUser_sessionAggregateType<T>>
+
+    /**
+     * Group by User_session.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {user_sessionGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends user_sessionGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: user_sessionGroupByArgs['orderBy'] }
+        : { orderBy?: user_sessionGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, user_sessionGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetUser_sessionGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the user_session model
+   */
+  readonly fields: user_sessionFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for user_session.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__user_sessionClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the user_session model
+   */
+  interface user_sessionFieldRefs {
+    readonly id: FieldRef<"user_session", 'BigInt'>
+    readonly uid: FieldRef<"user_session", 'String'>
+    readonly ytmusic_visitor_id: FieldRef<"user_session", 'String'>
+    readonly ytmusic_cookie: FieldRef<"user_session", 'String'>
+    readonly created_at: FieldRef<"user_session", 'DateTime'>
+    readonly updated_at: FieldRef<"user_session", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * user_session findUnique
+   */
+  export type user_sessionFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * Filter, which user_session to fetch.
+     */
+    where: user_sessionWhereUniqueInput
+  }
+
+  /**
+   * user_session findUniqueOrThrow
+   */
+  export type user_sessionFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * Filter, which user_session to fetch.
+     */
+    where: user_sessionWhereUniqueInput
+  }
+
+  /**
+   * user_session findFirst
+   */
+  export type user_sessionFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * Filter, which user_session to fetch.
+     */
+    where?: user_sessionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of user_sessions to fetch.
+     */
+    orderBy?: user_sessionOrderByWithRelationInput | user_sessionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for user_sessions.
+     */
+    cursor?: user_sessionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` user_sessions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` user_sessions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of user_sessions.
+     */
+    distinct?: User_sessionScalarFieldEnum | User_sessionScalarFieldEnum[]
+  }
+
+  /**
+   * user_session findFirstOrThrow
+   */
+  export type user_sessionFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * Filter, which user_session to fetch.
+     */
+    where?: user_sessionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of user_sessions to fetch.
+     */
+    orderBy?: user_sessionOrderByWithRelationInput | user_sessionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for user_sessions.
+     */
+    cursor?: user_sessionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` user_sessions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` user_sessions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of user_sessions.
+     */
+    distinct?: User_sessionScalarFieldEnum | User_sessionScalarFieldEnum[]
+  }
+
+  /**
+   * user_session findMany
+   */
+  export type user_sessionFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * Filter, which user_sessions to fetch.
+     */
+    where?: user_sessionWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of user_sessions to fetch.
+     */
+    orderBy?: user_sessionOrderByWithRelationInput | user_sessionOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing user_sessions.
+     */
+    cursor?: user_sessionWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` user_sessions from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` user_sessions.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of user_sessions.
+     */
+    distinct?: User_sessionScalarFieldEnum | User_sessionScalarFieldEnum[]
+  }
+
+  /**
+   * user_session create
+   */
+  export type user_sessionCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * The data needed to create a user_session.
+     */
+    data: XOR<user_sessionCreateInput, user_sessionUncheckedCreateInput>
+  }
+
+  /**
+   * user_session createMany
+   */
+  export type user_sessionCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many user_sessions.
+     */
+    data: user_sessionCreateManyInput | user_sessionCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * user_session update
+   */
+  export type user_sessionUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * The data needed to update a user_session.
+     */
+    data: XOR<user_sessionUpdateInput, user_sessionUncheckedUpdateInput>
+    /**
+     * Choose, which user_session to update.
+     */
+    where: user_sessionWhereUniqueInput
+  }
+
+  /**
+   * user_session updateMany
+   */
+  export type user_sessionUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update user_sessions.
+     */
+    data: XOR<user_sessionUpdateManyMutationInput, user_sessionUncheckedUpdateManyInput>
+    /**
+     * Filter which user_sessions to update
+     */
+    where?: user_sessionWhereInput
+    /**
+     * Limit how many user_sessions to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * user_session upsert
+   */
+  export type user_sessionUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * The filter to search for the user_session to update in case it exists.
+     */
+    where: user_sessionWhereUniqueInput
+    /**
+     * In case the user_session found by the `where` argument doesn't exist, create a new user_session with this data.
+     */
+    create: XOR<user_sessionCreateInput, user_sessionUncheckedCreateInput>
+    /**
+     * In case the user_session was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<user_sessionUpdateInput, user_sessionUncheckedUpdateInput>
+  }
+
+  /**
+   * user_session delete
+   */
+  export type user_sessionDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+    /**
+     * Filter which user_session to delete.
+     */
+    where: user_sessionWhereUniqueInput
+  }
+
+  /**
+   * user_session deleteMany
+   */
+  export type user_sessionDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which user_sessions to delete
+     */
+    where?: user_sessionWhereInput
+    /**
+     * Limit how many user_sessions to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * user_session without action
+   */
+  export type user_sessionDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the user_session
+     */
+    select?: user_sessionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the user_session
+     */
+    omit?: user_sessionOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -15393,6 +16436,18 @@ export namespace Prisma {
   export type Subscribe_newsScalarFieldEnum = (typeof Subscribe_newsScalarFieldEnum)[keyof typeof Subscribe_newsScalarFieldEnum]
 
 
+  export const User_sessionScalarFieldEnum: {
+    id: 'id',
+    uid: 'uid',
+    ytmusic_visitor_id: 'ytmusic_visitor_id',
+    ytmusic_cookie: 'ytmusic_cookie',
+    created_at: 'created_at',
+    updated_at: 'updated_at'
+  };
+
+  export type User_sessionScalarFieldEnum = (typeof User_sessionScalarFieldEnum)[keyof typeof User_sessionScalarFieldEnum]
+
+
   export const SortOrder: {
     asc: 'asc',
     desc: 'desc'
@@ -15541,6 +16596,15 @@ export namespace Prisma {
   };
 
   export type subscribe_newsOrderByRelevanceFieldEnum = (typeof subscribe_newsOrderByRelevanceFieldEnum)[keyof typeof subscribe_newsOrderByRelevanceFieldEnum]
+
+
+  export const user_sessionOrderByRelevanceFieldEnum: {
+    uid: 'uid',
+    ytmusic_visitor_id: 'ytmusic_visitor_id',
+    ytmusic_cookie: 'ytmusic_cookie'
+  };
+
+  export type user_sessionOrderByRelevanceFieldEnum = (typeof user_sessionOrderByRelevanceFieldEnum)[keyof typeof user_sessionOrderByRelevanceFieldEnum]
 
 
   /**
@@ -16467,6 +17531,66 @@ export namespace Prisma {
     target?: StringWithAggregatesFilter<"subscribe_news"> | string
   }
 
+  export type user_sessionWhereInput = {
+    AND?: user_sessionWhereInput | user_sessionWhereInput[]
+    OR?: user_sessionWhereInput[]
+    NOT?: user_sessionWhereInput | user_sessionWhereInput[]
+    id?: BigIntFilter<"user_session"> | bigint | number
+    uid?: StringFilter<"user_session"> | string
+    ytmusic_visitor_id?: StringFilter<"user_session"> | string
+    ytmusic_cookie?: StringNullableFilter<"user_session"> | string | null
+    created_at?: DateTimeFilter<"user_session"> | Date | string
+    updated_at?: DateTimeFilter<"user_session"> | Date | string
+  }
+
+  export type user_sessionOrderByWithRelationInput = {
+    id?: SortOrder
+    uid?: SortOrder
+    ytmusic_visitor_id?: SortOrder
+    ytmusic_cookie?: SortOrderInput | SortOrder
+    created_at?: SortOrder
+    updated_at?: SortOrder
+    _relevance?: user_sessionOrderByRelevanceInput
+  }
+
+  export type user_sessionWhereUniqueInput = Prisma.AtLeast<{
+    id?: bigint | number
+    uid?: string
+    ytmusic_visitor_id?: string
+    AND?: user_sessionWhereInput | user_sessionWhereInput[]
+    OR?: user_sessionWhereInput[]
+    NOT?: user_sessionWhereInput | user_sessionWhereInput[]
+    ytmusic_cookie?: StringNullableFilter<"user_session"> | string | null
+    created_at?: DateTimeFilter<"user_session"> | Date | string
+    updated_at?: DateTimeFilter<"user_session"> | Date | string
+  }, "id" | "uid" | "ytmusic_visitor_id">
+
+  export type user_sessionOrderByWithAggregationInput = {
+    id?: SortOrder
+    uid?: SortOrder
+    ytmusic_visitor_id?: SortOrder
+    ytmusic_cookie?: SortOrderInput | SortOrder
+    created_at?: SortOrder
+    updated_at?: SortOrder
+    _count?: user_sessionCountOrderByAggregateInput
+    _avg?: user_sessionAvgOrderByAggregateInput
+    _max?: user_sessionMaxOrderByAggregateInput
+    _min?: user_sessionMinOrderByAggregateInput
+    _sum?: user_sessionSumOrderByAggregateInput
+  }
+
+  export type user_sessionScalarWhereWithAggregatesInput = {
+    AND?: user_sessionScalarWhereWithAggregatesInput | user_sessionScalarWhereWithAggregatesInput[]
+    OR?: user_sessionScalarWhereWithAggregatesInput[]
+    NOT?: user_sessionScalarWhereWithAggregatesInput | user_sessionScalarWhereWithAggregatesInput[]
+    id?: BigIntWithAggregatesFilter<"user_session"> | bigint | number
+    uid?: StringWithAggregatesFilter<"user_session"> | string
+    ytmusic_visitor_id?: StringWithAggregatesFilter<"user_session"> | string
+    ytmusic_cookie?: StringNullableWithAggregatesFilter<"user_session"> | string | null
+    created_at?: DateTimeWithAggregatesFilter<"user_session"> | Date | string
+    updated_at?: DateTimeWithAggregatesFilter<"user_session"> | Date | string
+  }
+
   export type api_keyCreateInput = {
     time?: Date | string
     createby: string
@@ -17378,6 +18502,69 @@ export namespace Prisma {
     target?: StringFieldUpdateOperationsInput | string
   }
 
+  export type user_sessionCreateInput = {
+    id?: bigint | number
+    uid: string
+    ytmusic_visitor_id: string
+    ytmusic_cookie?: string | null
+    created_at?: Date | string
+    updated_at?: Date | string
+  }
+
+  export type user_sessionUncheckedCreateInput = {
+    id?: bigint | number
+    uid: string
+    ytmusic_visitor_id: string
+    ytmusic_cookie?: string | null
+    created_at?: Date | string
+    updated_at?: Date | string
+  }
+
+  export type user_sessionUpdateInput = {
+    id?: BigIntFieldUpdateOperationsInput | bigint | number
+    uid?: StringFieldUpdateOperationsInput | string
+    ytmusic_visitor_id?: StringFieldUpdateOperationsInput | string
+    ytmusic_cookie?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type user_sessionUncheckedUpdateInput = {
+    id?: BigIntFieldUpdateOperationsInput | bigint | number
+    uid?: StringFieldUpdateOperationsInput | string
+    ytmusic_visitor_id?: StringFieldUpdateOperationsInput | string
+    ytmusic_cookie?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type user_sessionCreateManyInput = {
+    id?: bigint | number
+    uid: string
+    ytmusic_visitor_id: string
+    ytmusic_cookie?: string | null
+    created_at?: Date | string
+    updated_at?: Date | string
+  }
+
+  export type user_sessionUpdateManyMutationInput = {
+    id?: BigIntFieldUpdateOperationsInput | bigint | number
+    uid?: StringFieldUpdateOperationsInput | string
+    ytmusic_visitor_id?: StringFieldUpdateOperationsInput | string
+    ytmusic_cookie?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type user_sessionUncheckedUpdateManyInput = {
+    id?: BigIntFieldUpdateOperationsInput | bigint | number
+    uid?: StringFieldUpdateOperationsInput | string
+    ytmusic_visitor_id?: StringFieldUpdateOperationsInput | string
+    ytmusic_cookie?: NullableStringFieldUpdateOperationsInput | string | null
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type IntFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
     in?: number[]
@@ -18218,6 +19405,47 @@ export namespace Prisma {
   }
 
   export type subscribe_newsSumOrderByAggregateInput = {
+    id?: SortOrder
+  }
+
+  export type user_sessionOrderByRelevanceInput = {
+    fields: user_sessionOrderByRelevanceFieldEnum | user_sessionOrderByRelevanceFieldEnum[]
+    sort: SortOrder
+    search: string
+  }
+
+  export type user_sessionCountOrderByAggregateInput = {
+    id?: SortOrder
+    uid?: SortOrder
+    ytmusic_visitor_id?: SortOrder
+    ytmusic_cookie?: SortOrder
+    created_at?: SortOrder
+    updated_at?: SortOrder
+  }
+
+  export type user_sessionAvgOrderByAggregateInput = {
+    id?: SortOrder
+  }
+
+  export type user_sessionMaxOrderByAggregateInput = {
+    id?: SortOrder
+    uid?: SortOrder
+    ytmusic_visitor_id?: SortOrder
+    ytmusic_cookie?: SortOrder
+    created_at?: SortOrder
+    updated_at?: SortOrder
+  }
+
+  export type user_sessionMinOrderByAggregateInput = {
+    id?: SortOrder
+    uid?: SortOrder
+    ytmusic_visitor_id?: SortOrder
+    ytmusic_cookie?: SortOrder
+    created_at?: SortOrder
+    updated_at?: SortOrder
+  }
+
+  export type user_sessionSumOrderByAggregateInput = {
     id?: SortOrder
   }
 

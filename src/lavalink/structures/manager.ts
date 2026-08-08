@@ -29,7 +29,7 @@ import {
   SearchQuery,
   SearchResult,
 } from '@/interfaces/manager';
-import { parseYouTubeTitle } from '@/utils/parser';
+import { parseYouTubeAuthorTitle, parseYouTubeTitle } from '@/utils/parser';
 import { container } from '@/core/container';
 import { createTrackData } from '@/utils/lavalink/track';
 
@@ -678,6 +678,12 @@ export class Manager extends EventEmitter {
           );
           track.title = cleanTitle;
           track.author = cleanAuthor;
+          if (track.artist && Array.isArray(track.artist)) {
+            track.artist = track.artist.map((a: any) => ({
+              ...a,
+              name: parseYouTubeAuthorTitle(a.name || ''),
+            }));
+          }
           return track;
         };
         if (result.loadType === 'playlist')

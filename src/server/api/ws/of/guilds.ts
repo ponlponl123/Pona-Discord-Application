@@ -25,7 +25,7 @@ import {
 import { config as expressConfig } from '@/config/express';
 import getSongs from '@/utils/player/getSongs';
 import { getGuildLanguage } from '@/utils/i18n';
-import axios from 'axios';
+import { ensureTrackArtist } from '@/lavalink/structures/utils';
 
 type GuildEvents =
   | 'state_updated'
@@ -510,6 +510,7 @@ export default function setupGuildWS(ioInstance?: Server) {
 
   events.registerHandler('trackStart', async (player, track) => {
     if (!player || !player.guild) return;
+    await ensureTrackArtist(track);
     emitToGuild(player.guild, 'track_started', encodeData(track), 'pona! music');
     emitToGuild(player.guild, 'queue_updated', encodeData([track, ...player.queue]), 'pona! music');
 

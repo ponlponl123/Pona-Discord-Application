@@ -8,9 +8,27 @@ import { ClientUser, User } from 'discord.js';
 import { Manager } from './manager';
 import { Buffer } from 'buffer';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
-import { parseYouTubeTitle } from '@/utils/parser';
+import { parseYouTubeAuthorTitle, parseYouTubeTitle } from '@/utils/parser';
 import randomString from '@/utils/randomString';
 import { container } from '@/core/container';
+
+/** In-process cache: videoId → resolved artist info. TTL = 30 minutes. */
+interface ArtistCache { channelId: string; authorName: string; expiresAt: number; }
+const _artistCache = new Map<string, ArtistCache>();
+const ARTIST_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
+/** Deduplicates concurrent lookups for the same videoId. */
+const _pendingLookups = new Map<string, Promise<{ channelId: string; authorName: string }>>();
+
+function getCachedArtist(videoId: string): ArtistCache | null {
+  const entry = _artistCache.get(videoId);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { _artistCache.delete(videoId); return null; }
+  return entry;
+}
+
+function setCachedArtist(videoId: string, channelId: string, authorName: string): void {
+  _artistCache.set(videoId, { channelId, authorName, expiresAt: Date.now() + ARTIST_CACHE_TTL_MS });
+}
 
 const structures = {
   Player: require('./player').Player,
@@ -238,8 +256,8 @@ export abstract class TrackUtils {
     const query = unresolvedTrack.uri
       ? unresolvedTrack.uri
       : [unresolvedTrack.author, unresolvedTrack.title]
-          .filter(Boolean)
-          .join(' - ');
+        .filter(Boolean)
+        .join(' - ');
     const res = await TrackUtils.manager.search(
       query,
       unresolvedTrack.requester,
@@ -314,10 +332,121 @@ export abstract class Structure {
 
 export class Plugin {
   // public load(manager: Manager): void {}
-  public load(_manager: Manager): void {}
+  public load(_manager: Manager): void { }
 
   // public unload(manager: Manager): void {}
-  public unload(_manager: Manager): void {}
+  public unload(_manager: Manager): void { }
+}
+
+export function extractVideoId(identifier?: string, uri?: string): string {
+  if (identifier && /^[a-zA-Z0-9_-]{11}$/.test(identifier)) {
+    return identifier;
+  }
+  const str = uri || identifier || '';
+  const match = str.match(/(?:v=|\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : identifier || '';
+}
+
+/**
+ * Shared helper: resolves (channelId, authorName) for a YouTube videoId.
+ * Priority: in-process cache → Innertube (youtubei.js) → py-ytmusic-api HTTP
+ * Inflight-deduplication prevents identical concurrent requests from racing.
+ */
+async function resolveArtistInfo(
+  videoId: string,
+  pluginChannelId?: string,
+  requesterId?: string,
+  fallbackAuthor?: string,
+): Promise<{ channelId: string; authorName: string }> {
+  if (pluginChannelId) {
+    return { channelId: pluginChannelId, authorName: fallbackAuthor || '' };
+  }
+
+  const cached = getCachedArtist(videoId);
+  if (cached) return { channelId: cached.channelId, authorName: cached.authorName };
+
+  const pending = _pendingLookups.get(videoId);
+  if (pending) return pending;
+
+  const lookupPromise = (async (): Promise<{ channelId: string; authorName: string }> => {
+    let channelId = '';
+    let authorName = fallbackAuthor || '';
+
+    try {
+      const ytInfo = await container.ytmusic.client.getBasicInfo(videoId);
+      if (ytInfo) {
+        channelId = (ytInfo.basic_info.channel_id as string) || '';
+        authorName = (ytInfo.basic_info.author as string) || fallbackAuthor || '';
+      }
+    } catch {
+      // fall through
+    }
+
+    // Fallback: py-ytmusic-api HTTP endpoint
+    if (!channelId) {
+      try {
+        const fetchVideoDetail = await YTMusicAPI(
+          'GET',
+          `song/${videoId}`,
+          undefined,
+          undefined,
+          requesterId,
+        );
+        if (fetchVideoDetail && fetchVideoDetail.status === 200) {
+          const resultData = fetchVideoDetail.data?.result || fetchVideoDetail.data;
+          const details = resultData?.videoDetails || resultData;
+          if (details) {
+            channelId =
+              (details.channelId as string) ||
+              (details.externalChannelId as string) ||
+              (details.artists && Array.isArray(details.artists) && details.artists[0]?.id) ||
+              (details.artist && Array.isArray(details.artist) && details.artist[0]?.id) ||
+              resultData?.microformat?.microformatDataRenderer?.pageOwnerDetails?.externalChannelId ||
+              '';
+            authorName = (details.author as string) || fallbackAuthor || '';
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (channelId) setCachedArtist(videoId, channelId, authorName);
+    return { channelId, authorName };
+  })();
+
+  _pendingLookups.set(videoId, lookupPromise);
+  try {
+    return await lookupPromise;
+  } finally {
+    _pendingLookups.delete(videoId);
+  }
+}
+
+export async function ensureTrackArtist(
+  track: Track | any,
+  requesterId?: string,
+): Promise<Track | any> {
+  if (!track) return track;
+  if (!track.artist || !Array.isArray(track.artist) || track.artist.length === 0 || !track.artist[0]?.id) {
+    try {
+      const videoId = extractVideoId(track.identifier, track.uri);
+      if (videoId) {
+        const uid = requesterId ||
+          (typeof track.requester === 'string' ? track.requester : (track.requester as any)?.id);
+        const fallbackAuthor = track.cleanAuthor || track.author || '';
+        const { channelId, authorName } = await resolveArtistInfo(videoId, undefined, uid, fallbackAuthor);
+        if (channelId) {
+          track.artist = [{ id: channelId, name: parseYouTubeAuthorTitle(authorName || fallbackAuthor) }];
+        } else {
+          console.warn(`[ensureTrackArtist] could not resolve channel ID for videoId=${videoId}`);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return track;
 }
 
 export async function constructTrack<T = User | ClientUser>(
@@ -325,54 +454,61 @@ export async function constructTrack<T = User | ClientUser>(
   requester?: T,
   version: 1 | 2 = 2,
 ): Promise<Track> {
-  if (!track.info.uniqueId || !track.info.timestamp) {
-    const parsed = parseYouTubeTitle(track.info.title, track.info.author);
-    track.info.timestamp = new Date().getTime();
-    track.info.uniqueId = randomString(32);
-    track.info.cleanTitle = parsed.cleanTitle;
-    track.info.cleanAuthor = parsed.cleanAuthor;
+  if (!track.info.timestamp) track.info.timestamp = new Date().getTime();
+  if (!track.info.uniqueId) track.info.uniqueId = randomString(32);
+
+  const parsed = parseYouTubeTitle(track.info.title, track.info.author);
+  track.info.cleanTitle = parsed.cleanTitle;
+  track.info.cleanAuthor = parsed.cleanAuthor;
+
+  if (
+    !track.info.artist ||
+    track.info.artist.length === 0 ||
+    !track.info.artist[0]?.id
+  ) {
     switch (version) {
       case 1:
         try {
-          const searchResult = await container.ytmusic.client.music.getInfo(
-            track.info.identifier,
+          const videoId = extractVideoId(track.info.identifier, track.info.uri);
+          const { channelId, authorName } = await resolveArtistInfo(
+            videoId,
+            undefined,
+            undefined,
+            track.info.cleanAuthor || track.info.author,
           );
-          if (!searchResult) break;
-          track.info.artist = [
-            {
-              id: searchResult.basic_info.channel_id || '',
-              name: searchResult.basic_info.author || '',
-            },
-          ];
+          if (channelId) {
+            track.info.artist = [{
+              id: channelId,
+              name: parseYouTubeAuthorTitle(authorName || track.info.cleanAuthor || track.info.author || ''),
+            }];
+          }
         } catch {
           // Ignore youtubei.js parser errors
         }
         break;
       case 2:
         try {
+          const pluginChannelId =
+            (track.pluginInfo?.channelId as string) ||
+            (track.pluginInfo?.artistUrl as string)?.split('/channel/')?.[1] ||
+            '';
           const requesterId =
             typeof requester === 'string'
               ? requester
               : (requester as any)?.id || (requester as any)?.user?.id;
-          const fetchVideoDetail = await YTMusicAPI(
-            'GET',
-            `song/${track.info.identifier}`,
-            undefined,
-            undefined,
+          const videoId = extractVideoId(track.info.identifier, track.info.uri);
+          const fallbackAuthor = track.info.cleanAuthor || track.info.author || '';
+          const { channelId, authorName } = await resolveArtistInfo(
+            videoId,
+            pluginChannelId,
             requesterId,
+            fallbackAuthor,
           );
-          if (fetchVideoDetail && fetchVideoDetail.status === 200) {
-            const details =
-              fetchVideoDetail.data?.result?.videoDetails ||
-              fetchVideoDetail.data?.videoDetails;
-            if (details) {
-              track.info.artist = [
-                {
-                  id: (details.channelId as unknown as string) || '',
-                  name: (details.author as unknown as string) || '',
-                },
-              ];
-            }
+          if (channelId) {
+            track.info.artist = [{
+              id: channelId,
+              name: parseYouTubeAuthorTitle(authorName || fallbackAuthor),
+            }];
           }
         } catch {
           // Ignore if API lookup fails

@@ -54,13 +54,13 @@ describe('parseYouTubeVideoTitle', () => {
 });
 
 describe('parseYouTubeTitle', () => {
-  it('returns raw Thai title unchanged', () => {
+  it('returns raw Thai title unchanged and cleans author', () => {
     const { cleanTitle, cleanAuthor } = parseYouTubeTitle(
       'เพลงไทย',
       'ศิลปิน - Topic',
     );
     expect(cleanTitle).toBe('เพลงไทย');
-    expect(cleanAuthor).toBe('ศิลปิน - Topic');
+    expect(cleanAuthor).toBe('ศิลปิน');
   });
 
   it('normalizes author from "Artist - Topic"', () => {

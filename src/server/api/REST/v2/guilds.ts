@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import axios, { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from '@/types/http';
 import { container } from '@/core/container';
 import { Guild, type OAuth2Guild } from 'discord.js';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
@@ -93,7 +93,7 @@ export default new Elysia().get(
       }
 
       // Fetch user's guilds from Discord API
-      const userGuildsRes = await axios.get(
+      const userGuildsRes = await fetch(
         'https://discord.com/api/v10/users/@me/guilds',
         {
           headers: {
@@ -101,27 +101,29 @@ export default new Elysia().get(
             'Content-Type': 'application/x-www-form-urlencoded',
             'User-Agent': 'Pona! Endpoint (OpenPonlponl123.com/v1)',
           },
-          timeout: 5000,
+          signal: AbortSignal.timeout(5000),
         },
-      );
+      ).catch(() => null);
 
-      if (userGuildsRes.status !== 200) {
+      if (!userGuildsRes || !userGuildsRes.ok) {
         set.status = HttpStatusCode.Unauthorized;
         if (await canDebug(headers)) {
           return {
             error: 'Unauthorized',
             debug: {
-              status: userGuildsRes.status,
-              statusText: userGuildsRes.statusText,
-              data: userGuildsRes.data,
+              status: userGuildsRes?.status,
+              statusText: userGuildsRes?.statusText,
+              data: await userGuildsRes?.text().catch(() => null),
             },
           };
         }
         return { error: 'Unauthorized' };
       }
 
+      const userGuildsData = (await userGuildsRes.json()) as OAuth2Guild[];
+
       // Filter guilds where Pona bot is present
-      const userGuildIds = userGuildsRes.data.map((g: OAuth2Guild) => g.id);
+      const userGuildIds = userGuildsData.map((g: OAuth2Guild) => g.id);
       const guildWithPona: Array<Record<string, unknown>> = [];
 
       for (const guildId of userGuildIds) {

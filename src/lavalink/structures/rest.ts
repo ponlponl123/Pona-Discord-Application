@@ -1,6 +1,5 @@
 import { Node } from "./node";
 import { playOptions } from "@interfaces/rest";
-import axios from "axios";
 
 export class Rest {
 	private node: Node;
@@ -41,25 +40,30 @@ export class Rest {
 	}
 
 	private async request(method: string, endpoint: string, body?: unknown): Promise<unknown> {
-		const config = {
-			method,
-			url: this.url + endpoint,
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: this.password,
-			},
-			data: body,
-		}
+		const url = this.url + endpoint;
 		try {
-			const response = await axios(config);
-			return response.data;
-		} catch (error: any) {
-			if (error?.response.data.message === "Guild not found") return [];
-			else if (error?.response?.status === 404) {
-				this.node.destroy();
-				this.node.manager.createNode(this.node.options).connect();
+			const response = await fetch(url, {
+				method,
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: this.password,
+				},
+				body: body ? JSON.stringify(body) : undefined,
+			});
+
+			if (!response.ok) {
+				const errorData: any = await response.json().catch(() => ({}));
+				if (errorData?.message === "Guild not found") return [];
+				if (response.status === 404) {
+					this.node.destroy();
+					this.node.manager.createNode(this.node.options).connect();
+				}
+				return false;
 			}
-			return null;
+
+			return await response.json().catch(() => null);
+		} catch {
+			return false;
 		}
 	}
 

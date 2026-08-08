@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from '@/types/http';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { container } from '@/core/container';
@@ -57,7 +57,11 @@ export default new Elysia().get(
         });
         
         if (container.redis?.redis) {
-          container.redis.redis
+          const rawKeyType = await container.redis.redis.type(`user:${user.id}:history:search`);
+          if (rawKeyType.toLowerCase() !== 'none' && rawKeyType.toLowerCase() !== 'list') {
+            await container.redis.redis.del(`user:${user.id}:history:search`);
+          }
+          await container.redis.redis
             .multi()
             .lrem(`user:${user.id}:history:search`, 0, String(q))
             .lpush(`user:${user.id}:history:search`, String(q))

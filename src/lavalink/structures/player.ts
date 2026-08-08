@@ -18,6 +18,7 @@ import { State, VoiceState } from '@interfaces/lavaUtils';
 
 import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
 import playerCheck from '@utils/lavalink/playerCheck';
+import { parseYouTubeAuthorTitle } from '@/utils/parser';
 import { ClientUser, Message, User } from 'discord.js';
 
 export class Player {
@@ -308,7 +309,7 @@ export class Player {
     );
     if (this.manager.options.replaceYouTubeCredentials) {
       for (const track of filteredTracks) {
-        track.author = track.author.replace('- Topic', '');
+        track.author = parseYouTubeAuthorTitle(track.author);
         track.title = track.title.replace('Topic -', '');
         if (track.title.includes('-')) {
           const [author, title] = track.title
@@ -316,6 +317,12 @@ export class Player {
             .map((str: string) => str.trim());
           track.author = author;
           track.title = title;
+        }
+        if (track.artist && Array.isArray(track.artist)) {
+          track.artist = track.artist.map((a: any) => ({
+            ...a,
+            name: parseYouTubeAuthorTitle(a.name || ''),
+          }));
         }
       }
     }

@@ -1,4 +1,3 @@
-import axios from 'axios';
 import type { User } from 'discord.js';
 import { container } from '@/core/container';
 
@@ -25,19 +24,20 @@ export async function fetchUserByOAuth(
   }
 
   try {
-    const user = await axios.get('https://discord.com/api/v10/users/@me', {
+    const response = await fetch('https://discord.com/api/v10/users/@me', {
       headers: {
         Authorization: authorization,
         'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'Pona! Endpoint (OpenPonlponl123.com/v1)',
       },
-      timeout: 5000,
+      signal: AbortSignal.timeout(5000),
     });
-    if (user.status === 200) {
+    if (response.ok) {
+      const userData = (await response.json()) as User;
       if (redis?.redis) {
-        redis.redis.setex(cacheKey, 600, JSON.stringify(user.data)).catch(() => {});
+        redis.redis.setex(cacheKey, 600, JSON.stringify(userData)).catch(() => {});
       }
-      return user.data;
+      return userData;
     }
   } catch {
     return false;

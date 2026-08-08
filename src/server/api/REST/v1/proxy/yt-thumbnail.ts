@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from '@/types/http';
 
 async function fetchYTthumbnailEndpoint(
   endpoint: string[],

@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia';
-import { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from '@/types/http';
 import { getInfo } from 'discord-hybrid-sharding';
 
 export default new Elysia().get('/cluster', ({ set }) => {

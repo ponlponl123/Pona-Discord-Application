@@ -9,6 +9,7 @@ import { prefix as consolePrefix, type as consoleType } from '@/config/console';
 import { container } from '@/core/container';
 
 import nodeCheck from '@utils/lavalink/nodeCheck';
+import { parseYouTubeAuthorTitle } from '@/utils/parser';
 import { Track, UnresolvedTrack } from '@interfaces/player';
 import {
   PlayerEvent,
@@ -503,7 +504,7 @@ export class Node {
 
     if (!foundTrack) return;
     if (this.manager.options.replaceYouTubeCredentials) {
-      foundTrack.author = foundTrack.author.replace('- Topic', '');
+      foundTrack.author = parseYouTubeAuthorTitle(foundTrack.author);
       foundTrack.title = foundTrack.title.replace('Topic -', '');
       if (foundTrack.title.includes('-')) {
         const [author, title] = foundTrack.title
@@ -511,6 +512,12 @@ export class Node {
           .map((str: string) => str.trim());
         foundTrack.author = author;
         foundTrack.title = title;
+      }
+      if (foundTrack.artist && Array.isArray(foundTrack.artist)) {
+        foundTrack.artist = foundTrack.artist.map((a: any) => ({
+          ...a,
+          name: parseYouTubeAuthorTitle(a.name || ''),
+        }));
       }
     }
 

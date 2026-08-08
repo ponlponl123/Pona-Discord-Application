@@ -1,5 +1,5 @@
 import { Elysia } from 'elysia';
-import { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from '@/types/http';
 import { container } from '@/core/container';
 
 export default new Elysia().get('/', ({ set }) => {

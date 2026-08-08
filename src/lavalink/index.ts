@@ -11,7 +11,6 @@ import { config } from '@config/lavalink';
 import { getGuildLanguage } from '@/utils/i18n';
 import { EventEmitter } from 'events';
 import setVoiceChannelStatus from '@/utils/setVoiceChannelStatus';
-import axios, { type AxiosError } from 'axios';
 import * as discord from 'discord.js';
 import { Routes } from 'discord.js';
 import type Pona from '@/client';
@@ -41,24 +40,13 @@ class LavalinkServer extends EventEmitter {
   public manager: Manager;
   public lavanodes: NodeOptions[] = [];
 
-  private handleAxiosError(error: AxiosError) {
-    const msg =
-      error.response?.status === 503
-        ? 'Service Unavailable: temporary overload or maintenance'
-        : `An error occurred: ${error.message}`;
-    console.error(consoleType.error, consolePrefix.lavalink + msg);
-  }
-
   private handleError(error: unknown) {
-    if (axios.isAxiosError(error)) {
-      this.handleAxiosError(error);
-    } else {
-      console.error(
-        consoleType.error,
-        consolePrefix.lavalink + 'Unexpected error:',
-        error,
-      );
-    }
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error(
+      consoleType.error,
+      consolePrefix.lavalink + 'Unexpected error:',
+      msg,
+    );
   }
 
   constructor(public readonly clientId: string, private readonly pona: Pona) {

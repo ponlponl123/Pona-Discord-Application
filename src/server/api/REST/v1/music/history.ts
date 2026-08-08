@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from '@/types/http';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { container } from '@/core/container';
 import { prisma } from '@/prisma';
@@ -115,14 +115,17 @@ export default new Elysia()
         }
 
         if (container.redis?.redis) {
-          const keyType = await container.redis.redis.type(`user:${user.id}:history:search`);
-          const value = keyType === 'SET' 
-            ? await container.redis.redis.smembers(`user:${user.id}:history:search`)
-            : await container.redis.redis.lrange(`user:${user.id}:history:search`, 0, 7);
-          
-          if (value && value.length > 0) {
-            set.status = HttpStatusCode.Ok;
-            return { message: 'Ok', results: value };
+          const rawKeyType = await container.redis.redis.type(`user:${user.id}:history:search`);
+          const keyType = rawKeyType.toLowerCase();
+
+          if (keyType === 'set') {
+            await container.redis.redis.del(`user:${user.id}:history:search`);
+          } else if (keyType === 'list') {
+            const value = await container.redis.redis.lrange(`user:${user.id}:history:search`, 0, 7);
+            if (value && value.length > 0) {
+              set.status = HttpStatusCode.Ok;
+              return { message: 'Ok', results: value };
+            }
           }
         }
         
@@ -150,7 +153,8 @@ export default new Elysia()
         if (container.redis?.redis) {
           await container.redis.redis
             .multi()
-            .sadd(`user:${user.id}:history:search`, ...parsed_to_array)
+            .del(`user:${user.id}:history:search`)
+            .rpush(`user:${user.id}:history:search`, ...parsed_to_array)
             .expire(`user:${user.id}:history:search`, 600)
             .exec();
         }

@@ -4,7 +4,6 @@ import { SearchPlatform, SearchResult } from '@interfaces/manager';
 import { config as apiServerConf } from '@/config/express';
 import PonaPlaylist from '@/lavalink/structures/playlist';
 import { Track } from '@interfaces/player';
-import axios from 'axios';
 import os from 'os';
 
 export interface trackResult {
@@ -26,7 +25,7 @@ export default async function getSongs(
       '',
     );
     try {
-      const res = await axios.get(
+      const response = await fetch(
         `http://localhost:${apiServerConf.EXPRESS_PORT}/v1/playlist/track?url=${encodeURIComponent(playlistId)}`,
         {
           headers: {
@@ -35,16 +34,19 @@ export default async function getSongs(
             member: author.user.id,
           },
         },
-      );
-      if (res.status === 404) return 'Pona!Share not_found';
-      if (res.status === 401) return 'Pona!Share unauthorized';
-      if (res.status !== 200) return 'Pona!Share bad_response';
+      ).catch(() => null);
+
+      if (!response) return 'Pona!Share bad_response';
+      if (response.status === 404) return 'Pona!Share not_found';
+      if (response.status === 401) return 'Pona!Share unauthorized';
+      if (response.status !== 200) return 'Pona!Share bad_response';
+      const resData = (await response.json().catch(() => ({}))) as any;
       if (
-        res.data.tracks &&
-        typeof res.data.tracks === 'object' &&
-        (res.data.tracks as Array<string>).length > 0
+        resData.tracks &&
+        typeof resData.tracks === 'object' &&
+        (resData.tracks as Array<string>).length > 0
       ) {
-        const tracks = res.data.tracks as PonaPlaylist[];
+        const tracks = resData.tracks as PonaPlaylist[];
         const tracks_results: Track[] = [];
         await Promise.all(
           tracks.map(async (track) => {

@@ -131,6 +131,17 @@ export const data = new SlashCommandBuilder()
   )
   .addSubcommand((subcommand) =>
     subcommand
+      .setName('jump')
+      .setNameLocalizations({
+        th: 'กระโดดไปที่คิว',
+      })
+      .setDescriptionLocalizations({
+        th: 'ข้ามทั้งหมดก่อนหน้าและไปยังคิวที่เลือก',
+      })
+      .setDescription('Skip all previous and go to selected queue.'),
+  )
+  .addSubcommand((subcommand) =>
+    subcommand
       .setName('queue')
       .setNameLocalizations({
         th: 'คิว',
@@ -214,6 +225,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       case 'skip':
         return skipSubsystem(interaction);
       case 'skipto':
+      case 'jump':
         return skiptoSubsystem(interaction);
       case 'pause':
       case 'resume': {

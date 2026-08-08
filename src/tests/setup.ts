@@ -3,54 +3,33 @@
  * Runs before every test file to provide global mocks and environment setup.
  */
 import { mock } from 'bun:test';
+import * as discordJS from 'discord.js';
 
 // ── Environment variables ─────────────────────────────────────────────────────
 process.env['NODE_ENV'] ??= 'test';
 process.env['LANG'] ??= 'en-US';
+process.env['DISCORD_TOKEN'] ??= 'test-token-placeholder';
+process.env['DISCORD_CLIENT_ID'] ??= '123456789012345678';
+process.env['DISCORD_GUILD_ID'] ??= '123456789012345678';
+process.env['HTTP_PORT'] ??= '3000';
+process.env['EXPRESS_PORT'] ??= '3000';
 
 // ── Mock heavy side-effect modules ───────────────────────────────────────────
-// These are modules that connect to external services (Discord, database, Redis,
-// Lavalink, …) or trigger large initialisation chains.  We replace them with
-// lightweight stubs so pure-logic tests can import any src file without
-// unwanted side-effects.
+// Replace side-effecting network calls (Client.login, REST.put) while preserving
+// all discord.js exports, builders, enums, and types.
 
 mock.module('discord.js', () => ({
-  Client: class {
-    user: null = null;
-    guilds = { cache: new Map<string, unknown>() };
-    on() {
-      return this;
-    }
-    login(): Promise<string> {
+  ...discordJS,
+  Client: class DummyClient extends (discordJS.Client || class {}) {
+    override login(): Promise<string> {
       return Promise.resolve('');
     }
   },
-  GatewayIntentBits: {},
-  Partials: {},
-  REST: class {
-    setToken() {
-      return this;
-    }
-    put() {
+  REST: class DummyREST extends (discordJS.REST || class {}) {
+    override put(): Promise<any> {
       return Promise.resolve();
     }
   },
-  Routes: {
-    applicationGuildCommands: () => '',
-  },
-  EmbedBuilder: class {
-    setDescription() {
-      return this;
-    }
-    setFooter() {
-      return this;
-    }
-    setColor() {
-      return this;
-    }
-    data: Record<string, unknown> = {};
-  },
-  User: class {},
 }));
 
 mock.module('discord-hybrid-sharding', () => ({
@@ -60,127 +39,43 @@ mock.module('discord-hybrid-sharding', () => ({
       return this;
     }
   },
+  messageType: {},
 }));
 
-mock.module('@/database', () => ({
-  Database: class {
-    pool: null = null;
-    query(): Promise<unknown[]> {
-      return Promise.resolve([]);
+mock.module('ioredis', () => ({
+  default: class RedisMock {
+    on() {
+      return this;
     }
-    connect(): Promise<void> {
+    get() {
+      return Promise.resolve(null);
+    }
+    set() {
+      return Promise.resolve('OK');
+    }
+    setex() {
+      return Promise.resolve('OK');
+    }
+    del() {
+      return Promise.resolve(1);
+    }
+  },
+}));
+
+mock.module('@prisma/client', () => ({
+  PrismaClient: class {
+    $connect() {
+      return Promise.resolve();
+    }
+    $disconnect() {
       return Promise.resolve();
     }
   },
 }));
 
-// index.ts top-level exports that other utils import (database, pona, lavalink, …)
-mock.module('@/index', () => ({
-  database: {
-    pool: null,
-    query: (): Promise<unknown[]> => Promise.resolve([]),
-    connect: (): Promise<void> => Promise.resolve(),
-  },
-  pona: {
-    loadGuildSettings: (): Promise<null> => Promise.resolve(null),
-    client: { user: null, guilds: { cache: new Map<string, unknown>() } },
-  },
-  discordClient: {
-    client: { user: null, guilds: { cache: new Map<string, unknown>() } },
-  },
-  lavalink: {
-    manager: {
-      get: (): undefined => undefined,
-      readPlayerState: () => Promise.resolve(null),
-      loadPlayerStates: () => Promise.resolve(),
-    },
-    lavanodes: [],
-  },
-  redisClient: null,
-  debugMode: false,
-  config: {},
-  toml: {},
-  runner: 'bun',
-  needCluster: false,
-}));
-
-// Also mock the relative path variant used by some utils
-mock.module('../../index', () => ({
-  database: {
-    pool: null,
-    query: (): Promise<unknown[]> => Promise.resolve([]),
-    connect: (): Promise<void> => Promise.resolve(),
-  },
-  pona: {
-    loadGuildSettings: (): Promise<null> => Promise.resolve(null),
-    client: { user: null, guilds: { cache: new Map<string, unknown>() } },
-  },
-  discordClient: {
-    client: { user: null, guilds: { cache: new Map<string, unknown>() } },
-  },
-  lavalink: {
-    manager: {
-      get: (): undefined => undefined,
-      readPlayerState: () => Promise.resolve(null),
-      loadPlayerStates: () => Promise.resolve(),
-    },
-    lavanodes: [],
-  },
-  redisClient: null,
-  debugMode: false,
-  config: {},
-  toml: {},
-  runner: 'bun',
-  needCluster: false,
-}));
-
-mock.module('../index', () => ({
-  database: {
-    pool: null,
-    query: (): Promise<unknown[]> => Promise.resolve([]),
-    connect: (): Promise<void> => Promise.resolve(),
-  },
-  pona: {
-    loadGuildSettings: (): Promise<null> => Promise.resolve(null),
-    client: { user: null, guilds: { cache: new Map<string, unknown>() } },
-  },
-  discordClient: {
-    client: { user: null, guilds: { cache: new Map<string, unknown>() } },
-  },
-  lavalink: {
-    manager: {
-      get: (): undefined => undefined,
-      readPlayerState: () => Promise.resolve(null),
-      loadPlayerStates: () => Promise.resolve(),
-    },
-    lavanodes: [],
-  },
-  redisClient: null,
-  debugMode: false,
-  config: {},
-  toml: {},
-  runner: 'bun',
-  needCluster: false,
-}));
-
-mock.module('xmlhttprequest-ts', () => ({
-  XMLHttpRequest: class {
-    timeout = 0;
-    readyState = 0;
-    onreadystatechange: (() => void) | null = null;
-    open() {}
-    send() {
-      return Promise.resolve();
-    }
+mock.module('@/prisma', () => ({
+  prisma: {
+    $connect: () => Promise.resolve(),
+    $disconnect: () => Promise.resolve(),
   },
 }));
-
-mock.module('axios', () => {
-  const axiosMock = {
-    get: () => Promise.resolve({ status: 200, data: {} }),
-    post: () => Promise.resolve({ status: 200, data: {} }),
-    patch: () => Promise.resolve({ status: 200, data: {} }),
-    delete: () => Promise.resolve({ status: 200, data: {} }),
-  };
-  return { default: axiosMock, ...axiosMock };
-});

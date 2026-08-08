@@ -1,9 +1,20 @@
 import { Elysia, t } from 'elysia';
-import axios, { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from '@/types/http';
 import https from 'https';
 import { container } from '@/core/container';
 import { type Lyric, type TimestampLyrics } from '@/interfaces/player';
 import { parseLyrics } from '@/utils/parser';
+
+async function fetchJson(url: string): Promise<{ status: number; data: any } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data: any = await res.json().catch(() => null);
+    return { status: res.status, data };
+  } catch {
+    return null;
+  }
+}
 
 export type SearchLyricEngine =
   | 'ytmusic_android'
@@ -54,14 +65,20 @@ export async function fetchLyrics(
     }
     case 'ytmusic_web': {
       if (!arg1) throw Error('Missing required arguments');
-
       try {
-        const lyricsData = await container.ytmusic.client.music.getLyrics(arg1);
-        if (lyricsData && lyricsData.description?.text) {
-          const lines = lyricsData.description.text.split('\n').filter(Boolean);
+        const yt = container.ytmusic.client;
+        const searcher = await yt.music.search(arg1);
+
+        const song = searcher.songs?.contents[0];
+        if (!song || !song.id) return false;
+
+        const info = await yt.music.getInfo(song.id);
+        const lyricsData = await info.getLyrics();
+
+        if (lyricsData?.description?.text) {
           return {
             isTimestamp: false,
-            lyrics: lines,
+            lyrics: lyricsData.description.text.split('\n'),
           };
         }
         return false;
@@ -73,8 +90,8 @@ export async function fetchLyrics(
     case 'boidu': {
       if (!arg1 || !arg2) throw Error('Missing required arguments');
       const searchUrl = `https://boidu.ponlponl123.com/api/lyrics?title=${encodeURIComponent(arg1)}&artist=${encodeURIComponent(arg2)}`;
-      const res = await axios.get(searchUrl).catch(() => null);
-      if (res && res.status === 200 && res.data.lyrics) {
+      const res = await fetchJson(searchUrl);
+      if (res && res.status === 200 && res.data?.lyrics) {
         return {
           isTimestamp: false,
           lyrics: res.data.lyrics,
@@ -87,8 +104,8 @@ export async function fetchLyrics(
       let searchUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(arg2)}&track_name=${encodeURIComponent(arg1)}`;
       if (arg3) searchUrl += `&duration=${Math.floor(arg3 / 1000)}`;
 
-      const res = await axios.get(searchUrl).catch(() => null);
-      if (res && res.status === 200) {
+      const res = await fetchJson(searchUrl);
+      if (res && res.status === 200 && res.data) {
         const data = res.data;
         if (data.syncedLyrics) {
           return parseLyrics(data.syncedLyrics);
@@ -104,8 +121,8 @@ export async function fetchLyrics(
     case 'textyl': {
       if (!arg1 || !arg2) throw Error('Missing required arguments');
       const searchUrl = `https://textyl.ponlponl123.com/api/lyrics?q=${encodeURIComponent(`${arg1} ${arg2}`)}`;
-      const res = await axios.get(searchUrl).catch(() => null);
-      if (res && res.status === 200 && res.data.lyrics) {
+      const res = await fetchJson(searchUrl);
+      if (res && res.status === 200 && res.data?.lyrics) {
         return {
           isTimestamp: false,
           lyrics: res.data.lyrics,

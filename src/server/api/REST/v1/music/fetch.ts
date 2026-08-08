@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { HttpStatusCode } from 'axios';
+import { HttpStatusCode } from '@/types/http';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { container } from '@/core/container';
 

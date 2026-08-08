@@ -62,15 +62,16 @@ export function parseYouTubeTitle(
   title: string,
   originalAuthor: string,
 ): { cleanTitle: string; cleanAuthor: string } {
+  let cleanAuthor = parseYouTubeAuthorTitle(originalAuthor);
+
   // Check if the title contains Thai characters
   const isThai = /[\u0E00-\u0E7F]/.test(title);
 
   if (isThai) {
-    // If Thai, return the raw title
-    return { cleanTitle: title, cleanAuthor: originalAuthor };
+    // If Thai, return the raw title and cleaned author
+    return { cleanTitle: title, cleanAuthor };
   }
 
-  let cleanAuthor = originalAuthor.replace(/\s*-\s*Topic\s*$/i, '').trim();
   title = title.replace(/\bTopic\s*-\s*/i, '').trim();
 
   const allBlockedWords = [...blockedWords, ...noiseWords]

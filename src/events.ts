@@ -124,20 +124,24 @@ export default class eventManager {
         suppress: s.suppress,
       });
 
-    await prisma.pona_voicestate_history.create({
-      data: {
-        guildid: guildId,
-        memberid: memberId || 'unknown',
-        channelid: channelId || '',
-        beforestate: serializeVoiceState(oldState),
-        afterstate: serializeVoiceState(newState),
-        date: date,
-        type: type.toString(),
-      },
-    });
+    try {
+      await prisma.pona_voicestate_history.create({
+        data: {
+          guildid: guildId,
+          memberid: memberId || 'unknown',
+          channelid: channelId || '',
+          beforestate: serializeVoiceState(oldState),
+          afterstate: serializeVoiceState(newState),
+          date: date,
+          type: type.toString(),
+        },
+      });
+    } catch (e) {
+      console.warn('[Events] Voice state history save warning:', e);
+    }
 
     if (oldState && !newState && oldState.member?.id === this.pona.client.user?.id) {
-      this.apiServer.io.to(guildId).emit('voiceStateUpdate', false);
+      this.apiServer?.io?.to(guildId).emit('voiceStateUpdate', false);
     }
 
     await this.invokeHandlers('voiceStateUpdate', type, oldState, newState);
@@ -183,9 +187,9 @@ export default class eventManager {
       }),
     ]);
 
-    this.apiServer.io.to(player.guild).emit('trackStarted', track);
-    this.apiServer.io
-      .to(player.guild)
+    this.apiServer?.io?.to(player.guild).emit('trackStarted', track);
+    this.apiServer?.io
+      ?.to(player.guild)
       .emit('queueUpdated', player.queue);
     await this.invokeHandlers('trackStart', player, track);
   }
@@ -214,7 +218,7 @@ export default class eventManager {
       },
     });
 
-    this.apiServer.io.to(guildId).emit('action', name, by, data);
+    this.apiServer?.io?.to(guildId).emit('action', name, by, data);
   }
 
   private async player_playerDestroy(player: Player) {
@@ -228,7 +232,7 @@ export default class eventManager {
       },
     });
 
-    this.apiServer.io.to(player.guild).emit('playerDestroyed');
+    this.apiServer?.io?.to(player.guild).emit('playerDestroyed');
     await this.invokeHandlers('playerDestroy', player);
   }
 }

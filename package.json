@@ -85,7 +85,7 @@
     "tsconfig-paths": "^4.2.0",
     "ws": "^8.19.0",
     "xmlhttprequest-ts": "^1.0.1",
-    "youtubei.js": "^16.0.1"
+    "youtubei.js": "^17.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

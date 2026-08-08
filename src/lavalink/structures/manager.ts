@@ -249,6 +249,7 @@ export class Manager extends EventEmitter {
           );
         if (state.isAutoplay)
           player.setAutoplay(state.isAutoplay, state.data.Internal_BotUser);
+        this.emit('playerStateUpdate', player, player, 'connectionChange');
         console.log(
           consoleType.info,
           consolePrefix.lavalink +
@@ -637,10 +638,12 @@ export class Manager extends EventEmitter {
           playlistData = res.data as PlaylistRawData;
           break;
       }
-      // const tracks = searchData.map(async (track: TrackData) => await constructTrack(track, requester));
       let tracks: Track[] = [];
-      if (searchData.length > 0)
-        tracks.push(await constructTrack(searchData[0], requester));
+      if (searchData.length > 0) {
+        tracks = await Promise.all(
+          searchData.map((track: TrackData) => constructTrack(track, requester)),
+        );
+      }
       let playlist = null;
       if (res.loadType === 'playlist') {
         playlist = {
@@ -753,18 +756,20 @@ export class Manager extends EventEmitter {
         sessionId,
         event: { token, endpoint },
       } = player.voiceState;
-      player.options.lastActive = new Date().getTime();
-      await player.node.rest.updatePlayer({
-        guildId: player.guild,
-        data: {
-          voice: {
-            token: token,
-            endpoint: endpoint,
-            sessionId: sessionId as string,
-            channelId: player.voiceChannel as string,
+      if (sessionId && player.voiceChannel) {
+        player.options.lastActive = new Date().getTime();
+        await player.node.rest.updatePlayer({
+          guildId: player.guild,
+          data: {
+            voice: {
+              token: token,
+              endpoint: endpoint,
+              sessionId: sessionId as string,
+              channelId: player.voiceChannel as string,
+            },
           },
-        },
-      });
+        });
+      }
       return;
     }
     if (update.user_id !== this.options.clientId) return;
@@ -774,8 +779,32 @@ export class Manager extends EventEmitter {
         this.emit('playerMove', player, player.voiceChannel, update.channel_id);
       player.voiceState.sessionId = update.session_id;
       player.voiceChannel = update.channel_id;
+
+      if (player.voiceState.event?.token && player.voiceState.event?.endpoint) {
+        await player.node.rest.updatePlayer({
+          guildId: player.guild,
+          data: {
+            voice: {
+              token: player.voiceState.event.token,
+              endpoint: player.voiceState.event.endpoint,
+              sessionId: update.session_id,
+              channelId: update.channel_id,
+            },
+          },
+        });
+      }
       return;
     }
+    if (player.state === 'CONNECTING' || Date.now() - player.createdTimestamp < 8000) {
+      console.log(
+        consoleType.info,
+        consolePrefix.lavalink,
+        player.guild,
+        'Ignored transient updateVoiceState (null channel_id) during connection grace period.',
+      );
+      return;
+    }
+
     await setVoiceChannelStatus(`guild-${player.guild}`);
     this.emit('playerDisconnect', player, player.voiceChannel);
     player.voiceChannel = null;

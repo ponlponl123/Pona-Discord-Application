@@ -42,6 +42,7 @@ export class Player {
   public voiceState!: VoiceState;
   public manager: Manager;
   public isAutoplay: boolean = false;
+  public createdTimestamp: number = Date.now();
   private static _manager: Manager;
   private readonly data: Record<string, unknown> = {};
   private dynamicLoopInterval!: NodeJS.Timeout;

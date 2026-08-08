@@ -48,53 +48,74 @@ export default async function execute(
 
     const playback = await isPonaInVoiceChannel(member.guild.id);
 
-    if (playback) {
-      const queueInLength = playback.queue.slice(0, 7);
+    if (playback && (playback.queue.current || playback.queue.length > 0)) {
+      const current = playback.queue.current;
+      const tracksToShow = playback.queue.slice(0, 7);
+
+      const fields = tracksToShow.map((track, index) => {
+        const reqId = track.requester?.id || (track as any).user_id || '';
+        return {
+          name: `${index + 1}. ${track.title}`,
+          value: `${lang.data.music.queue.added_by} ${reqId ? `<@${reqId}>` : track.author}\n‎ `,
+          inline: false,
+        };
+      });
+
+      if (playback.queue.length > 7) {
+        fields.push({
+          name: `${lang.data.music.queue.too_long.title}`,
+          value: `[${lang.data.music.queue.too_long.value}](https://pona.ponlponl123.com/app/g/${member.guild.id}/queue)\n‎ `,
+          inline: false,
+        });
+      }
+
+      const requesterUser = current?.requester;
+      const requesterId = requesterUser?.id || (current as any)?.user_id || '';
+      const cachedUser = requesterId
+        ? container.pona.client.users.cache.get(requesterId)
+        : null;
+      const requesterName =
+        requesterUser?.username ||
+        cachedUser?.username ||
+        (current as any)?.user_tag ||
+        (requesterId ? `<@${requesterId}>` : 'Unknown');
+      const getAvatarUrl = (userObj: any): string | undefined => {
+        if (!userObj) return undefined;
+        if (typeof userObj.avatarURL === 'function') return userObj.avatarURL();
+        if (typeof userObj.avatarURL === 'string') return userObj.avatarURL;
+        if (typeof userObj.displayAvatarURL === 'function') return userObj.displayAvatarURL();
+        if (typeof userObj.avatar === 'string' && userObj.id) {
+          return `https://cdn.discordapp.com/avatars/${userObj.id}/${userObj.avatar}.png`;
+        }
+        return undefined;
+      };
+
+      const requesterAvatar =
+        getAvatarUrl(requesterUser) ||
+        getAvatarUrl(cachedUser) ||
+        (current as any)?.user_avatar ||
+        undefined;
+
       const queueEmbed = new EmbedBuilder()
         .setAuthor({
           name: lang.data.music.queue.title,
-          url: `https://pona.ponlponl123.com/g/${member.guild.id}/queue`,
+          url: `https://pona.ponlponl123.com/app/g/${member.guild.id}/queue`,
           iconURL:
             'https://cdn.discordapp.com/emojis/1299943220301529118.webp?size=32&quality=lossless',
         })
         .setColor('#F9C5D5')
-        .setTitle(playback.queue.current && playback.queue.current.title)
-        .setURL(playback.queue.current?.uri || null)
-        .setThumbnail(
-          (playback.queue.current && playback.queue.current.thumbnail) || null,
-        )
+        .setTitle(current?.title || 'No track playing')
+        .setURL(current?.uri || null)
+        .setThumbnail(current?.artworkUrl || null)
         .setDescription(
-          `${lang.data.music.play.author} ${playback.queue.current?.author}\n‎ `,
+          `${lang.data.music.play.author} ${current?.author || 'Unknown'}\n‎ `,
         )
         .setFooter({
-          text:
-            `${lang.data.music.queue.added_by} ${playback.queue.current?.requester?.username}` ||
-            '',
-          iconURL:
-            (playback.queue.current?.requester &&
-              (
-                await container.pona.client.users.fetch(
-                  playback.queue.current.requester.id,
-                )
-              ).avatarURL()) ||
-            undefined,
+          text: `${lang.data.music.queue.added_by} ${requesterName}`,
+          iconURL: requesterAvatar,
         })
-        .setFields(
-          queueInLength.map((track, index) => {
-            if (index === queueInLength.length - 1) {
-              return {
-                name: `${lang.data.music.queue.too_long.title}`,
-                value: `[${lang.data.music.queue.too_long.value}](https://pona.ponlponl123.com/app/g/${member.guild.id}/queue)\n‎ `,
-                inline: false,
-              };
-            }
-            return {
-              name: `${index + 1}. ${track.title}`,
-              value: `${lang.data.music.queue.added_by} <@${track.requester?.id}>\n‎ `,
-              inline: false,
-            };
-          }),
-        );
+        .setFields(fields);
+
       return await interaction.reply({
         content: '',
         embeds: [queueEmbed],
@@ -106,7 +127,8 @@ export default async function execute(
       embeds: [warningEmbedBuilder(lang.data.music.errors.no_player_active)],
       flags: MessageFlags.Ephemeral,
     });
-  } catch {
+  } catch (err) {
+    console.error('[QueueCommand] Error executing queue command:', err);
     return;
   }
 }

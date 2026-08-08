@@ -323,7 +323,7 @@ export class Plugin {
 export async function constructTrack<T = User | ClientUser>(
   track: Interface.TrackData,
   requester?: T,
-  version: 1 | 2 = 1,
+  version: 1 | 2 = 2,
 ): Promise<Track> {
   if (!track.info.uniqueId || !track.info.timestamp) {
     const parsed = parseYouTubeTitle(track.info.title, track.info.author);
@@ -333,38 +333,49 @@ export async function constructTrack<T = User | ClientUser>(
     track.info.cleanAuthor = parsed.cleanAuthor;
     switch (version) {
       case 1:
-        const searchResult = await container.ytmusic.client.music.getInfo(
-          track.info.identifier,
-        );
-        if (!searchResult) break;
-        track.info.artist = [
-          {
-            id: searchResult.basic_info.channel_id || '',
-            name: searchResult.basic_info.author || '',
-          },
-        ];
-        break;
-      case 2:
-        const requesterId =
-          typeof requester === 'string'
-            ? requester
-            : (requester as any)?.id || (requester as any)?.user?.id;
-        const fetchVideoDetail = await YTMusicAPI(
-          'GET',
-          `song/${track.info.identifier}`,
-          undefined,
-          undefined,
-          requesterId,
-        );
-        if (fetchVideoDetail && fetchVideoDetail.status === 200) {
+        try {
+          const searchResult = await container.ytmusic.client.music.getInfo(
+            track.info.identifier,
+          );
+          if (!searchResult) break;
           track.info.artist = [
             {
-              id: fetchVideoDetail?.data?.result?.videoDetails
-                ?.channelId as unknown as string,
-              name: fetchVideoDetail?.data?.result?.videoDetails
-                ?.author as unknown as string,
+              id: searchResult.basic_info.channel_id || '',
+              name: searchResult.basic_info.author || '',
             },
           ];
+        } catch {
+          // Ignore youtubei.js parser errors
+        }
+        break;
+      case 2:
+        try {
+          const requesterId =
+            typeof requester === 'string'
+              ? requester
+              : (requester as any)?.id || (requester as any)?.user?.id;
+          const fetchVideoDetail = await YTMusicAPI(
+            'GET',
+            `song/${track.info.identifier}`,
+            undefined,
+            undefined,
+            requesterId,
+          );
+          if (fetchVideoDetail && fetchVideoDetail.status === 200) {
+            const details =
+              fetchVideoDetail.data?.result?.videoDetails ||
+              fetchVideoDetail.data?.videoDetails;
+            if (details) {
+              track.info.artist = [
+                {
+                  id: (details.channelId as unknown as string) || '',
+                  name: (details.author as unknown as string) || '',
+                },
+              ];
+            }
+          }
+        } catch {
+          // Ignore if API lookup fails
         }
         break;
       default:

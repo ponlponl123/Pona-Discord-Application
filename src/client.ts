@@ -116,6 +116,20 @@ class Pona extends EventEmitter {
       this.heartbeatEvent(this.client);
       this.emit('clientReady', this.client);
       this.registerSlashCommands();
+
+      // Re-send Opcode 4 (voice channel connect) for restored players now that Discord Gateway is ready
+      if (this.lavalink?.manager?.players) {
+        for (const player of this.lavalink.manager.players.values()) {
+          if (player.voiceChannel) {
+            try {
+              player.connect();
+              this.lavalink.manager.emit('playerStateUpdate', player, player, 'connectionChange');
+            } catch (e) {
+              logger.error(consolePrefix.lavalink, `Failed to reconnect player for guild ${player.guild}:`, e);
+            }
+          }
+        }
+      }
     });
 
     this.client.on(Events.GuildCreate, async (guild: Guild) => {

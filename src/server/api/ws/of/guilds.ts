@@ -69,18 +69,20 @@ export default function setupGuildWS(ioInstance?: Server) {
         if (type && key && guildId) {
           const user: any = await fetchUserByOAuthAccessToken(type, key);
           if (user?.id) {
-            const member = await container.pona.client.guilds.cache
-              .get(guildId)
-              ?.members.fetch(user.id)
-              .catch(() => null);
-            if (member?.voice?.channel) {
-              const vc = member.voice.channel;
-              isMemberInVC = {
-                id: vc.id,
-                name: vc.name,
-                type: vc.type,
-                userLimit: (vc as any).userLimit ?? 0,
-              };
+            const guild =
+              container.pona.client.guilds.cache.get(guildId) ||
+              (await container.pona.client.guilds.fetch(guildId).catch(() => null));
+            if (guild) {
+              const member = await guild.members.fetch(user.id).catch(() => null);
+              if (member?.voice?.channel) {
+                const vc = member.voice.channel;
+                isMemberInVC = {
+                  id: vc.id,
+                  name: vc.name,
+                  type: vc.type,
+                  userLimit: (vc as any).userLimit ?? 0,
+                };
+              }
             }
           }
         }
@@ -234,68 +236,77 @@ export default function setupGuildWS(ioInstance?: Server) {
       });
 
       // 8. Add track
-      socket.on('add', async (uri: string, cb?: (res: any) => void) => {
-        try {
-          const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
-          const guildId = match ? match[1] : null;
-          if (!guildId || !uri) {
-            if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid arguments' });
-            return;
-          }
+      socket.on(
+        'add',
+        async (
+          uri: string,
+          arg2?: string | ((res: any) => void),
+          arg3?: (res: any) => void,
+        ) => {
+          const cb = typeof arg2 === 'function' ? arg2 : typeof arg3 === 'function' ? arg3 : undefined;
+          const sourceName = typeof arg2 === 'string' ? arg2 : 'pona! search';
+          try {
+            const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+            const guildId = match ? match[1] : null;
+            if (!guildId || !uri) {
+              if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid arguments' });
+              return;
+            }
 
-          let player = container.lavalink.manager.get(guildId);
-          if (!player) {
-            const guild = container.pona.client.guilds.cache.get(guildId);
-            const { type, key } = socket.handshake.auth || {};
-            if (type && key && guild) {
-              const user: any = await fetchUserByOAuthAccessToken(type, key);
-              if (user?.id) {
-                const member = await guild.members.fetch(user.id).catch(() => null);
-                if (member?.voice?.channel) {
-                  const textChannel =
-                    guild.systemChannel ||
-                    guild.channels.cache.find(
-                      (ch) =>
-                        ch.isTextBased() &&
-                        ch.permissionsFor(guild.members.me!)?.has('SendMessages'),
-                    ) ||
-                    (member.voice.channel as any);
+            let player = container.lavalink.manager.get(guildId);
+            if (!player) {
+              const guild = container.pona.client.guilds.cache.get(guildId);
+              const { type, key } = socket.handshake.auth || {};
+              if (type && key && guild) {
+                const user: any = await fetchUserByOAuthAccessToken(type, key);
+                if (user?.id) {
+                  const member = await guild.members.fetch(user.id).catch(() => null);
+                  if (member?.voice?.channel) {
+                    const textChannel =
+                      guild.systemChannel ||
+                      guild.channels.cache.find(
+                        (ch) =>
+                          ch.isTextBased() &&
+                          ch.permissionsFor(guild.members.me!)?.has('SendMessages'),
+                      ) ||
+                      (member.voice.channel as any);
 
-                  player = await joinChannel(textChannel as any, member.voice.channel, guild);
+                    player = await joinChannel(textChannel as any, member.voice.channel, guild);
+                  }
                 }
               }
             }
+
+            if (!player) {
+              if (typeof cb === 'function') cb({ status: 'error', message: 'No voice connection' });
+              return;
+            }
+
+            const user: any = socket.handshake.auth?.key
+              ? await fetchUserByOAuthAccessToken(
+                  socket.handshake.auth.type,
+                  socket.handshake.auth.key,
+                ).catch(() => null)
+              : null;
+
+            const member = user?.id && player?.guild
+              ? await container.pona.client.guilds.cache.get(player.guild)?.members.fetch(user.id).catch(() => null)
+              : null;
+
+            const result = await getSongs(uri, (sourceName || 'pona! search') as any, member as GuildMember);
+            if (typeof result !== 'string' && result.tracks && result.tracks.length > 0) {
+              await addToQueue(result.tracks, player);
+              if (typeof cb === 'function') cb({ status: 'ok' });
+              emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
+              emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+            } else {
+              if (typeof cb === 'function') cb({ status: 'error', message: 'Track not found' });
+            }
+          } catch (err: any) {
+            if (typeof cb === 'function') cb({ status: 'error', message: err?.message || 'Error adding track' });
           }
-
-          if (!player) {
-            if (typeof cb === 'function') cb({ status: 'error', message: 'No voice connection' });
-            return;
-          }
-
-          const user: any = socket.handshake.auth?.key
-            ? await fetchUserByOAuthAccessToken(
-                socket.handshake.auth.type,
-                socket.handshake.auth.key,
-              ).catch(() => null)
-            : null;
-
-          const member = user?.id && player?.guild
-            ? await container.pona.client.guilds.cache.get(player.guild)?.members.fetch(user.id).catch(() => null)
-            : null;
-
-          const result = await getSongs(uri, 'pona! search', member as GuildMember);
-          if (typeof result !== 'string' && result.tracks && result.tracks.length > 0) {
-            await addToQueue(result.tracks, player);
-            if (typeof cb === 'function') cb({ status: 'ok' });
-            emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
-            emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
-          } else {
-            if (typeof cb === 'function') cb({ status: 'error', message: 'Track not found' });
-          }
-        } catch (err: any) {
-          if (typeof cb === 'function') cb({ status: 'error', message: err?.message || 'Error adding track' });
-        }
-      });
+        },
+      );
 
       // 9. Add playlist
       socket.on('add-playlist', async (tracks: string[], metadata: any, cb?: (res: any) => void) => {
@@ -479,6 +490,7 @@ export default function setupGuildWS(ioInstance?: Server) {
   });
 
   events.registerHandler('playerStateUpdate', async (oldPlayer, newPlayer, changeType) => {
+    if (!newPlayer || !newPlayer.guild) return;
     const data = await getHTTP_PlayerState(newPlayer.guild);
     emitToGuild(newPlayer.guild, 'state_updated', encodeData(data), 'pona! music');
 
@@ -497,6 +509,7 @@ export default function setupGuildWS(ioInstance?: Server) {
   });
 
   events.registerHandler('trackStart', async (player, track) => {
+    if (!player || !player.guild) return;
     emitToGuild(player.guild, 'track_started', encodeData(track), 'pona! music');
     emitToGuild(player.guild, 'queue_updated', encodeData([track, ...player.queue]), 'pona! music');
 

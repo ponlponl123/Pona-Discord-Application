@@ -1,4 +1,6 @@
-import { Innertube } from "youtubei.js";
+import { Innertube, Log } from "youtubei.js";
+
+Log.setLevel(Log.Level.ERROR);
 
 export class PonaYTMusicAPI {
     public client!: Innertube;

@@ -31,6 +31,8 @@ type GuildEvents =
   | 'state_updated'
   | 'track_started'
   | 'track_updated'
+  | 'track_pos_updated'
+  | 'pause_updated'
   | 'queue_updated'
   | 'repeat_updated'
   | 'member_state_updated';
@@ -611,6 +613,11 @@ export default function setupGuildWS(ioInstance?: Server) {
     const data = await getHTTP_PlayerState(newPlayer.guild);
     emitToGuild(newPlayer.guild, 'state_updated', encodeData(data), 'pona! music');
 
+    if (changeType === 'pauseChange' || changeType === 'connectionChange') {
+      const isPaused = newPlayer.paused ? 1 : 0;
+      emitToGuild(newPlayer.guild, 'pause_updated', isPaused, 'pona! music');
+    }
+
     if (changeType === 'trackChange' || changeType === 'queueChange') {
       emitToGuild(newPlayer.guild, 'queue_updated', encodeData(newPlayer.queue), 'pona! music');
     }
@@ -623,6 +630,10 @@ export default function setupGuildWS(ioInstance?: Server) {
       };
       emitToGuild(newPlayer.guild, 'repeat_updated', encodeData(repeatData), 'pona! music');
     }
+  });
+
+  events.registerHandler('trackPos', async (guildId, pos) => {
+    emitToGuild(guildId, 'track_pos_updated', pos, 'pona! music');
   });
 
   events.registerHandler('trackStart', async (player, track) => {
@@ -644,7 +655,7 @@ export default function setupGuildWS(ioInstance?: Server) {
 
     try {
       const fetchLyricByInternalAPI = await fetch(
-        `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?id=${track.identifier}`,
+        `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?id=${track.identifier}&title=${encodeURIComponent(track.title)}&author=${encodeURIComponent(track.author)}&duration=${track.duration}&engine=dynamic`,
         {
           headers: {
             Authorization: `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY || ''}`,

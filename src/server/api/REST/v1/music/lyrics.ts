@@ -1,6 +1,4 @@
 import { Elysia, t } from 'elysia';
-import { HttpStatusCode } from '@/types/http';
-import https from 'https';
 import { container } from '@/core/container';
 import { type Lyric, type TimestampLyrics } from '@/interfaces/player';
 import { parseLyrics } from '@/utils/parser';
@@ -26,6 +24,7 @@ export type SearchLyricEngine =
 export async function fetchLyrics(
   engine: 'ytmusic_web' | 'ytmusic_android',
   v: string,
+  author?: string,
 ): Promise<false | Lyric>;
 export async function fetchLyrics(
   engine: 'boidu' | 'lrclib',
@@ -46,49 +45,75 @@ export async function fetchLyrics(
 ): Promise<false | Lyric> {
   switch (engine) {
     case 'ytmusic_android': {
-      if (!arg1) throw Error('Missing required arguments');
+      if (!arg1 || arg1 === 'undefined' || arg1 === 'null') return false;
 
       try {
-        const lyricsData = await container.ytmusic.client.music.getLyrics(arg1);
-        if (lyricsData && lyricsData.description?.text) {
-          const lines = lyricsData.description.text.split('\n').filter(Boolean);
-          return {
-            isTimestamp: false,
-            lyrics: lines,
-          };
+        const lyricsData: any = await container.ytmusic.client.music.getLyrics(arg1).catch(() => null);
+        if (lyricsData) {
+          const timed = lyricsData.timed_lyrics || lyricsData.lyrics?.timed_lyrics;
+          if (Array.isArray(timed) && timed.length > 0) {
+            const timestampLyrics: TimestampLyrics[] = timed.map((line: any) => ({
+              seconds: (line.start_time_ms || line.time || 0) / 1000,
+              lyrics: line.text || line.line || '',
+            }));
+            return {
+              isTimestamp: true,
+              lyrics: timestampLyrics,
+            };
+          }
+
+          if (lyricsData.description?.text) {
+            const lines = String(lyricsData.description.text).split('\n').filter(Boolean);
+            return {
+              isTimestamp: false,
+              lyrics: lines,
+            };
+          }
         }
         return false;
-      } catch (err) {
-        console.error(err);
-        throw Error('Error fetching lyrics: ' + err);
+      } catch {
+        return false;
       }
     }
     case 'ytmusic_web': {
-      if (!arg1) throw Error('Missing required arguments');
+      const searchTerm = arg1 && arg2 ? `${arg1} ${arg2}` : arg1;
+      if (!searchTerm || searchTerm === 'undefined' || searchTerm === 'null') return false;
       try {
         const yt = container.ytmusic.client;
-        const searcher = await yt.music.search(arg1);
+        const searcher = await yt.music.search(searchTerm).catch(() => null);
 
-        const song = searcher.songs?.contents[0];
+        const song = searcher?.songs?.contents?.[0];
         if (!song || !song.id) return false;
 
-        const info = await yt.music.getInfo(song.id);
-        const lyricsData = await info.getLyrics();
+        const info = await yt.music.getInfo(song.id).catch(() => null);
+        const lyricsData: any = info ? await info.getLyrics().catch(() => null) : null;
+        if (!lyricsData) return false;
 
-        if (lyricsData?.description?.text) {
+        const timed = lyricsData.timed_lyrics || lyricsData.lyrics?.timed_lyrics;
+        if (Array.isArray(timed) && timed.length > 0) {
+          const timestampLyrics: TimestampLyrics[] = timed.map((line: any) => ({
+            seconds: (line.start_time_ms || line.time || 0) / 1000,
+            lyrics: line.text || line.line || '',
+          }));
+          return {
+            isTimestamp: true,
+            lyrics: timestampLyrics,
+          };
+        }
+
+        if (lyricsData.description?.text) {
           return {
             isTimestamp: false,
-            lyrics: lyricsData.description.text.split('\n'),
+            lyrics: String(lyricsData.description.text).split('\n').filter(Boolean),
           };
         }
         return false;
-      } catch (err) {
-        console.error(err);
-        throw Error('Error fetching lyrics: ' + err);
+      } catch {
+        return false;
       }
     }
     case 'boidu': {
-      if (!arg1 || !arg2) throw Error('Missing required arguments');
+      if (!arg1 || !arg2) return false;
       const searchUrl = `https://boidu.ponlponl123.com/api/lyrics?title=${encodeURIComponent(arg1)}&artist=${encodeURIComponent(arg2)}`;
       const res = await fetchJson(searchUrl);
       if (res && res.status === 200 && res.data?.lyrics) {
@@ -100,9 +125,12 @@ export async function fetchLyrics(
       return false;
     }
     case 'lrclib': {
-      if (!arg1 || !arg2) throw Error('Missing required arguments');
+      if (!arg1 || !arg2) return false;
       let searchUrl = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(arg2)}&track_name=${encodeURIComponent(arg1)}`;
-      if (arg3) searchUrl += `&duration=${Math.floor(arg3 / 1000)}`;
+      if (arg3 && arg3 > 0) {
+        const durSeconds = arg3 > 10000 ? Math.floor(arg3 / 1000) : Math.floor(arg3);
+        searchUrl += `&duration=${durSeconds}`;
+      }
 
       const res = await fetchJson(searchUrl);
       if (res && res.status === 200 && res.data) {
@@ -119,7 +147,7 @@ export async function fetchLyrics(
       return false;
     }
     case 'textyl': {
-      if (!arg1 || !arg2) throw Error('Missing required arguments');
+      if (!arg1 || !arg2) return false;
       const searchUrl = `https://textyl.ponlponl123.com/api/lyrics?q=${encodeURIComponent(`${arg1} ${arg2}`)}`;
       const res = await fetchJson(searchUrl);
       if (res && res.status === 200 && res.data?.lyrics) {
@@ -139,7 +167,8 @@ export default new Elysia().get(
   '/lyrics',
   async ({ query, set }) => {
     try {
-      const { title, author, duration, v, engine } = query;
+      const { title, author, duration, v, id, engine } = query;
+      const videoId = v || id;
       const searchEngine = (engine || 'dynamic') as
         | SearchLyricEngine
         | 'dynamic'
@@ -147,79 +176,77 @@ export default new Elysia().get(
 
       switch (searchEngine) {
         case 'dynamic': {
-          if (!title || !author) {
+          if ((!title || !author) && !videoId) {
             set.status = 400;
             return { error: 'Missing required parameters' };
           }
 
-          let lyrics;
+          let fallbackPlainLyrics: Lyric | false = false;
 
-          // prioritize lrclib for timestamped lyrics
-          lyrics = await fetchLyrics(
-            'lrclib',
-            String(title),
-            String(author),
-            duration,
-          );
-          if (lyrics) {
-            set.status = 200;
-            return lyrics;
-          }
-
-          // fetch all search engines when lyrics are still not found
-          const engines: SearchLyricEngine[] = [
-            'lrclib',
-            'ytmusic_android',
-            'ytmusic_web',
-            'boidu',
-            'textyl',
-          ] as SearchLyricEngine[];
-
-          for (const engine of engines) {
-            try {
-              if (engine === 'ytmusic_web') {
-                lyrics = await fetchLyrics('ytmusic_web', String(v));
-              } else if (engine === 'ytmusic_android') {
-                lyrics = await fetchLyrics('ytmusic_android', String(v));
-              } else if (engine === 'textyl') {
-                lyrics = await fetchLyrics(
-                  'textyl',
-                  String(title),
-                  String(author),
-                );
-              } else {
-                lyrics = await fetchLyrics(
-                  engine,
-                  String(title),
-                  String(author),
-                  duration,
-                );
+          if (videoId) {
+            for (const eng of ['ytmusic_web', 'ytmusic_android'] as const) {
+              try {
+                const res = await fetchLyrics(eng, String(videoId));
+                if (res) {
+                  if (res.isTimestamp) {
+                    set.status = 200;
+                    return res;
+                  }
+                  if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
+                }
+              } catch {
+                continue;
               }
-
-              if (lyrics) {
-                set.status = 200;
-                return lyrics;
-              }
-            } catch {
-              continue;
             }
           }
 
-          if (!lyrics) {
-            set.status = 404;
-            return { error: 'Lyrics not found' };
+          if (title && author) {
+            const externalEngines: SearchLyricEngine[] = ['lrclib', 'boidu', 'textyl'];
+            for (const eng of externalEngines) {
+              try {
+                const res = await fetchLyrics(eng as any, String(title), String(author), duration);
+                if (res) {
+                  if (res.isTimestamp) {
+                    set.status = 200;
+                    return res;
+                  }
+                  if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
+                }
+              } catch {
+                continue;
+              }
+            }
           }
-          set.status = HttpStatusCode.Gone;
-          return { message: 'Where i am now?' };
+
+          if (!videoId && title && author) {
+            try {
+              const res = await fetchLyrics('ytmusic_web', String(title), String(author));
+              if (res) {
+                if (res.isTimestamp) {
+                  set.status = 200;
+                  return res;
+                }
+                if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
+              }
+            } catch { }
+          }
+
+          if (fallbackPlainLyrics) {
+            set.status = 200;
+            return fallbackPlainLyrics;
+          }
+
+          set.status = 404;
+          return { error: 'Lyrics not found' };
         }
         case 'ytmusic': {
-          if (!v) {
+          if (!videoId) {
             set.status = 400;
             return { error: 'Missing required parameters' };
           }
 
           try {
-            const lyrics = await fetchLyrics('ytmusic_android', String(v));
+            const lyrics = await fetchLyrics('ytmusic_android', String(videoId));
             if (lyrics) {
               set.status = 200;
               return lyrics;
@@ -235,8 +262,8 @@ export default new Elysia().get(
           try {
             const lyrics = await fetchLyrics(
               searchEngine as any,
-              String(title),
-              String(author),
+              String(title || videoId || ''),
+              String(author || ''),
               duration,
             );
             if (lyrics) {
@@ -261,8 +288,9 @@ export default new Elysia().get(
     query: t.Object({
       title: t.Optional(t.String()),
       author: t.Optional(t.String()),
-      duration: t.Optional(t.Number()),
+      duration: t.Optional(t.Numeric()),
       v: t.Optional(t.String()),
+      id: t.Optional(t.String()),
       engine: t.Optional(
         t.Union([
           t.Literal('dynamic'),

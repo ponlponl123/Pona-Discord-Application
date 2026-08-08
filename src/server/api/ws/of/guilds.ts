@@ -48,6 +48,54 @@ function emitToGuild(guildId: string, event: GuildEvents, payload: unknown, room
   io.of(`/guilds/${guildId}`).to(room).emit(event, payload);
 }
 
+export async function sendHandshake(socket: any) {
+  try {
+    const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+    const guildId = match ? match[1] : null;
+
+    let isMemberInVC = null;
+    let { type, key } = socket.handshake.auth || {};
+
+    if (type === 'undefined' || type === 'null') type = undefined;
+    if (key === 'undefined' || key === 'null') key = undefined;
+
+    if (type && key && guildId) {
+      const user: any = await fetchUserByOAuthAccessToken(type, key).catch(() => null);
+      if (user?.id) {
+        const guild =
+          container.pona.client.guilds.cache.get(guildId) ||
+          (await container.pona.client.guilds.fetch(guildId).catch(() => null));
+        if (guild) {
+          const voiceState = guild.voiceStates.cache.get(user.id);
+          let vc = voiceState?.channel;
+          if (!vc) {
+            const member = await guild.members.fetch(user.id).catch(() => null);
+            vc = member?.voice?.channel || null;
+          }
+          if (vc) {
+            isMemberInVC = {
+              id: vc.id,
+              name: vc.name,
+              type: vc.type,
+              userLimit: (vc as any).userLimit ?? 0,
+            };
+          }
+        }
+      }
+    }
+
+    const ponaState = guildId ? await getHTTP_PlayerState(guildId) : null;
+    const handshakePayload = {
+      pona: ponaState,
+      isMemberInVC,
+    };
+
+    socket.emit('handshake', encodeData(handshakePayload));
+  } catch (err) {
+    console.error('Handshake error on WS connection:', err);
+  }
+}
+
 export default function setupGuildWS(ioInstance?: Server) {
   const self = container.pona;
   const events = container.eventManager;
@@ -60,43 +108,14 @@ export default function setupGuildWS(ioInstance?: Server) {
       socket.join('pona! voice');
       register(socket);
 
-      try {
-        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
-        const guildId = match ? match[1] : null;
+      await sendHandshake(socket);
 
-        let isMemberInVC = null;
-        const { type, key } = socket.handshake.auth || {};
-        if (type && key && guildId) {
-          const user: any = await fetchUserByOAuthAccessToken(type, key);
-          if (user?.id) {
-            const guild =
-              container.pona.client.guilds.cache.get(guildId) ||
-              (await container.pona.client.guilds.fetch(guildId).catch(() => null));
-            if (guild) {
-              const member = await guild.members.fetch(user.id).catch(() => null);
-              if (member?.voice?.channel) {
-                const vc = member.voice.channel;
-                isMemberInVC = {
-                  id: vc.id,
-                  name: vc.name,
-                  type: vc.type,
-                  userLimit: (vc as any).userLimit ?? 0,
-                };
-              }
-            }
-          }
-        }
-
-        const ponaState = guildId ? await getHTTP_PlayerState(guildId) : null;
-        const handshakePayload = {
-          pona: ponaState,
-          isMemberInVC,
-        };
-
-        socket.emit('handshake', encodeData(handshakePayload));
-      } catch (err) {
-        console.error('Handshake error on WS connection:', err);
-      }
+      socket.on('sync', async () => {
+        await sendHandshake(socket);
+      });
+      socket.on('handshake', async () => {
+        await sendHandshake(socket);
+      });
 
       // 1. Join Voice Channel
       socket.on('join', async (guildIdParam?: string, voiceChannelIdParam?: string) => {
@@ -159,45 +178,66 @@ export default function setupGuildWS(ioInstance?: Server) {
       });
 
       // 2. Play (Resume)
-      socket.on('play', async () => {
+      socket.on('play', async (cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
-        if (!guildId) return;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
         const player = container.lavalink.manager.get(guildId);
         if (player) {
           await player.pause(false);
           emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+          if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No active player' });
         }
       });
 
       // 3. Pause
-      socket.on('pause', async () => {
+      socket.on('pause', async (cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
-        if (!guildId) return;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
         const player = container.lavalink.manager.get(guildId);
         if (player) {
           await player.pause(true);
           emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+          if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No active player' });
         }
       });
 
       // 4. Next / Skip
-      socket.on('next', async () => {
+      socket.on('next', async (cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
-        if (!guildId) return;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
         const player = container.lavalink.manager.get(guildId);
         if (player) {
           await player.stop();
+          if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No active player' });
         }
       });
 
       // 5. Previous
-      socket.on('previous', async () => {
+      socket.on('previous', async (cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
-        if (!guildId) return;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
         const player = container.lavalink.manager.get(guildId);
         if (player) {
           if (player.position > 5000) {
@@ -206,34 +246,86 @@ export default function setupGuildWS(ioInstance?: Server) {
             player.queue.add([player.queue.previous, ...player.queue]);
             await player.stop();
           }
+          if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No active player' });
         }
       });
 
       // 6. Skipto
-      socket.on('skipto', async (index: number) => {
+      socket.on('skipto', async (index: number, cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
-        if (!guildId) return;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
         const player = container.lavalink.manager.get(guildId);
         if (player && typeof index === 'number' && index >= 0 && index < player.queue.length) {
           player.queue.splice(0, index);
           await player.stop();
+          if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid track index or no player' });
         }
       });
 
       // 7. Seek
-      socket.on('seek', async (val: number) => {
+      socket.on('seek', async (val: number, cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
-        if (!guildId) return;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
         const player = container.lavalink.manager.get(guildId);
         if (player && typeof val === 'number') {
           const posMs = val > 100000 ? val : val * 1000;
           await player.seek(posMs);
           const ponaState = await getHTTP_PlayerState(guildId);
           emitToGuild(guildId, 'state_updated', encodeData(ponaState), 'pona! music');
+          if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid position or no player' });
         }
       });
+
+      // 7b. Repeat / Loop
+      socket.on(
+        'repeat',
+        async (
+          mode: string | ((res: any) => void),
+          cbArg?: (res: any) => void,
+        ) => {
+          const cb = typeof mode === 'function' ? mode : cbArg;
+          const repeatMode = typeof mode === 'string' ? mode : 'none';
+          const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+          const guildId = match ? match[1] : null;
+          if (!guildId) {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+            return;
+          }
+          const player = container.lavalink.manager.get(guildId);
+          if (player) {
+            if (repeatMode === 'track') {
+              player.setTrackRepeat(true);
+            } else if (repeatMode === 'queue') {
+              player.setQueueRepeat(true);
+            } else if (repeatMode === 'off' || repeatMode === 'none') {
+              player.setTrackRepeat(false);
+            }
+            const repeatData: HTTP_PonaRepeatState = {
+              track: player.trackRepeat,
+              queue: player.queueRepeat,
+              dynamic: player.dynamicRepeat,
+            };
+            emitToGuild(guildId, 'repeat_updated', encodeData(repeatData), 'pona! music');
+            if (typeof cb === 'function') cb({ status: 'ok' });
+          } else {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'No active player' });
+          }
+        },
+      );
 
       // 8. Add track
       socket.on(
@@ -400,48 +492,73 @@ export default function setupGuildWS(ioInstance?: Server) {
       });
 
       // 11. Move track in queue
-      socket.on('move', async (oldIndex: number, newIndex: number) => {
-        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
-        const guildId = match ? match[1] : null;
-        if (!guildId) return;
-        const player = container.lavalink.manager.get(guildId);
-        if (
-          player &&
-          typeof oldIndex === 'number' &&
-          typeof newIndex === 'number' &&
-          oldIndex >= 0 &&
-          oldIndex < player.queue.length &&
-          newIndex >= 0 &&
-          newIndex < player.queue.length
-        ) {
-          const track = player.queue[oldIndex];
-          player.queue.splice(oldIndex, 1);
-          player.queue.splice(newIndex, 0, track);
-          emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
-        }
-      });
+      socket.on(
+        'move',
+        async (
+          oldIndex: number,
+          newIndex: number,
+          cb?: (res: any) => void,
+        ) => {
+          const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+          const guildId = match ? match[1] : null;
+          if (!guildId) {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+            return;
+          }
+          const player = container.lavalink.manager.get(guildId);
+          if (
+            player &&
+            typeof oldIndex === 'number' &&
+            typeof newIndex === 'number' &&
+            oldIndex >= 0 &&
+            oldIndex < player.queue.length &&
+            newIndex >= 0 &&
+            newIndex < player.queue.length
+          ) {
+            const track = player.queue[oldIndex];
+            player.queue.splice(oldIndex, 1);
+            player.queue.splice(newIndex, 0, track);
+            emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
+            if (typeof cb === 'function') cb({ status: 'ok' });
+          } else {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid indices or no player' });
+          }
+        },
+      );
 
       // 12. Volume
-      socket.on('volume', async (vol: number) => {
+      socket.on('volume', async (vol: number, cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
-        if (!guildId) return;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
         const player = container.lavalink.manager.get(guildId);
         if (player && typeof vol === 'number') {
           player.setVolume(vol);
           emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+          if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid volume or no player' });
         }
       });
 
       // 13. Leave / Destroy
-      socket.on('leave', async () => {
+      socket.on('leave', async (cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
-        if (!guildId) return;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
         const player = container.lavalink.manager.get(guildId);
         if (player) {
           await leaveVoiceChannelAsPlayer(guildId);
           emitToGuild(guildId, 'state_updated', encodeData(null), 'pona! music');
+          if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No active player' });
         }
       });
     });
@@ -547,6 +664,22 @@ export default function setupGuildWS(ioInstance?: Server) {
         container.redis.redis.setex(`yt:lyrics:${track.identifier}`, 3600, '');
     } catch {
       console.log('failed to fetch lyrics');
+    }
+  });
+
+  events.registerHandler('clientReady', async () => {
+    const io = (container.apiServer as any)?.io;
+    if (!io) return;
+    const dynamicGuildRegexp = /^\/(?:guild|guilds)\/([0-9]+)$/;
+    const nsps = io._nsps || io.sockets?.nsp;
+    if (nsps) {
+      for (const [nspName, nsp] of nsps.entries()) {
+        if (dynamicGuildRegexp.test(nspName)) {
+          for (const socket of nsp.sockets.values()) {
+            sendHandshake(socket).catch(() => {});
+          }
+        }
+      }
     }
   });
 }

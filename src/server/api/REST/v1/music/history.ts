@@ -21,11 +21,10 @@ export default new Elysia()
           return { error: 'Unauthorized' };
         }
 
-        const limit = Number(query['l']) || 14;
-        if (limit < 1 || limit > 100 || Number.isNaN(limit)) {
-          set.status = HttpStatusCode.BadRequest;
-          return { error: 'Invalid limit' };
-        }
+        const page = Math.max(1, Number(query['p']) || 1);
+        const limit = Math.min(50, Math.max(1, Number(query['l']) || 15));
+        const searchQuery = (query['q'] || '').trim();
+        const offset = (page - 1) * limit;
 
         const [tokenType, tokenKey] = authorization.split(' ');
         const user: any = await fetchUserByOAuthAccessToken(
@@ -37,45 +36,83 @@ export default new Elysia()
           return { error: 'Unauthorized' };
         }
 
-        const cacheKey = `user:${user.id}:history:track:${limit}`;
+        const cacheKey = `user:${user.id}:history:p${page}:l${limit}:q:${encodeURIComponent(searchQuery)}`;
         if (container.redis?.redis) {
           const cached = await container.redis.redis.get(cacheKey);
           if (cached) {
             set.status = HttpStatusCode.Ok;
-            return { message: 'Ok', tracks: JSONBig.parse(cached) };
+            return JSONBig.parse(cached);
           }
         }
 
-        // We use raw SQL here because Prisma Fluent API does not support Window Functions (ROW_NUMBER)
-        // required for de-duplicating track history efficiently at the database level.
-        const res = await prisma.$queryRawUnsafe<TrackHistoryResult[]>(
-          `SELECT id, track
-           FROM (
-             SELECT id, track,
-               JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri')) AS uri,
-               ROW_NUMBER() OVER (PARTITION BY JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri')) ORDER BY id DESC) AS row_num
-             FROM player_track_history
-             WHERE requestby = ?
-           ) AS subquery
-           WHERE row_num = 1
-           ORDER BY id DESC
-           LIMIT ?`,
-          user.id, limit,
-        );
+        let sqlQuery = `
+          SELECT id, track
+          FROM (
+            SELECT id, track,
+              JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri')) AS uri,
+              ROW_NUMBER() OVER (PARTITION BY JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri')) ORDER BY id DESC) AS row_num
+            FROM player_track_history
+            WHERE requestby = ?
+        `;
+        const queryArgs: any[] = [user.id];
 
-        if (!res || res.length === 0) {
-          set.status = HttpStatusCode.NotFound;
-          return { error: 'Not Found' };
+        if (searchQuery) {
+          sqlQuery += ` AND (
+            LOWER(JSON_UNQUOTE(JSON_EXTRACT(track, '$.title'))) LIKE ? OR
+            LOWER(JSON_UNQUOTE(JSON_EXTRACT(track, '$.author'))) LIKE ?
+          )`;
+          const likePattern = `%${searchQuery.toLowerCase()}%`;
+          queryArgs.push(likePattern, likePattern);
         }
 
-        const tracks = JSONBig.parse(JSONBig.stringify(res));
+        sqlQuery += `
+          ) AS subquery
+          WHERE row_num = 1
+          ORDER BY id DESC
+          LIMIT ? OFFSET ?
+        `;
+        queryArgs.push(limit, offset);
+
+        const res = await prisma.$queryRawUnsafe<TrackHistoryResult[]>(sqlQuery, ...queryArgs);
+
+        let countSql = `
+          SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri'))) AS totalCount
+          FROM player_track_history
+          WHERE requestby = ?
+        `;
+        const countArgs: any[] = [user.id];
+        if (searchQuery) {
+          countSql += ` AND (
+            LOWER(JSON_UNQUOTE(JSON_EXTRACT(track, '$.title'))) LIKE ? OR
+            LOWER(JSON_UNQUOTE(JSON_EXTRACT(track, '$.author'))) LIKE ?
+          )`;
+          const likePattern = `%${searchQuery.toLowerCase()}%`;
+          countArgs.push(likePattern, likePattern);
+        }
+
+        const countRes = await prisma.$queryRawUnsafe<{ totalCount: bigint }[]>(countSql, ...countArgs);
+        const total = Number(countRes?.[0]?.totalCount || 0);
+
+        const tracks = JSONBig.parse(JSONBig.stringify(res || []));
+        const totalPages = Math.ceil(total / limit) || 1;
+
+        const responsePayload = {
+          message: 'OK',
+          tracks,
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages,
+          },
+        };
 
         if (container.redis?.redis) {
-          container.redis.redis.setex(cacheKey, 15, JSONBig.stringify(tracks));
+          container.redis.redis.setex(cacheKey, 10, JSONBig.stringify(responsePayload));
         }
 
         set.status = HttpStatusCode.Ok;
-        return { message: 'OK', tracks };
+        return responsePayload;
       } catch (e) {
         console.error(e);
         set.status = HttpStatusCode.InternalServerError;
@@ -87,7 +124,93 @@ export default new Elysia()
         authorization: t.String(),
       }),
       query: t.Object({
+        p: t.Optional(t.Number()),
         l: t.Optional(t.Number()),
+        q: t.Optional(t.String()),
+      }),
+    },
+  )
+  .get(
+    '/history/stats',
+    async ({ headers, set }) => {
+      try {
+        const { authorization } = headers;
+        if (!authorization) {
+          set.status = HttpStatusCode.Unauthorized;
+          return { error: 'Unauthorized' };
+        }
+
+        const [tokenType, tokenKey] = authorization.split(' ');
+        const user: any = await fetchUserByOAuthAccessToken(tokenType, tokenKey);
+        if (!user) {
+          set.status = HttpStatusCode.Unauthorized;
+          return { error: 'Unauthorized' };
+        }
+
+        const cacheKey = `user:${user.id}:history:stats`;
+        if (container.redis?.redis) {
+          const cached = await container.redis.redis.get(cacheKey);
+          if (cached) {
+            set.status = HttpStatusCode.Ok;
+            return JSONBig.parse(cached);
+          }
+        }
+
+        const statsSql = `
+          SELECT 
+            COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri'))) AS totalTracks,
+            COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(track, '$.duration')) AS UNSIGNED)), 0) AS totalDurationMs
+          FROM player_track_history
+          WHERE requestby = ?
+        `;
+        const statsRes = await prisma.$queryRawUnsafe<{ totalTracks: bigint; totalDurationMs: bigint }[]>(statsSql, user.id);
+
+        const topArtistSql = `
+          SELECT 
+            TRIM(REPLACE(JSON_UNQUOTE(JSON_EXTRACT(track, '$.author')), ' - Topic', '')) AS artistName,
+            COUNT(*) AS count
+          FROM player_track_history
+          WHERE requestby = ? 
+            AND JSON_UNQUOTE(JSON_EXTRACT(track, '$.author')) IS NOT NULL
+            AND created_at >= NOW() - INTERVAL 7 DAY
+          GROUP BY artistName
+          ORDER BY count DESC
+          LIMIT 1
+        `;
+        const topArtistRes = await prisma.$queryRawUnsafe<{ artistName: string; count: bigint }[]>(topArtistSql, user.id);
+
+        const totalTracks = Number(statsRes?.[0]?.totalTracks || 0);
+        const totalDurationMs = Number(statsRes?.[0]?.totalDurationMs || 0);
+        let rawArtist = topArtistRes?.[0]?.artistName || '-';
+        if (rawArtist.endsWith(' - Topic')) {
+          rawArtist = rawArtist.replace(/ - Topic$/, '').trim();
+        }
+        const topArtist = rawArtist;
+
+        const responsePayload = {
+          message: 'OK',
+          stats: {
+            totalTracks,
+            totalDurationMs,
+            topArtist,
+          },
+        };
+
+        if (container.redis?.redis) {
+          container.redis.redis.setex(cacheKey, 300, JSONBig.stringify(responsePayload));
+        }
+
+        set.status = HttpStatusCode.Ok;
+        return responsePayload;
+      } catch (e) {
+        console.error(e);
+        set.status = HttpStatusCode.InternalServerError;
+        return { error: 'Internal Server Error' };
+      }
+    },
+    {
+      headers: t.Object({
+        authorization: t.String(),
       }),
     },
   )
@@ -129,8 +252,6 @@ export default new Elysia()
           }
         }
         
-        // Refactored to use Fluent API where possible, but still needs a raw subquery for deduplication
-        // to match the specific 8-item unique logic efficiently.
         const search_history = await prisma.$queryRawUnsafe<{text: string}[]>(
           `SELECT text FROM (
             SELECT text, MAX(id) as max_id
@@ -173,4 +294,5 @@ export default new Elysia()
       }),
     },
   );
+
 

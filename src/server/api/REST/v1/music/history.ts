@@ -168,24 +168,62 @@ export default new Elysia()
         const topArtistSql = `
           SELECT 
             TRIM(REPLACE(JSON_UNQUOTE(JSON_EXTRACT(track, '$.author')), ' - Topic', '')) AS artistName,
-            COUNT(*) AS count
+            COUNT(*) AS count,
+            MAX(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(track, '$.artist[0].id')), 'null')) AS artistId,
+            MAX(NULLIF(COALESCE(
+              JSON_UNQUOTE(JSON_EXTRACT(track, '$.artworkUrl')),
+              JSON_UNQUOTE(JSON_EXTRACT(track, '$.proxyHighResArtworkUrl')),
+              JSON_UNQUOTE(JSON_EXTRACT(track, '$.proxyArtworkUrl')),
+              JSON_UNQUOTE(JSON_EXTRACT(track, '$.highResArtworkUrl')),
+              JSON_UNQUOTE(JSON_EXTRACT(track, '$.thumbnail'))
+            ), 'null')) AS thumbnail
           FROM player_track_history
           WHERE requestby = ? 
             AND JSON_UNQUOTE(JSON_EXTRACT(track, '$.author')) IS NOT NULL
-            AND time >= NOW() - INTERVAL 7 DAY
+            AND time >= NOW() - INTERVAL 30 DAY
           GROUP BY artistName
           ORDER BY count DESC
-          LIMIT 1
+          LIMIT 10
         `;
-        const topArtistRes = await prisma.$queryRawUnsafe<{ artistName: string; count: bigint }[]>(topArtistSql, user.id);
+        const topArtistRes = await prisma.$queryRawUnsafe<
+          { artistName: string; count: bigint; artistId?: string; thumbnail?: string }[]
+        >(topArtistSql, user.id);
+
+        // Fetch user subscriptions to match and enrich artist details
+        const subRecords = await prisma.subscribe_artist.findMany({
+          where: { uid: user.id },
+          select: { target: true, cache: true },
+        });
+
+        const subMap = new Map<string, { artistId: string; thumbnail?: string }>();
+        for (const sub of subRecords) {
+          if (!sub.cache) continue;
+          try {
+            const parsed = JSON.parse(sub.cache);
+            const name = (parsed?.name || parsed?.info?.name || parsed?.header?.title || '').toLowerCase().trim();
+            const thumbs = parsed?.thumbnails || parsed?.avatar || parsed?.info?.thumbnails || parsed?.v2?.thumbnails;
+            const thumbUrl = Array.isArray(thumbs) && thumbs.length > 0 ? thumbs[thumbs.length - 1]?.url : undefined;
+            if (name) {
+              subMap.set(name, { artistId: sub.target, thumbnail: thumbUrl });
+            }
+          } catch {
+            // ignore JSON parse error
+          }
+        }
 
         const totalTracks = Number(statsRes?.[0]?.totalTracks || 0);
         const totalDurationMs = Number(statsRes?.[0]?.totalDurationMs || 0);
-        let rawArtist = topArtistRes?.[0]?.artistName || '-';
-        if (rawArtist.endsWith(' - Topic')) {
-          rawArtist = rawArtist.replace(/ - Topic$/, '').trim();
-        }
-        const topArtist = rawArtist;
+        const topArtistsList = (topArtistRes || []).map((row) => {
+          const cleanName = row.artistName ? row.artistName.replace(/\s*-\s*Topic$/i, '').trim() : '-';
+          const matchedSub = subMap.get(cleanName.toLowerCase());
+          return {
+            name: cleanName,
+            count: Number(row.count),
+            artistId: matchedSub?.artistId || row.artistId || undefined,
+            thumbnail: matchedSub?.thumbnail || row.thumbnail || undefined,
+          };
+        });
+        const topArtist = topArtistsList[0]?.name || '-';
 
         const responsePayload = {
           message: 'OK',
@@ -193,6 +231,7 @@ export default new Elysia()
             totalTracks,
             totalDurationMs,
             topArtist,
+            topArtists: topArtistsList,
           },
         };
 

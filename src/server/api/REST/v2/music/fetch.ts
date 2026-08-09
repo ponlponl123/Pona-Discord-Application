@@ -103,10 +103,10 @@ export default new Elysia().get(
         case 'related': {
           if (container.redis?.redis) {
             const watch_playlist = await container.redis.redis.get(
-              `yt:watch_playlist:${queryId}`,
+              `yt:personal:${user.id}:watch_playlist:${queryId}`,
             );
             const related = await container.redis.redis.get(
-              `yt:related:${queryId}`,
+              `yt:personal:${user.id}:related:${queryId}`,
             );
             if (related) {
               set.status = HttpStatusCode.Ok;
@@ -128,7 +128,7 @@ export default new Elysia().get(
             undefined,
             user.id,
           ).catch(() => {
-            container.redis?.redis.setex(`yt:watch_playlist:${queryId}`, 600, '');
+            container.redis?.redis.setex(`yt:personal:${user.id}:watch_playlist:${queryId}`, 600, '');
           });
           const getSongRelated = await YTMusicAPI(
             'GET',
@@ -137,7 +137,7 @@ export default new Elysia().get(
             undefined,
             user.id,
           ).catch(() => {
-            container.redis?.redis.setex(`yt:related:${queryId}`, 600, '');
+            container.redis?.redis.setex(`yt:personal:${user.id}:related:${queryId}`, 600, '');
           });
           if (!getSongRelated && !getSongWatchPlaylist) {
             set.status = HttpStatusCode.NotFound;
@@ -146,13 +146,13 @@ export default new Elysia().get(
           if (container.redis?.redis) {
             if (getSongWatchPlaylist && getSongWatchPlaylist?.data?.result)
               container.redis.redis.setex(
-                `yt:watch_playlist:${queryId}`,
+                `yt:personal:${user.id}:watch_playlist:${queryId}`,
                 43200,
                 JSON.stringify(getSongWatchPlaylist?.data.result),
               );
             if (getSongRelated && getSongRelated?.data?.related_content)
               container.redis.redis.setex(
-                `yt:related:${queryId}`,
+                `yt:personal:${user.id}:related:${queryId}`,
                 43200,
                 JSON.stringify(getSongRelated?.data.related_content),
               );

@@ -69,7 +69,7 @@ export default new Elysia().get(
             .expire(`user:${user.id}:history:search`, 600)
             .exec();
           const value = await container.redis.redis.get(
-            `yt:search:query:${filter || 'all'}:${String(q)}`,
+            `yt:personal:${user.id}:search:query:${filter || 'all'}:${String(q)}`,
           );
           if (value) {
             set.status = HttpStatusCode.Ok;
@@ -84,7 +84,7 @@ export default new Elysia().get(
           return { message: 'Service Unavailable' };
         }
         container.redis?.redis.setex(
-          `yt:search:query:${filter || 'all'}:${String(q)}`,
+          `yt:personal:${user.id}:search:query:${filter || 'all'}:${String(q)}`,
           300,
           JSON.stringify(searchResult.data.result),
         );

@@ -228,11 +228,16 @@ export default new Elysia().get(
               return { message: 'Ok', result: JSON.parse(value) };
             }
           }
-          const searchResult = await container.ytmusic.client.music
+          let searchResult: any = await container.ytmusic.client.music
             .getPlaylist(queryId)
-            .catch(() => {
-              container.redis?.redis?.setex(`yt:playlist:v1:${queryId}`, 600, '');
-            });
+            .catch(() => null);
+          if (!searchResult) {
+            searchResult = await container.ytmusic.client
+              .getPlaylist(queryId)
+              .catch(() => {
+                container.redis?.redis?.setex(`yt:playlist:v1:${queryId}`, 600, '');
+              });
+          }
           if (!searchResult) {
             set.status = HttpStatusCode.NotFound;
             return { message: 'Not Found' };

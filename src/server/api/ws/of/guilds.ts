@@ -255,17 +255,19 @@ export default function setupGuildWS(ioInstance?: Server) {
       });
 
       // 6. Skipto
-      socket.on('skipto', async (index: number, cb?: (res: any) => void) => {
+      socket.on('skipto', async (index: number | string, cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
         const guildId = match ? match[1] : null;
         if (!guildId) {
           if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
           return;
         }
+        const targetIndex = typeof index === 'string' ? parseInt(index, 10) : index;
         const player = container.lavalink.manager.get(guildId);
-        if (player && typeof index === 'number' && index >= 0 && index < player.queue.length) {
-          player.queue.splice(0, index);
-          await player.stop();
+        if (player && typeof targetIndex === 'number' && !isNaN(targetIndex) && targetIndex >= 0 && targetIndex < player.queue.length) {
+          player.skipto(targetIndex);
+          const statePayload = await getHTTP_PlayerState(guildId);
+          emitToGuild(guildId, 'state_updated', encodeData(statePayload));
           if (typeof cb === 'function') cb({ status: 'ok' });
         } else {
           if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid track index or no player' });

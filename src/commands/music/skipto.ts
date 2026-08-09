@@ -74,7 +74,7 @@ export default async function execute(
         const selector = new StringSelectMenuBuilder()
           .setCustomId(`skipto_track_${i}`)
           .setPlaceholder(
-            `${lang.data.music.queue.skip.selector_placeholder}${total_pages > 1 && `(${lang.data.music.queue.skip.page_num} #${i + 1})`}`,
+            `${lang.data.music.queue.skip.selector_placeholder}${total_pages > 1 ? ` (${lang.data.music.queue.skip.page_num} #${i + 1})` : ''}`,
           )
           .addOptions(
             playback.queue

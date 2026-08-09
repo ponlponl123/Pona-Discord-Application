@@ -54,7 +54,7 @@ class LavalinkServer extends EventEmitter {
     console.log(
       consoleType.info,
       consolePrefix.system +
-        `\x1b[33mLogging in lavalink server with ${clientId}...\x1b[0m`,
+      `\x1b[33mLogging in lavalink server with ${clientId}...\x1b[0m`,
     );
 
     this.lavanodes.push({
@@ -95,7 +95,7 @@ class LavalinkServer extends EventEmitter {
         const lang = await getGuildLanguage(player.guild);
         await setVoiceChannelStatus(
           player.voiceChannel,
-          `${lang.data.music.state.voiceChannel.status} ${track.title} ${lang.data.music.play.author} ${track.author}`,
+          `${lang.data.music.state.voiceChannel.status} ${track.cleanTitle} ${lang.data.music.play.author} ${track.cleanAuthor}`,
         );
         this.emit('trackStart', player, track);
       } catch (error) {
@@ -143,7 +143,7 @@ class LavalinkServer extends EventEmitter {
       console.log(
         consoleType.error,
         consolePrefix.lavalink +
-          `Node "${node.options.identifier}" error: ${error.message}`,
+        `Node "${node.options.identifier}" error: ${error.message}`,
       );
     });
 
@@ -151,7 +151,7 @@ class LavalinkServer extends EventEmitter {
       console.log(
         consoleType.info,
         consolePrefix.lavalink +
-          `Player created, playing ${player.queue.current?.title} for ${player.guild}`,
+        `Player created, playing ${player.queue.current?.title} for ${player.guild}`,
       );
       this.emit('playerCreate', player);
     });
@@ -160,7 +160,7 @@ class LavalinkServer extends EventEmitter {
       console.log(
         consoleType.info,
         consolePrefix.lavalink +
-          `Chapters loaded for ${player.queue.current?.title} in ${player.guild}`,
+        `Chapters loaded for ${player.queue.current?.title} in ${player.guild}`,
       );
     });
 
@@ -168,7 +168,7 @@ class LavalinkServer extends EventEmitter {
       console.log(
         consoleType.info,
         consolePrefix.lavalink +
-          `Segments loaded for ${player.queue.current?.title} in ${player.guild}`,
+        `Segments loaded for ${player.queue.current?.title} in ${player.guild}`,
       );
     });
   }

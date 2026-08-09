@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia';
 import { container } from '@/core/container';
 import { type Lyric, type TimestampLyrics } from '@/interfaces/player';
 import { parseLyrics } from '@/utils/parser';
+import YTMusicAPI from '@/utils/ytmusic-api/request';
 
 async function fetchJson(url: string): Promise<{ status: number; data: any } | null> {
   try {
@@ -17,6 +18,7 @@ async function fetchJson(url: string): Promise<{ status: number; data: any } | n
 export type SearchLyricEngine =
   | 'ytmusic_android'
   | 'ytmusic_web'
+  | 'pyytmusic'
   | 'boidu'
   | 'lrclib'
   | 'textyl';
@@ -25,6 +27,11 @@ export async function fetchLyrics(
   engine: 'ytmusic_web' | 'ytmusic_android',
   v: string,
   author?: string,
+): Promise<false | Lyric>;
+export async function fetchLyrics(
+  engine: 'pyytmusic',
+  v: string,
+  userId?: string,
 ): Promise<false | Lyric>;
 export async function fetchLyrics(
   engine: 'boidu' | 'lrclib',
@@ -42,26 +49,65 @@ export async function fetchLyrics(
   arg1: string,
   arg2?: string,
   arg3?: number,
+): Promise<false | Lyric>;
+export async function fetchLyrics(
+  engine: SearchLyricEngine,
+  arg1: string,
+  arg2?: string,
+  arg3?: number,
 ): Promise<false | Lyric> {
   switch (engine) {
+    case 'pyytmusic': {
+      if (!arg1 || arg1 === 'undefined' || arg1 === 'null') return false;
+
+      const uid = arg2 || 'pona_system';
+      try {
+        const watchRes = await YTMusicAPI(
+          'GET',
+          `watch/playlist/${encodeURIComponent(arg1)}?limit=1`,
+          undefined,
+          undefined,
+          uid,
+        );
+        const lyricsBrowseId: string | undefined = watchRes?.data?.result?.lyrics;
+        if (!lyricsBrowseId) return false;
+
+        const lyricsRes = await YTMusicAPI(
+          'GET',
+          `browsing/lyrics/${encodeURIComponent(lyricsBrowseId)}?timestamps=true`,
+          undefined,
+          undefined,
+          uid,
+        );
+        const lyricsResult = lyricsRes?.data?.result;
+        if (!lyricsResult) return false;
+
+        if (lyricsResult.hasTimestamps && Array.isArray(lyricsResult.lyrics)) {
+          const timestampLyrics: TimestampLyrics[] = lyricsResult.lyrics.map((line: any) => ({
+            seconds: (line.start_time_ms ?? line.startTimeMs ?? 0) / 1000,
+            lyrics: line.text ?? line.line ?? '',
+          }));
+          if (timestampLyrics.length > 0) {
+            return { isTimestamp: true, lyrics: timestampLyrics };
+          }
+        }
+
+        if (lyricsResult.lyrics && typeof lyricsResult.lyrics === 'string') {
+          const lines = lyricsResult.lyrics.split('\n').filter(Boolean);
+          return { isTimestamp: false, lyrics: lines };
+        }
+
+        return false;
+      } catch {
+        return false;
+      }
+    }
     case 'ytmusic_android': {
       if (!arg1 || arg1 === 'undefined' || arg1 === 'null') return false;
 
       try {
         const lyricsData: any = await container.ytmusic.client.music.getLyrics(arg1).catch(() => null);
         if (lyricsData) {
-          const timed = lyricsData.timed_lyrics || lyricsData.lyrics?.timed_lyrics;
-          if (Array.isArray(timed) && timed.length > 0) {
-            const timestampLyrics: TimestampLyrics[] = timed.map((line: any) => ({
-              seconds: (line.start_time_ms || line.time || 0) / 1000,
-              lyrics: line.text || line.line || '',
-            }));
-            return {
-              isTimestamp: true,
-              lyrics: timestampLyrics,
-            };
-          }
-
           if (lyricsData.description?.text) {
             const lines = String(lyricsData.description.text).split('\n').filter(Boolean);
             return {
@@ -88,18 +134,6 @@ export async function fetchLyrics(
         const info = await yt.music.getInfo(song.id).catch(() => null);
         const lyricsData: any = info ? await info.getLyrics().catch(() => null) : null;
         if (!lyricsData) return false;
-
-        const timed = lyricsData.timed_lyrics || lyricsData.lyrics?.timed_lyrics;
-        if (Array.isArray(timed) && timed.length > 0) {
-          const timestampLyrics: TimestampLyrics[] = timed.map((line: any) => ({
-            seconds: (line.start_time_ms || line.time || 0) / 1000,
-            lyrics: line.text || line.line || '',
-          }));
-          return {
-            isTimestamp: true,
-            lyrics: timestampLyrics,
-          };
-        }
 
         if (lyricsData.description?.text) {
           return {
@@ -167,8 +201,9 @@ export default new Elysia().get(
   '/lyrics',
   async ({ query, set }) => {
     try {
-      const { title, author, duration, v, id, engine } = query;
+      const { title, author, duration, v, id, engine, uid, userId } = query;
       const videoId = v || id;
+      const requesterUserId = (uid || userId || 'pona_system') as string;
       const searchEngine = (engine || 'dynamic') as
         | SearchLyricEngine
         | 'dynamic'
@@ -184,51 +219,51 @@ export default new Elysia().get(
           let fallbackPlainLyrics: Lyric | false = false;
 
           if (videoId) {
-            for (const eng of ['ytmusic_web', 'ytmusic_android'] as const) {
-              try {
-                const res = await fetchLyrics(eng, String(videoId));
-                if (res) {
-                  if (res.isTimestamp) {
-                    set.status = 200;
-                    return res;
-                  }
-                  if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
-                }
-              } catch {
-                continue;
+            try {
+              const res = await fetchLyrics('pyytmusic', String(videoId), requesterUserId);
+              if (res) {
+                if (res.isTimestamp) { set.status = 200; return res; }
+                if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
               }
-            }
+            } catch {}
           }
 
           if (title && author) {
-            const externalEngines: SearchLyricEngine[] = ['lrclib', 'boidu', 'textyl'];
-            for (const eng of externalEngines) {
-              try {
-                const res = await fetchLyrics(eng as any, String(title), String(author), duration);
-                if (res) {
-                  if (res.isTimestamp) {
-                    set.status = 200;
-                    return res;
-                  }
-                  if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
-                }
-              } catch {
-                continue;
-              }
-            }
-          }
-
-          if (!videoId && title && author) {
             try {
-              const res = await fetchLyrics('ytmusic_web', String(title), String(author));
+              const res = await fetchLyrics('lrclib', String(title), String(author), duration);
               if (res) {
-                if (res.isTimestamp) {
-                  set.status = 200;
-                  return res;
-                }
+                if (res.isTimestamp) { set.status = 200; return res; }
                 if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
               }
-            } catch { }
+            } catch {}
+          }
+
+          if (videoId) {
+            try {
+              const res = await fetchLyrics('ytmusic_android', String(videoId));
+              if (res && !fallbackPlainLyrics) fallbackPlainLyrics = res;
+            } catch {}
+          }
+
+          if (title && author && !fallbackPlainLyrics) {
+            try {
+              const res = await fetchLyrics('boidu', String(title), String(author));
+              if (res) fallbackPlainLyrics = res;
+            } catch {}
+          }
+
+          if (title && author && !fallbackPlainLyrics) {
+            try {
+              const res = await fetchLyrics('textyl', String(title), String(author));
+              if (res) fallbackPlainLyrics = res;
+            } catch {}
+          }
+
+          if (!videoId && title && author && !fallbackPlainLyrics) {
+            try {
+              const res = await fetchLyrics('ytmusic_web', String(title), String(author));
+              if (res) fallbackPlainLyrics = res;
+            } catch {}
           }
 
           if (fallbackPlainLyrics) {
@@ -246,11 +281,18 @@ export default new Elysia().get(
           }
 
           try {
-            const lyrics = await fetchLyrics('ytmusic_android', String(videoId));
+            const lyrics = await fetchLyrics('pyytmusic', String(videoId), requesterUserId);
             if (lyrics) {
               set.status = 200;
               return lyrics;
             }
+
+            const fallback = await fetchLyrics('ytmusic_android', String(videoId));
+            if (fallback) {
+              set.status = 200;
+              return fallback;
+            }
+
             set.status = 404;
             return { error: 'Lyrics not found' };
           } catch (err) {
@@ -261,7 +303,7 @@ export default new Elysia().get(
         default: {
           try {
             const lyrics = await fetchLyrics(
-              searchEngine as any,
+              searchEngine,
               String(title || videoId || ''),
               String(author || ''),
               duration,
@@ -291,10 +333,13 @@ export default new Elysia().get(
       duration: t.Optional(t.Numeric()),
       v: t.Optional(t.String()),
       id: t.Optional(t.String()),
+      uid: t.Optional(t.String()),
+      userId: t.Optional(t.String()),
       engine: t.Optional(
         t.Union([
           t.Literal('dynamic'),
           t.Literal('ytmusic'),
+          t.Literal('pyytmusic'),
           t.Literal('boidu'),
           t.Literal('lrclib'),
           t.Literal('textyl'),

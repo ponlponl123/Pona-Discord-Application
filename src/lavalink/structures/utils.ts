@@ -363,7 +363,7 @@ async function resolveArtistInfo(
   }
 
   const cached = getCachedArtist(videoId);
-  if (cached) return { channelId: cached.channelId, authorName: cached.authorName };
+  if (cached && cached.channelId) return { channelId: cached.channelId, authorName: cached.authorName };
 
   const pending = _pendingLookups.get(videoId);
   if (pending) return pending;
@@ -371,39 +371,76 @@ async function resolveArtistInfo(
   const lookupPromise = (async (): Promise<{ channelId: string; authorName: string }> => {
     let channelId = '';
     let authorName = fallbackAuthor || '';
+    const uid = requesterId || 'pona_system';
 
     try {
-      const ytInfo = await container.ytmusic.client.getBasicInfo(videoId);
-      if (ytInfo) {
-        channelId = (ytInfo.basic_info.channel_id as string) || '';
-        authorName = (ytInfo.basic_info.author as string) || fallbackAuthor || '';
+      const ytInfo = await container.ytmusic.client.getBasicInfo(videoId).catch(() => null);
+      if (ytInfo?.basic_info) {
+        const info = ytInfo.basic_info;
+        const authorObj = info.author as any;
+
+        let rawChannelId = (info.channel_id as string) || '';
+        if (!rawChannelId && typeof authorObj === 'object' && authorObj !== null) {
+          rawChannelId = (authorObj.id as string) || (authorObj.channel_id as string) || '';
+        }
+        if (!rawChannelId && (ytInfo as any).microformat?.page_owner_details?.external_channel_id) {
+          rawChannelId = (ytInfo as any).microformat.page_owner_details.external_channel_id;
+        }
+        if (!rawChannelId && (ytInfo as any).secondary_info?.owner?.author?.endpoint?.payload?.browseId) {
+          rawChannelId = (ytInfo as any).secondary_info.owner.author.endpoint.payload.browseId;
+        }
+
+        if (rawChannelId && rawChannelId !== 'N/A') {
+          channelId = rawChannelId;
+        }
+
+        let rawAuthorName = '';
+        if (typeof authorObj === 'string') {
+          rawAuthorName = authorObj;
+        } else if (typeof authorObj === 'object' && authorObj !== null) {
+          rawAuthorName = authorObj.name || authorObj.text || '';
+        }
+        if (!rawAuthorName && typeof info.author === 'string') {
+          rawAuthorName = info.author;
+        }
+        if (rawAuthorName) {
+          authorName = rawAuthorName;
+        }
       }
     } catch {
       // fall through
     }
 
-    // Fallback: py-ytmusic-api HTTP endpoint
-    if (!channelId) {
+    if (!channelId || channelId === 'N/A') {
       try {
         const fetchVideoDetail = await YTMusicAPI(
           'GET',
           `song/${videoId}`,
           undefined,
           undefined,
-          requesterId,
+          uid,
         );
         if (fetchVideoDetail && fetchVideoDetail.status === 200) {
           const resultData = fetchVideoDetail.data?.result || fetchVideoDetail.data;
           const details = resultData?.videoDetails || resultData;
           if (details) {
-            channelId =
+            const foundChannelId =
               (details.channelId as string) ||
               (details.externalChannelId as string) ||
               (details.artists && Array.isArray(details.artists) && details.artists[0]?.id) ||
               (details.artist && Array.isArray(details.artist) && details.artist[0]?.id) ||
               resultData?.microformat?.microformatDataRenderer?.pageOwnerDetails?.externalChannelId ||
               '';
-            authorName = (details.author as string) || fallbackAuthor || '';
+            if (foundChannelId && foundChannelId !== 'N/A') {
+              channelId = foundChannelId;
+            }
+            const foundAuthor =
+              (typeof details.author === 'string' && details.author ? details.author : '') ||
+              (details.artists && Array.isArray(details.artists) && details.artists[0]?.name) ||
+              '';
+            if (foundAuthor) {
+              authorName = foundAuthor;
+            }
           }
         }
       } catch {
@@ -411,7 +448,37 @@ async function resolveArtistInfo(
       }
     }
 
-    if (channelId) setCachedArtist(videoId, channelId, authorName);
+    if (!channelId || channelId === 'N/A') {
+      try {
+        const watchRes = await YTMusicAPI(
+          'GET',
+          `watch/playlist/${encodeURIComponent(videoId)}?limit=1`,
+          undefined,
+          undefined,
+          uid,
+        );
+        if (watchRes && watchRes.status === 200) {
+          const tracks = watchRes.data?.result?.tracks || watchRes.data?.tracks;
+          if (Array.isArray(tracks) && tracks.length > 0) {
+            const firstTrack = tracks[0];
+            const artists = firstTrack?.artists;
+            if (Array.isArray(artists) && artists.length > 0) {
+              const firstArtist = artists[0];
+              if (firstArtist?.id && firstArtist.id !== 'N/A') {
+                channelId = firstArtist.id;
+              }
+              if (firstArtist?.name) {
+                authorName = firstArtist.name;
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (channelId && channelId !== 'N/A') setCachedArtist(videoId, channelId, authorName);
     return { channelId, authorName };
   })();
 
@@ -428,7 +495,7 @@ export async function ensureTrackArtist(
   requesterId?: string,
 ): Promise<Track | any> {
   if (!track) return track;
-  if (!track.artist || !Array.isArray(track.artist) || track.artist.length === 0 || !track.artist[0]?.id) {
+  if (!track.artist || !Array.isArray(track.artist) || track.artist.length === 0 || (!track.artist[0]?.id && !track.artist[0]?.name)) {
     try {
       const videoId = extractVideoId(track.identifier, track.uri);
       if (videoId) {
@@ -436,10 +503,9 @@ export async function ensureTrackArtist(
           (typeof track.requester === 'string' ? track.requester : (track.requester as any)?.id);
         const fallbackAuthor = track.cleanAuthor || track.author || '';
         const { channelId, authorName } = await resolveArtistInfo(videoId, undefined, uid, fallbackAuthor);
-        if (channelId) {
-          track.artist = [{ id: channelId, name: parseYouTubeAuthorTitle(authorName || fallbackAuthor) }];
-        } else {
-          console.warn(`[ensureTrackArtist] could not resolve channel ID for videoId=${videoId}`);
+        const resolvedName = parseYouTubeAuthorTitle(authorName || fallbackAuthor || track.author || '');
+        if (resolvedName || channelId) {
+          track.artist = [{ id: channelId || '', name: resolvedName || fallbackAuthor || 'Unknown Artist' }];
         }
       }
     } catch {
@@ -464,7 +530,7 @@ export async function constructTrack<T = User | ClientUser>(
   if (
     !track.info.artist ||
     track.info.artist.length === 0 ||
-    !track.info.artist[0]?.id
+    (!track.info.artist[0]?.id && !track.info.artist[0]?.name)
   ) {
     switch (version) {
       case 1:
@@ -476,10 +542,11 @@ export async function constructTrack<T = User | ClientUser>(
             undefined,
             track.info.cleanAuthor || track.info.author,
           );
-          if (channelId) {
+          const resolvedName = parseYouTubeAuthorTitle(authorName || track.info.cleanAuthor || track.info.author || '');
+          if (resolvedName || channelId) {
             track.info.artist = [{
-              id: channelId,
-              name: parseYouTubeAuthorTitle(authorName || track.info.cleanAuthor || track.info.author || ''),
+              id: channelId || '',
+              name: resolvedName || track.info.cleanAuthor || track.info.author || 'Unknown Artist',
             }];
           }
         } catch {
@@ -504,10 +571,11 @@ export async function constructTrack<T = User | ClientUser>(
             requesterId,
             fallbackAuthor,
           );
-          if (channelId) {
+          const resolvedName = parseYouTubeAuthorTitle(authorName || fallbackAuthor || track.info.author || '');
+          if (resolvedName || channelId) {
             track.info.artist = [{
-              id: channelId,
-              name: parseYouTubeAuthorTitle(authorName || fallbackAuthor),
+              id: channelId || '',
+              name: resolvedName || fallbackAuthor || 'Unknown Artist',
             }];
           }
         } catch {

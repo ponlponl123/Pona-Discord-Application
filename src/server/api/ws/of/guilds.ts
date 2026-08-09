@@ -378,9 +378,9 @@ export default function setupGuildWS(ioInstance?: Server) {
 
             const user: any = socket.handshake.auth?.key
               ? await fetchUserByOAuthAccessToken(
-                  socket.handshake.auth.type,
-                  socket.handshake.auth.key,
-                ).catch(() => null)
+                socket.handshake.auth.type,
+                socket.handshake.auth.key,
+              ).catch(() => null)
               : null;
 
             const member = user?.id && player?.guild
@@ -443,9 +443,9 @@ export default function setupGuildWS(ioInstance?: Server) {
 
           const user: any = socket.handshake.auth?.key
             ? await fetchUserByOAuthAccessToken(
-                socket.handshake.auth.type,
-                socket.handshake.auth.key,
-              ).catch(() => null)
+              socket.handshake.auth.type,
+              socket.handshake.auth.key,
+            ).catch(() => null)
             : null;
 
           const member = user?.id && player?.guild
@@ -586,11 +586,11 @@ export default function setupGuildWS(ioInstance?: Server) {
       const formatVC = (ch: any) =>
         ch
           ? {
-              id: ch.id,
-              name: ch.name,
-              type: ch.type,
-              userLimit: ch.userLimit ?? 0,
-            }
+            id: ch.id,
+            name: ch.name,
+            type: ch.type,
+            userLimit: ch.userLimit ?? 0,
+          }
           : null;
 
       const data: MemberVoiceChangedState = {
@@ -642,20 +642,27 @@ export default function setupGuildWS(ioInstance?: Server) {
     emitToGuild(player.guild, 'track_started', encodeData(track), 'pona! music');
     emitToGuild(player.guild, 'queue_updated', encodeData([track, ...player.queue]), 'pona! music');
 
+    let cachedLyrics: Lyric | null = null;
+
     if (container.redis?.redis) {
       const value = await container.redis.redis.get(
         `yt:lyrics:${track.identifier}`,
       );
       if (value) {
-        track.lyrics = JSON.parse(value) as Lyric;
+        cachedLyrics = JSON.parse(value) as Lyric;
+        track.lyrics = cachedLyrics;
         emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
-        return;
+        if (cachedLyrics.isTimestamp) return;
       }
     }
 
     try {
+      const requesterId =
+        (typeof track.requester === 'string'
+          ? track.requester
+          : (track.requester as any)?.id || (track.requester as any)?.user?.id) || '';
       const fetchLyricByInternalAPI = await fetch(
-        `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?id=${track.identifier}&title=${encodeURIComponent(track.title)}&author=${encodeURIComponent(track.author)}&duration=${track.duration}&engine=dynamic`,
+        `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?v=${track.identifier}&title=${encodeURIComponent(track.cleanTitle)}&author=${encodeURIComponent(track.cleanAuthor)}&duration=${track.duration}&engine=dynamic&uid=${encodeURIComponent(requesterId)}`,
         {
           headers: {
             Authorization: `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY || ''}`,
@@ -663,15 +670,18 @@ export default function setupGuildWS(ioInstance?: Server) {
         },
       );
       if (fetchLyricByInternalAPI.ok) {
-        track.lyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
-        emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
-        if (container.redis?.redis)
-          container.redis.redis.setex(
-            `yt:lyrics:${track.identifier}`,
-            10800,
-            JSON.stringify(track.lyrics),
-          );
-      } else if (fetchLyricByInternalAPI.status === 404 && container.redis?.redis)
+        const freshLyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
+        if (!cachedLyrics || freshLyrics.isTimestamp) {
+          track.lyrics = freshLyrics;
+          emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
+          if (container.redis?.redis)
+            container.redis.redis.setex(
+              `yt:lyrics:${track.identifier}`,
+              10800,
+              JSON.stringify(track.lyrics),
+            );
+        }
+      } else if (fetchLyricByInternalAPI.status === 404 && !cachedLyrics && container.redis?.redis)
         container.redis.redis.setex(`yt:lyrics:${track.identifier}`, 3600, '');
     } catch {
       console.log('failed to fetch lyrics');
@@ -687,7 +697,7 @@ export default function setupGuildWS(ioInstance?: Server) {
       for (const [nspName, nsp] of nsps.entries()) {
         if (dynamicGuildRegexp.test(nspName)) {
           for (const socket of nsp.sockets.values()) {
-            sendHandshake(socket).catch(() => {});
+            sendHandshake(socket).catch(() => { });
           }
         }
       }

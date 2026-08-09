@@ -1,4 +1,4 @@
-import { Innertube, Log } from "youtubei.js";
+import { ClientType, Innertube, Log } from "youtubei.js";
 
 Log.setLevel(Log.Level.ERROR);
 
@@ -8,7 +8,7 @@ export class PonaYTMusicAPI {
     private _ready: boolean = false;
 
     constructor() {
-        this.clientPromise = Innertube.create();
+        this.clientPromise = Innertube.create({ client_type: ClientType.ANDROID_MUSIC });
         this.init();
     }
 

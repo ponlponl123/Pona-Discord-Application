@@ -172,7 +172,7 @@ export default new Elysia()
           FROM player_track_history
           WHERE requestby = ? 
             AND JSON_UNQUOTE(JSON_EXTRACT(track, '$.author')) IS NOT NULL
-            AND created_at >= NOW() - INTERVAL 7 DAY
+            AND time >= NOW() - INTERVAL 7 DAY
           GROUP BY artistName
           ORDER BY count DESC
           LIMIT 1

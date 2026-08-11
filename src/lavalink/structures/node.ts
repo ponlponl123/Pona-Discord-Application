@@ -600,16 +600,27 @@ export class Node {
     const { autoPlay } = this.manager.options;
 
     if (!queue.current) return;
+
+    if (payload.reason === 'stopped') {
+      if (queueRepeat) queue.add(queue.current);
+      queue.previous = queue.current;
+      queue.current = queue.shift() as Track | UnresolvedTrack;
+      this.manager.emit('trackEnd', player, track, payload);
+      if (!queue.current) {
+        this.queueEnd(player, track, payload);
+        return;
+      }
+      if (autoPlay) player.play();
+      return;
+    }
+
     if (trackRepeat) queue.unshift(queue.current);
     if (queueRepeat) queue.add(queue.current);
 
     queue.previous = queue.current;
     queue.current = queue.shift() as Track | UnresolvedTrack;
     this.manager.emit('trackEnd', player, track, payload);
-    if (
-      payload.reason === 'stopped' &&
-      !(queue.current = queue.shift() as Track | UnresolvedTrack)
-    ) {
+    if (!queue.current) {
       this.queueEnd(player, track, payload);
       return;
     }

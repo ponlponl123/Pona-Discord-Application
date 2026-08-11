@@ -88,13 +88,13 @@ export async function fetchLyrics(
             lyrics: line.text ?? line.line ?? '',
           }));
           if (timestampLyrics.length > 0) {
-            return { isTimestamp: true, lyrics: timestampLyrics };
+            return { isTimestamp: true, lyrics: timestampLyrics, source: "Youtube Music" };
           }
         }
 
         if (lyricsResult.lyrics && typeof lyricsResult.lyrics === 'string') {
           const lines = lyricsResult.lyrics.split('\n').filter(Boolean);
-          return { isTimestamp: false, lyrics: lines };
+          return { isTimestamp: false, lyrics: lines, source: "Youtube Music" };
         }
 
         return false;
@@ -113,6 +113,7 @@ export async function fetchLyrics(
             return {
               isTimestamp: false,
               lyrics: lines,
+              source: "Youtube Music",
             };
           }
         }
@@ -139,6 +140,7 @@ export async function fetchLyrics(
           return {
             isTimestamp: false,
             lyrics: String(lyricsData.description.text).split('\n').filter(Boolean),
+            source: "Youtube Music",
           };
         }
         return false;
@@ -154,6 +156,7 @@ export async function fetchLyrics(
         return {
           isTimestamp: false,
           lyrics: res.data.lyrics,
+          source: "boidu",
         };
       }
       return false;
@@ -170,11 +173,12 @@ export async function fetchLyrics(
       if (res && res.status === 200 && res.data) {
         const data = res.data;
         if (data.syncedLyrics) {
-          return parseLyrics(data.syncedLyrics);
+          return parseLyrics(data.syncedLyrics, "lrclib");
         } else if (data.plainLyrics) {
           return {
             isTimestamp: false,
             lyrics: data.plainLyrics.split('\n'),
+            source: "lrclib",
           };
         }
       }
@@ -188,6 +192,7 @@ export async function fetchLyrics(
         return {
           isTimestamp: false,
           lyrics: res.data.lyrics,
+          source: "textyl",
         };
       }
       return false;

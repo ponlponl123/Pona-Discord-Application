@@ -205,6 +205,7 @@ export abstract class TrackUtils {
     } catch (error: any) {
       throw new RangeError(
         `Argument "data" is not a valid track: ${error.message}`,
+        { cause: error },
       );
     }
   }
@@ -357,26 +358,26 @@ async function resolveArtistInfo(
   pluginChannelId?: string,
   requesterId?: string,
   fallbackAuthor?: string,
-): Promise<{ channelId: string; authorName: string }> {
+): Promise<{ channelId: string; authorName: string; artists?: { id: string; name: string }[] }> {
   if (pluginChannelId) {
     return { channelId: pluginChannelId, authorName: fallbackAuthor || '' };
   }
 
-  const cached = getCachedArtist(videoId);
-  if (cached && cached.channelId) return { channelId: cached.channelId, authorName: cached.authorName };
-
   const pending = _pendingLookups.get(videoId);
   if (pending) return pending;
 
-  const lookupPromise = (async (): Promise<{ channelId: string; authorName: string }> => {
-    let channelId = '';
+  const lookupPromise = (async (): Promise<{ channelId: string; authorName: string; artists?: { id: string; name: string }[] }> => {
+    const cached = getCachedArtist(videoId);
+    if (cached) return cached;
+
+    let channelId = pluginChannelId || '';
     let authorName = fallbackAuthor || '';
-    const uid = requesterId || 'pona_system';
+    let multiArtists: { id: string; name: string }[] = [];
 
     try {
-      const ytInfo = await container.ytmusic.client.getBasicInfo(videoId).catch(() => null);
-      if (ytInfo?.basic_info) {
-        const info = ytInfo.basic_info;
+      const ytInfo = await container.ytmusic.client.music.getInfo(videoId).catch((): null => null);
+      if (ytInfo) {
+        const info = (ytInfo.basic_info || ytInfo) as any;
         const authorObj = info.author as any;
 
         let rawChannelId = (info.channel_id as string) || '';
@@ -411,24 +412,31 @@ async function resolveArtistInfo(
       // fall through
     }
 
-    if (!channelId || channelId === 'N/A') {
+    if (!channelId || channelId === 'N/A' || multiArtists.length === 0) {
       try {
         const fetchVideoDetail = await YTMusicAPI(
           'GET',
           `song/${videoId}`,
-          { userId: uid },
+          { userId: requesterId || 'pona_system' },
           undefined,
-          uid,
+          requesterId || 'pona_system',
         );
         if (fetchVideoDetail && fetchVideoDetail.status === 200) {
           const resultData = fetchVideoDetail.data?.result || fetchVideoDetail.data;
           const details = resultData?.videoDetails || resultData;
           if (details) {
+            const rawArtists = details.artists || details.artist || resultData?.artists;
+            if (Array.isArray(rawArtists) && rawArtists.length > 0) {
+              multiArtists = rawArtists.map((a: any) => ({
+                id: (a.id && a.id !== 'N/A' ? a.id : a.channelId && a.channelId !== 'N/A' ? a.channelId : a.browseId && a.browseId !== 'N/A' ? a.browseId : '') || '',
+                name: parseYouTubeAuthorTitle(a.name || a.text || ''),
+              })).filter((a: any) => a.name || a.id);
+            }
+
             const foundChannelId =
               (details.channelId as string) ||
               (details.externalChannelId as string) ||
-              (details.artists && Array.isArray(details.artists) && details.artists[0]?.id) ||
-              (details.artist && Array.isArray(details.artist) && details.artist[0]?.id) ||
+              (multiArtists[0]?.id) ||
               resultData?.microformat?.microformatDataRenderer?.pageOwnerDetails?.externalChannelId ||
               '';
             if (foundChannelId && foundChannelId !== 'N/A') {
@@ -436,7 +444,7 @@ async function resolveArtistInfo(
             }
             const foundAuthor =
               (typeof details.author === 'string' && details.author ? details.author : '') ||
-              (details.artists && Array.isArray(details.artists) && details.artists[0]?.name) ||
+              (multiArtists.map((a) => a.name).join(' & ')) ||
               '';
             if (foundAuthor) {
               authorName = foundAuthor;
@@ -448,27 +456,31 @@ async function resolveArtistInfo(
       }
     }
 
-    if (!channelId || channelId === 'N/A') {
+    if (!channelId || channelId === 'N/A' || multiArtists.length === 0) {
       try {
         const watchRes = await YTMusicAPI(
           'GET',
           `watch/playlist/${encodeURIComponent(videoId)}?limit=1`,
           undefined,
           undefined,
-          uid,
+          requesterId || 'pona_system',
         );
         if (watchRes && watchRes.status === 200) {
           const tracks = watchRes.data?.result?.tracks || watchRes.data?.tracks;
           if (Array.isArray(tracks) && tracks.length > 0) {
             const firstTrack = tracks[0];
-            const artists = firstTrack?.artists;
-            if (Array.isArray(artists) && artists.length > 0) {
-              const firstArtist = artists[0];
-              if (firstArtist?.id && firstArtist.id !== 'N/A') {
-                channelId = firstArtist.id;
+            const rawArtists = firstTrack?.artists;
+            if (Array.isArray(rawArtists) && rawArtists.length > 0) {
+              multiArtists = rawArtists.map((a: any) => ({
+                id: (a.id && a.id !== 'N/A' ? a.id : a.channelId && a.channelId !== 'N/A' ? a.channelId : a.browseId && a.browseId !== 'N/A' ? a.browseId : '') || '',
+                name: parseYouTubeAuthorTitle(a.name || a.text || ''),
+              })).filter((a: any) => a.name || a.id);
+
+              if (multiArtists[0]?.id && multiArtists[0].id !== 'N/A') {
+                channelId = multiArtists[0].id;
               }
-              if (firstArtist?.name) {
-                authorName = firstArtist.name;
+              if (multiArtists.length > 0) {
+                authorName = multiArtists.map((a) => a.name).join(' & ');
               }
             }
           }
@@ -479,7 +491,7 @@ async function resolveArtistInfo(
     }
 
     if (channelId && channelId !== 'N/A') setCachedArtist(videoId, channelId, authorName);
-    return { channelId, authorName };
+    return { channelId, authorName, artists: multiArtists };
   })();
 
   _pendingLookups.set(videoId, lookupPromise);
@@ -502,9 +514,11 @@ export async function ensureTrackArtist(
         const uid = requesterId ||
           (typeof track.requester === 'string' ? track.requester : (track.requester as any)?.id);
         const fallbackAuthor = track.cleanAuthor || track.author || '';
-        const { channelId, authorName } = await resolveArtistInfo(videoId, undefined, uid, fallbackAuthor);
+        const { channelId, authorName, artists } = await resolveArtistInfo(videoId, undefined, uid, fallbackAuthor);
         const resolvedName = parseYouTubeAuthorTitle(authorName || fallbackAuthor || track.author || '');
-        if (resolvedName || channelId) {
+        if (artists && artists.length > 0) {
+          track.artist = artists;
+        } else if (resolvedName || channelId) {
           track.artist = [{ id: channelId || '', name: resolvedName || fallbackAuthor || 'Unknown Artist' }];
         }
       }
@@ -536,14 +550,16 @@ export async function constructTrack<T = User | ClientUser>(
       case 1:
         try {
           const videoId = extractVideoId(track.info.identifier, track.info.uri);
-          const { channelId, authorName } = await resolveArtistInfo(
+          const { channelId, authorName, artists } = await resolveArtistInfo(
             videoId,
             undefined,
             undefined,
             track.info.cleanAuthor || track.info.author,
           );
           const resolvedName = parseYouTubeAuthorTitle(authorName || track.info.cleanAuthor || track.info.author || '');
-          if (resolvedName || channelId) {
+          if (artists && artists.length > 0) {
+            track.info.artist = artists;
+          } else if (resolvedName || channelId) {
             track.info.artist = [{
               id: channelId || '',
               name: resolvedName || track.info.cleanAuthor || track.info.author || 'Unknown Artist',
@@ -565,14 +581,16 @@ export async function constructTrack<T = User | ClientUser>(
               : (requester as any)?.id || (requester as any)?.user?.id;
           const videoId = extractVideoId(track.info.identifier, track.info.uri);
           const fallbackAuthor = track.info.cleanAuthor || track.info.author || '';
-          const { channelId, authorName } = await resolveArtistInfo(
+          const { channelId, authorName, artists } = await resolveArtistInfo(
             videoId,
             pluginChannelId,
             requesterId,
             fallbackAuthor,
           );
           const resolvedName = parseYouTubeAuthorTitle(authorName || fallbackAuthor || track.info.author || '');
-          if (resolvedName || channelId) {
+          if (artists && artists.length > 0) {
+            track.info.artist = artists;
+          } else if (resolvedName || channelId) {
             track.info.artist = [{
               id: channelId || '',
               name: resolvedName || fallbackAuthor || 'Unknown Artist',

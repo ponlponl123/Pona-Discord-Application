@@ -41,6 +41,7 @@ export type NonTimestampLyrics = string;
 export interface Lyric {
   isTimestamp: boolean;
   lyrics: TimestampLyrics[] | NonTimestampLyrics[];
+  source?: string;
 }
 
 export interface Track {

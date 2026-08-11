@@ -140,7 +140,7 @@ export function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function parseLyrics(input: string): Lyric {
+export function parseLyrics(input: string, source?: string): Lyric {
   const lines = input
     .split('\n')
     .map((line) => line.trim())
@@ -166,6 +166,7 @@ export function parseLyrics(input: string): Lyric {
   return {
     isTimestamp: parsedLyrics.length > 0,
     lyrics: parsedLyrics.length > 0 ? parsedLyrics : nonTimestampLyrics,
+    ...(source ? { source } : {}),
   };
 }
 

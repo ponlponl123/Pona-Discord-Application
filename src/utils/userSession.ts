@@ -91,8 +91,26 @@ export async function getUserSession(uid: string): Promise<UserSessionRecord> {
         sec_ch_ua: newSession.sec_ch_ua || null,
       };
     }
-  } catch (err) {
-    console.warn(`[UserSession] DB lookup warning for uid ${uid}, using generated visitor ID:`, err);
+  } catch (err: any) {
+    if (err?.message?.includes('Column') || err?.code === 'P2022') {
+      try {
+        const fallbackSession = await (prisma as any).user_session.findUnique({
+          where: { uid },
+          select: { uid: true, ytmusic_visitor_id: true, ytmusic_cookie: true },
+        });
+        if (fallbackSession) {
+          sessionRecord = {
+            uid: fallbackSession.uid,
+            ytmusic_visitor_id: fallbackSession.ytmusic_visitor_id,
+            ytmusic_cookie: fallbackSession.ytmusic_cookie || fallbackSession.ytmusic_visitor_id,
+          };
+        }
+      } catch {
+        // Ignore fallback error
+      }
+    } else {
+      console.warn(`[UserSession] DB lookup warning for uid ${uid}:`, err?.message || err);
+    }
   }
 
   if (fullSessionCache.size >= MAX_CACHE_SIZE) {
@@ -158,8 +176,38 @@ export async function saveUserSessionMetadata(
 
     fullSessionCache.set(uid, record);
     sessionCache.set(uid, record.ytmusic_cookie || record.ytmusic_visitor_id);
-  } catch (err) {
-    console.error(`[UserSession] Failed to save user session metadata for ${uid}:`, err);
+  } catch (err: any) {
+    // If DB table is not yet migrated with new columns, fall back to core fields and update in-memory cache
+    if (err?.message?.includes('Column') || err?.code === 'P2022') {
+      try {
+        const coreUpdate: Record<string, any> = {};
+        if (updateData.ytmusic_cookie) coreUpdate.ytmusic_cookie = updateData.ytmusic_cookie;
+        const fallbackUpdated = await (prisma as any).user_session.upsert({
+          where: { uid },
+          update: coreUpdate,
+          create: {
+            uid,
+            ytmusic_visitor_id: generatedVisitorId,
+            ...coreUpdate,
+          },
+        });
+        const existingMemory = fullSessionCache.get(uid) || { uid, ytmusic_visitor_id: generatedVisitorId };
+        const record: UserSessionRecord = {
+          ...existingMemory,
+          ...metadata,
+          uid: fallbackUpdated.uid,
+          ytmusic_visitor_id: fallbackUpdated.ytmusic_visitor_id,
+          ytmusic_cookie: fallbackUpdated.ytmusic_cookie || fallbackUpdated.ytmusic_visitor_id,
+        };
+        fullSessionCache.set(uid, record);
+        sessionCache.set(uid, record.ytmusic_cookie || record.ytmusic_visitor_id);
+        return;
+      } catch {
+        // Ignore fallback error
+      }
+    }
+    const existingMemory = fullSessionCache.get(uid) || { uid, ytmusic_visitor_id: generatedVisitorId };
+    fullSessionCache.set(uid, { ...existingMemory, ...metadata });
   }
 }
 

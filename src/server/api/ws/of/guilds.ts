@@ -284,7 +284,13 @@ export default function setupGuildWS(ioInstance?: Server) {
         }
         const player = container.lavalink.manager.get(guildId);
         if (player && typeof val === 'number') {
-          const posMs = val > 100000 ? val : val * 1000;
+          const durationMs = (player.queue.current?.duration as number) || 0;
+          // If val is passed in seconds (e.g. 35s when duration is 180,000ms), convert to ms; otherwise val is already in ms.
+          const posMs =
+            durationMs > 0 && val > 0 && val <= Math.ceil(durationMs / 1000)
+              ? Math.floor(val * 1000)
+              : Math.floor(val);
+
           await player.seek(posMs);
           const ponaState = await getHTTP_PlayerState(guildId);
           emitToGuild(guildId, 'state_updated', encodeData(ponaState), 'pona! music');

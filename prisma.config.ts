@@ -4,8 +4,6 @@ import { config } from './src/config/database';
 module.exports = {
   schema: 'prisma/schema.prisma',
   datasource: {
-    url:
-      config.url ||
-      `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`,
+    url: config.url,
   },
 };

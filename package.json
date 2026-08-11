@@ -23,8 +23,8 @@
     "dev": "bun --watch src/index.ts",
     "start": "NODE_ENV=production CLUSTER=false node -r ./tsconfig-paths.js dist/index.js",
     "start-shard": "NODE_ENV=production CLUSTER=true node -r ./tsconfig-paths.js dist/shard.js",
-    "lint": "eslint . -c .ts",
-    "lint:fix": "eslint . -c .ts --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "build": "tsc --build",
     "format": "prettier --write .",
     "bun:start": "NODE_ENV=production RUNNER=bun AUTO_ROUTE=no bun dist/index.js --target node",
@@ -34,8 +34,8 @@
     "bun:build-reg": "bun build src/index.ts --outdir dist --clean --target node",
     "bun:build": "bunx tsup --config tsup.config.ts",
     "bun:build-legacy": "bunx tsc --build",
-    "bun:lint": "bunx eslint . -c .ts",
-    "bun:lint:fix": "bunx eslint . -c .ts --fix",
+    "bun:lint": "bunx eslint .",
+    "bun:lint:fix": "bunx eslint . --fix",
     "bun:format": "bunx prettier --write ."
   },
   "repository": {

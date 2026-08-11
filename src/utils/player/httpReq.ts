@@ -1,13 +1,14 @@
 import { HTTP_PonaCommonStateWithTracks } from "@/interfaces/player";
 import { Player } from "@/lavalink";
 import isPonaInVoiceChannel from "../isPonaInVoiceChannel";
-import { ensureTrackArtist } from "@/lavalink/structures/utils";
+import { ensureTrackArtist, ensureTrackLyrics } from "@/lavalink/structures/utils";
 
 export async function getHTTP_PlayerState(guildId: string): Promise<HTTP_PonaCommonStateWithTracks | null> {
   const player = await isPonaInVoiceChannel(guildId);
   if ( player ) {
     if (player.queue.current) {
       await ensureTrackArtist(player.queue.current);
+      await ensureTrackLyrics(player.queue.current);
     }
     return {
       pona: {

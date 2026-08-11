@@ -37,7 +37,7 @@ export default new Elysia().get(
       switch (fetch) {
         case 'av': {
           const { t, a } = queryParams; // Title and Artist
-          if (!t || !a) {
+          if (!t) {
             set.status = 400;
             return { error: 'Missing required parameters' };
           }
@@ -59,9 +59,10 @@ export default new Elysia().get(
                 return { message: 'Ok', result: JSON.parse(value) };
               }
             }
-          let api_request = `search?query=${encodeURIComponent(
-            `"${t.toString()}" ${a.toString()}`,
-          )}`;
+          const titleStr = t.toString().trim();
+          const artistStr = a ? a.toString().trim() : '';
+          const searchQuery = artistStr ? `"${titleStr}" ${artistStr}` : `"${titleStr}"`;
+          let api_request = `search?query=${encodeURIComponent(searchQuery)}`;
           api_request += '&limit=1';
           if (type === 'song') api_request += '&filter=songs';
           else if (type === 'video') api_request += '&filter=videos';

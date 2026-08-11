@@ -529,6 +529,26 @@ export async function ensureTrackArtist(
   return track;
 }
 
+export async function ensureTrackLyrics(
+  track: Track | any,
+): Promise<Track | any> {
+  if (!track) return track;
+  if (!track.lyrics) {
+    try {
+      const videoId = extractVideoId(track.identifier, track.uri);
+      if (videoId && container.redis?.redis) {
+        const cachedValue = await container.redis.redis.get(`yt:lyrics:${videoId}`);
+        if (cachedValue) {
+          track.lyrics = JSON.parse(cachedValue);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return track;
+}
+
 export async function constructTrack<T = User | ClientUser>(
   track: Interface.TrackData,
   requester?: T,

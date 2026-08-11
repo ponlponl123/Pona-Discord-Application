@@ -1,31 +1,25 @@
 import { Server } from 'socket.io';
 import { container } from '@/core/container';
-import { fetchUserByOAuth, fetchUserByOAuthAccessToken } from '@/utils/oauth';
-import trafficDebugger from '@/server/middlewares/socket/trafficDebugger';
+import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import register from '../register';
 import {
-  HTTP_PonaCommonStateWithTracks,
   HTTP_PonaRepeatState,
-  Lyric,
 } from '@/interfaces/player';
 import {
   convertTo_HTTPPlayerState,
   getHTTP_PlayerState,
 } from '@/utils/player/httpReq';
 import { MemberVoiceChangedState } from '@/interfaces/member';
-import { VoiceBasedChannel, VoiceState, GuildMember } from 'discord.js';
+import { VoiceBasedChannel, GuildMember } from 'discord.js';
 import joinChannel from '@/utils/player/joinVoiceChannelAsPlayer';
 import leaveVoiceChannelAsPlayer from '@/utils/player/leaveVoiceChannelAsPlayer';
 import addToQueue from '@/utils/player/addToQueue';
-import { Player, Queue } from '@/lavalink';
 import {
-  fetchIsUserInSameVoiceChannel,
   fetchIsUserInVoiceChannel,
 } from '@/utils/isUserIsInVoiceChannel';
-import { config as expressConfig } from '@/config/express';
 import getSongs from '@/utils/player/getSongs';
-import { getGuildLanguage } from '@/utils/i18n';
 import { ensureTrackArtist } from '@/lavalink/structures/utils';
+import { getDynamicLyrics } from '@/server/api/REST/v1/music/lyrics';
 
 type GuildEvents =
   | 'state_updated'
@@ -650,49 +644,26 @@ export default function setupGuildWS(ioInstance?: Server) {
     emitToGuild(player.guild, 'track_started', encodeData(track), 'pona! music');
     emitToGuild(player.guild, 'queue_updated', encodeData([track, ...player.queue]), 'pona! music');
 
-    let cachedLyrics: Lyric | null = null;
-
-    if (container.redis?.redis) {
-      const value = await container.redis.redis.get(
-        `yt:lyrics:${track.identifier}`,
-      );
-      if (value) {
-        cachedLyrics = JSON.parse(value) as Lyric;
-        track.lyrics = cachedLyrics;
-        emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
-        if (cachedLyrics.isTimestamp) return;
-      }
-    }
-
     try {
       const requesterId =
         (typeof track.requester === 'string'
           ? track.requester
           : (track.requester as any)?.id || (track.requester as any)?.user?.id) || '';
-      const fetchLyricByInternalAPI = await fetch(
-        `http://localhost:${expressConfig.EXPRESS_PORT}/v1/music/lyrics?v=${track.identifier}&title=${encodeURIComponent(track.cleanTitle)}&author=${encodeURIComponent(track.cleanAuthor)}&duration=${track.duration}&engine=dynamic&uid=${encodeURIComponent(requesterId)}`,
-        {
-          headers: {
-            Authorization: `Pona! ${expressConfig.EXPRESS_SECRET_API_KEY || ''}`,
-          },
-        },
+
+      const lyrics = await getDynamicLyrics(
+        track.identifier,
+        track.cleanTitle || track.title,
+        track.cleanAuthor || track.author,
+        track.duration,
+        requesterId,
       );
-      if (fetchLyricByInternalAPI.ok) {
-        const freshLyrics = (await fetchLyricByInternalAPI.json()) as Lyric;
-        if (!cachedLyrics || freshLyrics.isTimestamp) {
-          track.lyrics = freshLyrics;
-          emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
-          if (container.redis?.redis)
-            container.redis.redis.setex(
-              `yt:lyrics:${track.identifier}`,
-              10800,
-              JSON.stringify(track.lyrics),
-            );
-        }
-      } else if (fetchLyricByInternalAPI.status === 404 && !cachedLyrics && container.redis?.redis)
-        container.redis.redis.setex(`yt:lyrics:${track.identifier}`, 3600, '');
+
+      track.lyrics = lyrics;
+      emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
     } catch {
       console.log('failed to fetch lyrics');
+      track.lyrics = { isTimestamp: false, lyrics: [], error: 'Lyrics not found' };
+      emitToGuild(player.guild, 'track_updated', encodeData(track), 'pona! music');
     }
   });
 

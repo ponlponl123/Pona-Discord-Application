@@ -3,6 +3,7 @@ import { container } from '@/core/container';
 import { type Lyric, type TimestampLyrics } from '@/interfaces/player';
 import { parseLyrics } from '@/utils/parser';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
+import { YTNodes, Utils } from 'youtubei.js';
 
 async function fetchJson(url: string): Promise<{ status: number; data: any } | null> {
   try {
@@ -17,6 +18,7 @@ async function fetchJson(url: string): Promise<{ status: number; data: any } | n
 
 export type SearchLyricEngine =
   | 'ytmusic_android'
+  | 'ytmusic_innertube'
   | 'ytmusic_web'
   | 'pyytmusic'
   | 'boidu'
@@ -24,7 +26,7 @@ export type SearchLyricEngine =
   | 'textyl';
 
 export async function fetchLyrics(
-  engine: 'ytmusic_web' | 'ytmusic_android',
+  engine: 'ytmusic_web' | 'ytmusic_android' | 'ytmusic_innertube',
   v: string,
   author?: string,
 ): Promise<false | Lyric>;
@@ -88,13 +90,13 @@ export async function fetchLyrics(
             lyrics: line.text ?? line.line ?? '',
           }));
           if (timestampLyrics.length > 0) {
-            return { isTimestamp: true, lyrics: timestampLyrics, source: "Youtube Music" };
+            return { isTimestamp: true, lyrics: timestampLyrics, source: "Youtube Music (community)" };
           }
         }
 
         if (lyricsResult.lyrics && typeof lyricsResult.lyrics === 'string') {
           const lines = lyricsResult.lyrics.split('\n').filter(Boolean);
-          return { isTimestamp: false, lyrics: lines, source: "Youtube Music" };
+          return { isTimestamp: false, lyrics: lines, source: "Youtube Music (community)" };
         }
 
         return false;
@@ -106,6 +108,45 @@ export async function fetchLyrics(
       if (!arg1 || arg1 === 'undefined' || arg1 === 'null') return false;
 
       try {
+        const watch_next_endpoint = new YTNodes.NavigationEndpoint({ watchNextEndpoint: { videoId: arg1 } });
+        const response = await watch_next_endpoint.call(container.ytmusic.client.session.actions, { clientName: 'ANDROID_MUSIC', clientVersion: '9.31.56', parse: true });
+
+        const tabs = response.contents_memo?.getType(YTNodes.Tab);
+
+        const tab = tabs?.find((tab) => tab.endpoint.payload.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType === 'MUSIC_PAGE_TYPE_TRACK_LYRICS');
+
+        if (!tab)
+          throw new Utils.InnertubeError('Could not find target tab.');
+
+        const page = await tab.endpoint.call(container.ytmusic.client.session.actions, { clientName: 'ANDROID_MUSIC', clientVersion: '9.31.56', parse: true });
+
+        if (!page.contents)
+          throw new Utils.InnertubeError('Unexpected response', page);
+
+        if (page.contents.item().type === 'Message')
+          throw new Utils.InnertubeError(page.contents.item().as(YTNodes.Message).text.toString(), arg1);
+
+        const section_list = page.contents.item().as(YTNodes.SectionList).contents.firstOfType(YTNodes.MusicDescriptionShelf);
+
+        if (section_list) {
+          if (section_list.description?.text) {
+            const lines = String(section_list.description.text).split('\n').filter(Boolean);
+            return {
+              isTimestamp: false,
+              lyrics: lines,
+              source: "Youtube Music (android)",
+            };
+          }
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    }
+    case 'ytmusic_innertube': {
+      if (!arg1 || arg1 === 'undefined' || arg1 === 'null') return false;
+
+      try {
         const lyricsData: any = await container.ytmusic.client.music.getLyrics(arg1).catch(() => null);
         if (lyricsData) {
           if (lyricsData.description?.text) {
@@ -113,7 +154,7 @@ export async function fetchLyrics(
             return {
               isTimestamp: false,
               lyrics: lines,
-              source: "Youtube Music",
+              source: "Youtube Music (innertube)",
             };
           }
         }
@@ -140,7 +181,7 @@ export async function fetchLyrics(
           return {
             isTimestamp: false,
             lyrics: String(lyricsData.description.text).split('\n').filter(Boolean),
-            source: "Youtube Music",
+            source: "Youtube Music (web)",
           };
         }
         return false;
@@ -202,6 +243,114 @@ export async function fetchLyrics(
   }
 }
 
+export async function getDynamicLyrics(
+  videoId?: string,
+  title?: string,
+  author?: string,
+  duration?: number,
+  userId?: string,
+): Promise<Lyric> {
+  let fallbackPlainLyrics: Lyric | false = false;
+
+  if (videoId && container.redis?.redis) {
+    try {
+      const cachedValue = await container.redis.redis.get(`yt:lyrics:${videoId}`);
+      if (cachedValue) {
+        const cachedLyrics = JSON.parse(cachedValue) as Lyric;
+        if (cachedLyrics && (cachedLyrics.isTimestamp || cachedLyrics.error || (cachedLyrics.lyrics && cachedLyrics.lyrics.length > 0))) {
+          return cachedLyrics;
+        }
+        if (cachedLyrics && !fallbackPlainLyrics) {
+          fallbackPlainLyrics = cachedLyrics;
+        }
+      }
+    } catch { }
+  }
+
+  const timestampPromises: Promise<Lyric | false>[] = [];
+  if (videoId) {
+    timestampPromises.push(
+      fetchLyrics('pyytmusic', String(videoId), userId).catch(() => false)
+    );
+  }
+  if (title && author) {
+    timestampPromises.push(
+      fetchLyrics('lrclib', String(title), String(author), duration).catch(() => false)
+    );
+  }
+
+  if (timestampPromises.length > 0) {
+    const results = await Promise.all(timestampPromises);
+    for (const res of results) {
+      if (res) {
+        if (res.isTimestamp) {
+          if (videoId && container.redis?.redis) {
+            container.redis.redis.setex(`yt:lyrics:${videoId}`, 2592000, JSON.stringify(res)).catch(() => { });
+          }
+          return res;
+        }
+        if (!fallbackPlainLyrics) {
+          fallbackPlainLyrics = res;
+        }
+      }
+    }
+  }
+
+  if (!fallbackPlainLyrics && videoId) {
+    try {
+      const res = await fetchLyrics('ytmusic_android', String(videoId));
+      if (res) fallbackPlainLyrics = res;
+    } catch { }
+  }
+
+  if (!fallbackPlainLyrics && videoId) {
+    try {
+      const res = await fetchLyrics('ytmusic_innertube', String(videoId));
+      if (res) fallbackPlainLyrics = res;
+    } catch { }
+  }
+
+  if (!fallbackPlainLyrics && title && author) {
+    try {
+      const res = await fetchLyrics('boidu', String(title), String(author));
+      if (res) fallbackPlainLyrics = res;
+    } catch { }
+  }
+
+  if (!fallbackPlainLyrics && title && author) {
+    try {
+      const res = await fetchLyrics('textyl', String(title), String(author));
+      if (res) fallbackPlainLyrics = res;
+    } catch { }
+  }
+
+  if (!fallbackPlainLyrics && !videoId && title && author) {
+    try {
+      const res = await fetchLyrics('ytmusic_web', String(title), String(author));
+      if (res) fallbackPlainLyrics = res;
+    } catch { }
+  }
+
+  if (fallbackPlainLyrics) {
+    if (videoId && container.redis?.redis) {
+      const ttl = fallbackPlainLyrics.isTimestamp ? 2592000 : 1209600;
+      container.redis.redis.setex(`yt:lyrics:${videoId}`, ttl, JSON.stringify(fallbackPlainLyrics)).catch(() => { });
+    }
+    return fallbackPlainLyrics;
+  }
+
+  const notFoundLyrics: Lyric = { isTimestamp: false, lyrics: [], error: 'Lyrics not found' };
+  if (videoId && container.redis?.redis) {
+    container.redis.redis.setex(
+      `yt:lyrics:${videoId}`,
+      86400,
+      JSON.stringify(notFoundLyrics),
+    ).catch(() => { });
+  }
+
+  return notFoundLyrics;
+}
+
 export default new Elysia().get(
   '/lyrics',
   async ({ query, set }) => {
@@ -221,63 +370,21 @@ export default new Elysia().get(
             return { error: 'Missing required parameters' };
           }
 
-          let fallbackPlainLyrics: Lyric | false = false;
+          const result = await getDynamicLyrics(
+            videoId ? String(videoId) : undefined,
+            title ? String(title) : undefined,
+            author ? String(author) : undefined,
+            duration,
+            requesterUserId,
+          );
 
-          if (videoId) {
-            try {
-              const res = await fetchLyrics('pyytmusic', String(videoId), requesterUserId);
-              if (res) {
-                if (res.isTimestamp) { set.status = 200; return res; }
-                if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
-              }
-            } catch {}
+          if (result.error || (result.lyrics && result.lyrics.length === 0)) {
+            set.status = 404;
+            return { error: 'Lyrics not found' };
           }
 
-          if (title && author) {
-            try {
-              const res = await fetchLyrics('lrclib', String(title), String(author), duration);
-              if (res) {
-                if (res.isTimestamp) { set.status = 200; return res; }
-                if (!fallbackPlainLyrics) fallbackPlainLyrics = res;
-              }
-            } catch {}
-          }
-
-          if (videoId) {
-            try {
-              const res = await fetchLyrics('ytmusic_android', String(videoId));
-              if (res && !fallbackPlainLyrics) fallbackPlainLyrics = res;
-            } catch {}
-          }
-
-          if (title && author && !fallbackPlainLyrics) {
-            try {
-              const res = await fetchLyrics('boidu', String(title), String(author));
-              if (res) fallbackPlainLyrics = res;
-            } catch {}
-          }
-
-          if (title && author && !fallbackPlainLyrics) {
-            try {
-              const res = await fetchLyrics('textyl', String(title), String(author));
-              if (res) fallbackPlainLyrics = res;
-            } catch {}
-          }
-
-          if (!videoId && title && author && !fallbackPlainLyrics) {
-            try {
-              const res = await fetchLyrics('ytmusic_web', String(title), String(author));
-              if (res) fallbackPlainLyrics = res;
-            } catch {}
-          }
-
-          if (fallbackPlainLyrics) {
-            set.status = 200;
-            return fallbackPlainLyrics;
-          }
-
-          set.status = 404;
-          return { error: 'Lyrics not found' };
+          set.status = 200;
+          return result;
         }
         case 'ytmusic': {
           if (!videoId) {
@@ -292,10 +399,16 @@ export default new Elysia().get(
               return lyrics;
             }
 
-            const fallback = await fetchLyrics('ytmusic_android', String(videoId));
-            if (fallback) {
+            const fallbackAndroid = await fetchLyrics('ytmusic_android', String(videoId));
+            if (fallbackAndroid) {
               set.status = 200;
-              return fallback;
+              return fallbackAndroid;
+            }
+
+            const fallbackInnertube = await fetchLyrics('ytmusic_innertube', String(videoId));
+            if (fallbackInnertube) {
+              set.status = 200;
+              return fallbackInnertube;
             }
 
             set.status = 404;
@@ -344,6 +457,9 @@ export default new Elysia().get(
         t.Union([
           t.Literal('dynamic'),
           t.Literal('ytmusic'),
+          t.Literal('ytmusic_android'),
+          t.Literal('ytmusic_innertube'),
+          t.Literal('ytmusic_web'),
           t.Literal('pyytmusic'),
           t.Literal('boidu'),
           t.Literal('lrclib'),

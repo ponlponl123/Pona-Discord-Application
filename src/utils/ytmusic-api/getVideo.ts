@@ -25,7 +25,7 @@ export async function IsValidVideo(videoId: string, userId?: string): Promise<bo
 
     if (await container.ytmusic.client.music.getInfo(videoId).catch((): null => null))
       return true;
-    if (await YTMusicAPI('GET', `song/${encodedId}`, undefined, undefined, userId).catch((): null => null))
+    if (await YTMusicAPI('GET', `song/${encodedId}`, { userId }, undefined, userId).catch((): null => null))
       return true;
 
     return false;
@@ -42,7 +42,7 @@ export async function getVideo(videoId: string, userId?: string): Promise<VideoR
       container.ytmusic.client.music.getInfo(videoId),
     ),
     fetchWithCache<SongDetailed>(KEYS.v2(videoId), async () => {
-      const res = await YTMusicAPI('GET', `song/${encodedId}`, undefined, undefined, userId);
+      const res = await YTMusicAPI('GET', `song/${encodedId}`, { userId }, undefined, userId);
       return res ? res.data.result : null;
     }),
   ]);

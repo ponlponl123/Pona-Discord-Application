@@ -35,9 +35,9 @@ export async function IsValidChannel(channelId: string, userId?: string): Promis
 
     if (await container.ytmusic.client.music.getArtist(channelId).catch((): null => null))
       return true;
-    if (await YTMusicAPI('GET', `user/${encodedId}`, undefined, undefined, userId).catch((): null => null))
+    if (await YTMusicAPI('GET', `user/${encodedId}`, { userId }, undefined, userId).catch((): null => null))
       return true;
-    if (await YTMusicAPI('GET', `artist/${encodedId}`, undefined, undefined, userId).catch((): null => null))
+    if (await YTMusicAPI('GET', `artist/${encodedId}`, { userId }, undefined, userId).catch((): null => null))
       return true;
 
     return false;
@@ -62,7 +62,7 @@ export async function getChannel(
     fetchWithCache<ArtistFull>(
       KEYS.v2(channelId),
       async () => {
-        const res = await YTMusicAPI('GET', `artist/${encodedId}`, undefined, undefined, userId);
+        const res = await YTMusicAPI('GET', `artist/${encodedId}`, { userId }, undefined, userId);
         return res ? res.data.result : null;
       },
       forceRefetch,
@@ -70,7 +70,7 @@ export async function getChannel(
     fetchWithCache<ProfileFull>(
       KEYS.user(channelId),
       async () => {
-        const res = await YTMusicAPI('GET', `user/${encodedId}`, undefined, undefined, userId);
+        const res = await YTMusicAPI('GET', `user/${encodedId}`, { userId }, undefined, userId);
         return res ? res.data.result : null;
       },
       forceRefetch,

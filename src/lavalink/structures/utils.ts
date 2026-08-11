@@ -416,7 +416,7 @@ async function resolveArtistInfo(
         const fetchVideoDetail = await YTMusicAPI(
           'GET',
           `song/${videoId}`,
-          undefined,
+          { userId: uid },
           undefined,
           uid,
         );

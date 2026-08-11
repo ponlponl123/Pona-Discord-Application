@@ -157,6 +157,12 @@ model user_session {
   uid                String   @unique(map: "uid") @db.VarChar(100)
   ytmusic_visitor_id String   @unique(map: "ytmusic_visitor_id") @db.VarChar(255)
   ytmusic_cookie     String?  @db.LongText
+  language           String?  @db.VarChar(50)
+  country            String?  @db.VarChar(10)
+  timezone           String?  @db.VarChar(100)
+  user_agent         String?  @db.LongText
+  ip_address         String?  @db.VarChar(45)
+  sec_ch_ua          String?  @db.LongText
   created_at         DateTime @default(now()) @db.Timestamp(0)
   updated_at         DateTime @default(now()) @updatedAt @db.Timestamp(0)
 }

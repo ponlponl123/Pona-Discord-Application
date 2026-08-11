@@ -65,7 +65,7 @@ export async function fetchLyrics(
         const watchRes = await YTMusicAPI(
           'GET',
           `watch/playlist/${encodeURIComponent(arg1)}?limit=1`,
-          undefined,
+          { userId: uid },
           undefined,
           uid,
         );
@@ -75,7 +75,7 @@ export async function fetchLyrics(
         const lyricsRes = await YTMusicAPI(
           'GET',
           `browsing/lyrics/${encodeURIComponent(lyricsBrowseId)}?timestamps=true`,
-          undefined,
+          { userId: uid },
           undefined,
           uid,
         );

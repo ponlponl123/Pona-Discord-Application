@@ -256,6 +256,12 @@ exports.Prisma.User_sessionScalarFieldEnum = {
   uid: 'uid',
   ytmusic_visitor_id: 'ytmusic_visitor_id',
   ytmusic_cookie: 'ytmusic_cookie',
+  language: 'language',
+  country: 'country',
+  timezone: 'timezone',
+  user_agent: 'user_agent',
+  ip_address: 'ip_address',
+  sec_ch_ua: 'sec_ch_ua',
   created_at: 'created_at',
   updated_at: 'updated_at'
 };
@@ -365,7 +371,13 @@ exports.Prisma.subscribe_newsOrderByRelevanceFieldEnum = {
 exports.Prisma.user_sessionOrderByRelevanceFieldEnum = {
   uid: 'uid',
   ytmusic_visitor_id: 'ytmusic_visitor_id',
-  ytmusic_cookie: 'ytmusic_cookie'
+  ytmusic_cookie: 'ytmusic_cookie',
+  language: 'language',
+  country: 'country',
+  timezone: 'timezone',
+  user_agent: 'user_agent',
+  ip_address: 'ip_address',
+  sec_ch_ua: 'sec_ch_ua'
 };
 
 

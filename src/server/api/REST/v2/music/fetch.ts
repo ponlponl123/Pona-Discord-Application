@@ -3,6 +3,7 @@ import { HttpStatusCode } from '@/types/http';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { container } from '@/core/container';
+import { extractAndSaveIncomingUserMetadata } from '@/utils/userSession';
 
 export default new Elysia().get(
   'fetch/:fetch',
@@ -30,6 +31,7 @@ export default new Elysia().get(
         set.status = HttpStatusCode.Unauthorized;
         return { error: 'Unauthorized' };
       }
+      await extractAndSaveIncomingUserMetadata(headers as Record<string, string>, user.id);
       const queryId = String(id);
 
       switch (fetch) {
@@ -70,7 +72,7 @@ export default new Elysia().get(
           const searchResult = await YTMusicAPI(
             'GET',
             api_request.toString(),
-            undefined,
+            { headers: headers as Record<string, string>, userId: user.id },
             undefined,
             user.id,
           ).catch(() => {
@@ -124,7 +126,7 @@ export default new Elysia().get(
           const getSongWatchPlaylist = await YTMusicAPI(
             'GET',
             `watch/playlist/${queryId}`,
-            undefined,
+            { headers: headers as Record<string, string>, userId: user.id },
             undefined,
             user.id,
           ).catch(() => {
@@ -133,7 +135,7 @@ export default new Elysia().get(
           const getSongRelated = await YTMusicAPI(
             'GET',
             `browse/song_related/${queryId}`,
-            undefined,
+            { headers: headers as Record<string, string>, userId: user.id },
             undefined,
             user.id,
           ).catch(() => {
@@ -210,7 +212,7 @@ export default new Elysia().get(
                   const fetch = await YTMusicAPI(
                     'GET',
                     `browse/artist/${encodeURIComponent(queryId)}`,
-                    undefined,
+                    { headers: headers as Record<string, string>, userId: user.id },
                     undefined,
                     user.id,
                   ).catch(() => {
@@ -233,7 +235,7 @@ export default new Elysia().get(
                   const fetch = await YTMusicAPI(
                     'GET',
                     `browse/user/${encodeURIComponent(queryId)}`,
-                    undefined,
+                    { headers: headers as Record<string, string>, userId: user.id },
                     undefined,
                     user.id,
                   ).catch(() => {
@@ -284,7 +286,7 @@ export default new Elysia().get(
             const usr_detail = await YTMusicAPI(
               'GET',
               `browse/user/${encodeURIComponent(queryId)}`,
-              undefined,
+              { headers: headers as Record<string, string>, userId: user.id },
               undefined,
               user.id,
             ).catch(() => {
@@ -293,7 +295,7 @@ export default new Elysia().get(
             const artist_detail_v2 = await YTMusicAPI(
               'GET',
               `browse/artist/${encodeURIComponent(queryId)}`,
-              undefined,
+              { headers: headers as Record<string, string>, userId: user.id },
               undefined,
               user.id,
             ).catch(() => {
@@ -361,6 +363,9 @@ export default new Elysia().get(
                 const artist_Result = await YTMusicAPI(
                   'GET',
                   `browse/artist/${encodeURIComponent(queryId)}/videos`,
+                  { headers: headers as Record<string, string>, userId: user.id },
+                  undefined,
+                  user.id,
                 ).catch(() => {
                   container.redis?.redis.setex(
                     `yt:artist:v2:${queryId}:videos`,
@@ -380,6 +385,9 @@ export default new Elysia().get(
                 const user_Result = await YTMusicAPI(
                   'GET',
                   `browse/user/${encodeURIComponent(queryId)}/videos`,
+                  { headers: headers as Record<string, string>, userId: user.id },
+                  undefined,
+                  user.id,
                 ).catch(() => {
                   container.redis?.redis.setex(
                     `yt:user:${queryId}:videos`,
@@ -420,6 +428,9 @@ export default new Elysia().get(
             const searchResult = await YTMusicAPI(
               'GET',
               `browse/user/${encodeURIComponent(queryId)}`,
+              { headers: headers as Record<string, string>, userId: user.id },
+              undefined,
+              user.id,
             ).catch(() => {
               container.redis?.redis.setex(`yt:user:${queryId}:info`, 600, '');
             });
@@ -449,6 +460,9 @@ export default new Elysia().get(
                 const searchResult = await YTMusicAPI(
                   'GET',
                   `browse/user/${encodeURIComponent(queryId)}/videos`,
+                  { headers: headers as Record<string, string>, userId: user.id },
+                  undefined,
+                  user.id,
                 ).catch(() => {
                   container.redis?.redis.setex(
                     `yt:user:${queryId}:videos`,
@@ -486,6 +500,9 @@ export default new Elysia().get(
           const searchResult = await YTMusicAPI(
             'GET',
             `browse/album/${encodeURIComponent(queryId)}`,
+            { headers: headers as Record<string, string>, userId: user.id },
+            undefined,
+            user.id,
           ).catch(() => {
             container.redis?.redis.setex(`yt:album:v2:${queryId}`, 600, '');
           });
@@ -515,6 +532,9 @@ export default new Elysia().get(
             const searchResult = await YTMusicAPI(
               'GET',
               `browse/artist/${encodeURIComponent(queryId)}`,
+              { headers: headers as Record<string, string>, userId: user.id },
+              undefined,
+              user.id,
             ).catch(() => {
               container.redis?.redis.setex(`yt:artist:v2:${queryId}:info`, 600, '');
             });
@@ -544,6 +564,9 @@ export default new Elysia().get(
                 const searchResult = await YTMusicAPI(
                   'GET',
                   `browse/artist/${encodeURIComponent(queryId)}/videos`,
+                  { headers: headers as Record<string, string>, userId: user.id },
+                  undefined,
+                  user.id,
                 ).catch(() => {
                   container.redis?.redis.setex(
                     `yt:artist:v2:${queryId}:videos`,
@@ -583,6 +606,9 @@ export default new Elysia().get(
           const searchResult = await YTMusicAPI(
             'GET',
             `playlists/${encodeURIComponent(queryId)}`,
+            { headers: headers as Record<string, string>, userId: user.id },
+            undefined,
+            user.id,
           ).catch(() => {
             container.redis?.redis.setex(`yt:playlist:v2:${queryId}`, 600, '');
           });

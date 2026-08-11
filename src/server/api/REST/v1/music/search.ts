@@ -5,6 +5,8 @@ import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { container } from '@/core/container';
 import { prisma } from '@/prisma';
 
+import { extractAndSaveIncomingUserMetadata } from '@/utils/userSession';
+
 export default new Elysia().get(
   '/search',
   async ({ headers, query, set }) => {
@@ -26,6 +28,8 @@ export default new Elysia().get(
         set.status = HttpStatusCode.Unauthorized;
         return { error: 'Unauthorized' };
       }
+
+      await extractAndSaveIncomingUserMetadata(headers as Record<string, string>, user.id);
 
       if (is_suggestion === 'true') {
         if (container.redis?.redis) {
@@ -78,7 +82,13 @@ export default new Elysia().get(
         }
         let URL = `search?query=${encodeURIComponent(String(q))}`;
         URL += filter ? `&filter=${filter}` : '';
-        const searchResult: any = await YTMusicAPI('GET', URL.toString(), undefined, undefined, user.id);
+        const searchResult: any = await YTMusicAPI(
+          'GET',
+          URL.toString(),
+          { headers: headers as Record<string, string>, userId: user.id },
+          undefined,
+          user.id,
+        );
         if (!searchResult) {
           set.status = HttpStatusCode.ServiceUnavailable;
           return { message: 'Service Unavailable' };

@@ -15342,6 +15342,12 @@ export namespace Prisma {
     uid: string | null
     ytmusic_visitor_id: string | null
     ytmusic_cookie: string | null
+    language: string | null
+    country: string | null
+    timezone: string | null
+    user_agent: string | null
+    ip_address: string | null
+    sec_ch_ua: string | null
     created_at: Date | null
     updated_at: Date | null
   }
@@ -15351,6 +15357,12 @@ export namespace Prisma {
     uid: string | null
     ytmusic_visitor_id: string | null
     ytmusic_cookie: string | null
+    language: string | null
+    country: string | null
+    timezone: string | null
+    user_agent: string | null
+    ip_address: string | null
+    sec_ch_ua: string | null
     created_at: Date | null
     updated_at: Date | null
   }
@@ -15360,6 +15372,12 @@ export namespace Prisma {
     uid: number
     ytmusic_visitor_id: number
     ytmusic_cookie: number
+    language: number
+    country: number
+    timezone: number
+    user_agent: number
+    ip_address: number
+    sec_ch_ua: number
     created_at: number
     updated_at: number
     _all: number
@@ -15379,6 +15397,12 @@ export namespace Prisma {
     uid?: true
     ytmusic_visitor_id?: true
     ytmusic_cookie?: true
+    language?: true
+    country?: true
+    timezone?: true
+    user_agent?: true
+    ip_address?: true
+    sec_ch_ua?: true
     created_at?: true
     updated_at?: true
   }
@@ -15388,6 +15412,12 @@ export namespace Prisma {
     uid?: true
     ytmusic_visitor_id?: true
     ytmusic_cookie?: true
+    language?: true
+    country?: true
+    timezone?: true
+    user_agent?: true
+    ip_address?: true
+    sec_ch_ua?: true
     created_at?: true
     updated_at?: true
   }
@@ -15397,6 +15427,12 @@ export namespace Prisma {
     uid?: true
     ytmusic_visitor_id?: true
     ytmusic_cookie?: true
+    language?: true
+    country?: true
+    timezone?: true
+    user_agent?: true
+    ip_address?: true
+    sec_ch_ua?: true
     created_at?: true
     updated_at?: true
     _all?: true
@@ -15493,6 +15529,12 @@ export namespace Prisma {
     uid: string
     ytmusic_visitor_id: string
     ytmusic_cookie: string | null
+    language: string | null
+    country: string | null
+    timezone: string | null
+    user_agent: string | null
+    ip_address: string | null
+    sec_ch_ua: string | null
     created_at: Date
     updated_at: Date
     _count: User_sessionCountAggregateOutputType | null
@@ -15521,6 +15563,12 @@ export namespace Prisma {
     uid?: boolean
     ytmusic_visitor_id?: boolean
     ytmusic_cookie?: boolean
+    language?: boolean
+    country?: boolean
+    timezone?: boolean
+    user_agent?: boolean
+    ip_address?: boolean
+    sec_ch_ua?: boolean
     created_at?: boolean
     updated_at?: boolean
   }, ExtArgs["result"]["user_session"]>
@@ -15532,11 +15580,17 @@ export namespace Prisma {
     uid?: boolean
     ytmusic_visitor_id?: boolean
     ytmusic_cookie?: boolean
+    language?: boolean
+    country?: boolean
+    timezone?: boolean
+    user_agent?: boolean
+    ip_address?: boolean
+    sec_ch_ua?: boolean
     created_at?: boolean
     updated_at?: boolean
   }
 
-  export type user_sessionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "uid" | "ytmusic_visitor_id" | "ytmusic_cookie" | "created_at" | "updated_at", ExtArgs["result"]["user_session"]>
+  export type user_sessionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "uid" | "ytmusic_visitor_id" | "ytmusic_cookie" | "language" | "country" | "timezone" | "user_agent" | "ip_address" | "sec_ch_ua" | "created_at" | "updated_at", ExtArgs["result"]["user_session"]>
 
   export type $user_sessionPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "user_session"
@@ -15546,6 +15600,12 @@ export namespace Prisma {
       uid: string
       ytmusic_visitor_id: string
       ytmusic_cookie: string | null
+      language: string | null
+      country: string | null
+      timezone: string | null
+      user_agent: string | null
+      ip_address: string | null
+      sec_ch_ua: string | null
       created_at: Date
       updated_at: Date
     }, ExtArgs["result"]["user_session"]>
@@ -15921,6 +15981,12 @@ export namespace Prisma {
     readonly uid: FieldRef<"user_session", 'String'>
     readonly ytmusic_visitor_id: FieldRef<"user_session", 'String'>
     readonly ytmusic_cookie: FieldRef<"user_session", 'String'>
+    readonly language: FieldRef<"user_session", 'String'>
+    readonly country: FieldRef<"user_session", 'String'>
+    readonly timezone: FieldRef<"user_session", 'String'>
+    readonly user_agent: FieldRef<"user_session", 'String'>
+    readonly ip_address: FieldRef<"user_session", 'String'>
+    readonly sec_ch_ua: FieldRef<"user_session", 'String'>
     readonly created_at: FieldRef<"user_session", 'DateTime'>
     readonly updated_at: FieldRef<"user_session", 'DateTime'>
   }
@@ -16441,6 +16507,12 @@ export namespace Prisma {
     uid: 'uid',
     ytmusic_visitor_id: 'ytmusic_visitor_id',
     ytmusic_cookie: 'ytmusic_cookie',
+    language: 'language',
+    country: 'country',
+    timezone: 'timezone',
+    user_agent: 'user_agent',
+    ip_address: 'ip_address',
+    sec_ch_ua: 'sec_ch_ua',
     created_at: 'created_at',
     updated_at: 'updated_at'
   };
@@ -16601,7 +16673,13 @@ export namespace Prisma {
   export const user_sessionOrderByRelevanceFieldEnum: {
     uid: 'uid',
     ytmusic_visitor_id: 'ytmusic_visitor_id',
-    ytmusic_cookie: 'ytmusic_cookie'
+    ytmusic_cookie: 'ytmusic_cookie',
+    language: 'language',
+    country: 'country',
+    timezone: 'timezone',
+    user_agent: 'user_agent',
+    ip_address: 'ip_address',
+    sec_ch_ua: 'sec_ch_ua'
   };
 
   export type user_sessionOrderByRelevanceFieldEnum = (typeof user_sessionOrderByRelevanceFieldEnum)[keyof typeof user_sessionOrderByRelevanceFieldEnum]
@@ -17539,6 +17617,12 @@ export namespace Prisma {
     uid?: StringFilter<"user_session"> | string
     ytmusic_visitor_id?: StringFilter<"user_session"> | string
     ytmusic_cookie?: StringNullableFilter<"user_session"> | string | null
+    language?: StringNullableFilter<"user_session"> | string | null
+    country?: StringNullableFilter<"user_session"> | string | null
+    timezone?: StringNullableFilter<"user_session"> | string | null
+    user_agent?: StringNullableFilter<"user_session"> | string | null
+    ip_address?: StringNullableFilter<"user_session"> | string | null
+    sec_ch_ua?: StringNullableFilter<"user_session"> | string | null
     created_at?: DateTimeFilter<"user_session"> | Date | string
     updated_at?: DateTimeFilter<"user_session"> | Date | string
   }
@@ -17548,6 +17632,12 @@ export namespace Prisma {
     uid?: SortOrder
     ytmusic_visitor_id?: SortOrder
     ytmusic_cookie?: SortOrderInput | SortOrder
+    language?: SortOrderInput | SortOrder
+    country?: SortOrderInput | SortOrder
+    timezone?: SortOrderInput | SortOrder
+    user_agent?: SortOrderInput | SortOrder
+    ip_address?: SortOrderInput | SortOrder
+    sec_ch_ua?: SortOrderInput | SortOrder
     created_at?: SortOrder
     updated_at?: SortOrder
     _relevance?: user_sessionOrderByRelevanceInput
@@ -17561,6 +17651,12 @@ export namespace Prisma {
     OR?: user_sessionWhereInput[]
     NOT?: user_sessionWhereInput | user_sessionWhereInput[]
     ytmusic_cookie?: StringNullableFilter<"user_session"> | string | null
+    language?: StringNullableFilter<"user_session"> | string | null
+    country?: StringNullableFilter<"user_session"> | string | null
+    timezone?: StringNullableFilter<"user_session"> | string | null
+    user_agent?: StringNullableFilter<"user_session"> | string | null
+    ip_address?: StringNullableFilter<"user_session"> | string | null
+    sec_ch_ua?: StringNullableFilter<"user_session"> | string | null
     created_at?: DateTimeFilter<"user_session"> | Date | string
     updated_at?: DateTimeFilter<"user_session"> | Date | string
   }, "id" | "uid" | "ytmusic_visitor_id">
@@ -17570,6 +17666,12 @@ export namespace Prisma {
     uid?: SortOrder
     ytmusic_visitor_id?: SortOrder
     ytmusic_cookie?: SortOrderInput | SortOrder
+    language?: SortOrderInput | SortOrder
+    country?: SortOrderInput | SortOrder
+    timezone?: SortOrderInput | SortOrder
+    user_agent?: SortOrderInput | SortOrder
+    ip_address?: SortOrderInput | SortOrder
+    sec_ch_ua?: SortOrderInput | SortOrder
     created_at?: SortOrder
     updated_at?: SortOrder
     _count?: user_sessionCountOrderByAggregateInput
@@ -17587,6 +17689,12 @@ export namespace Prisma {
     uid?: StringWithAggregatesFilter<"user_session"> | string
     ytmusic_visitor_id?: StringWithAggregatesFilter<"user_session"> | string
     ytmusic_cookie?: StringNullableWithAggregatesFilter<"user_session"> | string | null
+    language?: StringNullableWithAggregatesFilter<"user_session"> | string | null
+    country?: StringNullableWithAggregatesFilter<"user_session"> | string | null
+    timezone?: StringNullableWithAggregatesFilter<"user_session"> | string | null
+    user_agent?: StringNullableWithAggregatesFilter<"user_session"> | string | null
+    ip_address?: StringNullableWithAggregatesFilter<"user_session"> | string | null
+    sec_ch_ua?: StringNullableWithAggregatesFilter<"user_session"> | string | null
     created_at?: DateTimeWithAggregatesFilter<"user_session"> | Date | string
     updated_at?: DateTimeWithAggregatesFilter<"user_session"> | Date | string
   }
@@ -18507,6 +18615,12 @@ export namespace Prisma {
     uid: string
     ytmusic_visitor_id: string
     ytmusic_cookie?: string | null
+    language?: string | null
+    country?: string | null
+    timezone?: string | null
+    user_agent?: string | null
+    ip_address?: string | null
+    sec_ch_ua?: string | null
     created_at?: Date | string
     updated_at?: Date | string
   }
@@ -18516,6 +18630,12 @@ export namespace Prisma {
     uid: string
     ytmusic_visitor_id: string
     ytmusic_cookie?: string | null
+    language?: string | null
+    country?: string | null
+    timezone?: string | null
+    user_agent?: string | null
+    ip_address?: string | null
+    sec_ch_ua?: string | null
     created_at?: Date | string
     updated_at?: Date | string
   }
@@ -18525,6 +18645,12 @@ export namespace Prisma {
     uid?: StringFieldUpdateOperationsInput | string
     ytmusic_visitor_id?: StringFieldUpdateOperationsInput | string
     ytmusic_cookie?: NullableStringFieldUpdateOperationsInput | string | null
+    language?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    timezone?: NullableStringFieldUpdateOperationsInput | string | null
+    user_agent?: NullableStringFieldUpdateOperationsInput | string | null
+    ip_address?: NullableStringFieldUpdateOperationsInput | string | null
+    sec_ch_ua?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -18534,6 +18660,12 @@ export namespace Prisma {
     uid?: StringFieldUpdateOperationsInput | string
     ytmusic_visitor_id?: StringFieldUpdateOperationsInput | string
     ytmusic_cookie?: NullableStringFieldUpdateOperationsInput | string | null
+    language?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    timezone?: NullableStringFieldUpdateOperationsInput | string | null
+    user_agent?: NullableStringFieldUpdateOperationsInput | string | null
+    ip_address?: NullableStringFieldUpdateOperationsInput | string | null
+    sec_ch_ua?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -18543,6 +18675,12 @@ export namespace Prisma {
     uid: string
     ytmusic_visitor_id: string
     ytmusic_cookie?: string | null
+    language?: string | null
+    country?: string | null
+    timezone?: string | null
+    user_agent?: string | null
+    ip_address?: string | null
+    sec_ch_ua?: string | null
     created_at?: Date | string
     updated_at?: Date | string
   }
@@ -18552,6 +18690,12 @@ export namespace Prisma {
     uid?: StringFieldUpdateOperationsInput | string
     ytmusic_visitor_id?: StringFieldUpdateOperationsInput | string
     ytmusic_cookie?: NullableStringFieldUpdateOperationsInput | string | null
+    language?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    timezone?: NullableStringFieldUpdateOperationsInput | string | null
+    user_agent?: NullableStringFieldUpdateOperationsInput | string | null
+    ip_address?: NullableStringFieldUpdateOperationsInput | string | null
+    sec_ch_ua?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -18561,6 +18705,12 @@ export namespace Prisma {
     uid?: StringFieldUpdateOperationsInput | string
     ytmusic_visitor_id?: StringFieldUpdateOperationsInput | string
     ytmusic_cookie?: NullableStringFieldUpdateOperationsInput | string | null
+    language?: NullableStringFieldUpdateOperationsInput | string | null
+    country?: NullableStringFieldUpdateOperationsInput | string | null
+    timezone?: NullableStringFieldUpdateOperationsInput | string | null
+    user_agent?: NullableStringFieldUpdateOperationsInput | string | null
+    ip_address?: NullableStringFieldUpdateOperationsInput | string | null
+    sec_ch_ua?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -19419,6 +19569,12 @@ export namespace Prisma {
     uid?: SortOrder
     ytmusic_visitor_id?: SortOrder
     ytmusic_cookie?: SortOrder
+    language?: SortOrder
+    country?: SortOrder
+    timezone?: SortOrder
+    user_agent?: SortOrder
+    ip_address?: SortOrder
+    sec_ch_ua?: SortOrder
     created_at?: SortOrder
     updated_at?: SortOrder
   }
@@ -19432,6 +19588,12 @@ export namespace Prisma {
     uid?: SortOrder
     ytmusic_visitor_id?: SortOrder
     ytmusic_cookie?: SortOrder
+    language?: SortOrder
+    country?: SortOrder
+    timezone?: SortOrder
+    user_agent?: SortOrder
+    ip_address?: SortOrder
+    sec_ch_ua?: SortOrder
     created_at?: SortOrder
     updated_at?: SortOrder
   }
@@ -19441,6 +19603,12 @@ export namespace Prisma {
     uid?: SortOrder
     ytmusic_visitor_id?: SortOrder
     ytmusic_cookie?: SortOrder
+    language?: SortOrder
+    country?: SortOrder
+    timezone?: SortOrder
+    user_agent?: SortOrder
+    ip_address?: SortOrder
+    sec_ch_ua?: SortOrder
     created_at?: SortOrder
     updated_at?: SortOrder
   }

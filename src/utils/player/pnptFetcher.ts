@@ -5,6 +5,111 @@ import { Track } from '@/interfaces/player';
 import YTMusicAPI from '@/utils/ytmusic-api/request';
 
 const PNPT_CACHE_TTL = 3600; // 1 hour
+const TRACK_CACHE_TTL = 1800; // 30 min for individual track cache
+const MAX_CONCURRENT_SEARCHES = parseInt(process.env.PNPT_MAX_CONCURRENT || '15', 10); // Configurable concurrency
+const SEARCH_TIMEOUT_MS = parseInt(process.env.PNPT_SEARCH_TIMEOUT || '5000', 10); // Configurable timeout
+
+/**
+ * Wrap a promise with a timeout
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+}
+
+/**
+ * Execute async tasks with concurrency limit
+ * Prevents overwhelming Lavalink with too many simultaneous requests
+ */
+async function executeWithConcurrency<T>(
+  tasks: (() => Promise<T>)[],
+  maxConcurrent: number,
+): Promise<(T | null)[]> {
+  const results: (T | null)[] = new Array(tasks.length);
+  let activeCount = 0;
+  let taskIndex = 0;
+
+  return new Promise((resolve) => {
+    const processNext = async () => {
+      if (taskIndex >= tasks.length) {
+        if (activeCount === 0) {
+          resolve(results);
+        }
+        return;
+      }
+
+      if (activeCount >= maxConcurrent) return;
+
+      const currentIndex = taskIndex++;
+      activeCount++;
+
+      try {
+        const result = await tasks[currentIndex]();
+        results[currentIndex] = result;
+      } catch (error) {
+        results[currentIndex] = null;
+      }
+
+      activeCount--;
+      processNext();
+      processNext();
+    };
+
+    for (let i = 0; i < maxConcurrent; i++) {
+      processNext();
+    }
+  });
+}
+
+/**
+ * Get individual track from cache by videoId
+ */
+async function getTracksFromCache(videoIds: string[]): Promise<Map<string, Track | null>> {
+  const cacheMap = new Map<string, Track | null>();
+  
+  if (!container.redis?.redis || videoIds.length === 0) {
+    videoIds.forEach(id => cacheMap.set(id, null));
+    return cacheMap;
+  }
+
+  try {
+    const cacheKeys = videoIds.map(id => `track:${id}`);
+    const cached = await container.redis.redis.mget(...cacheKeys);
+    
+    videoIds.forEach((id, idx) => {
+      try {
+        const data = cached[idx];
+        cacheMap.set(id, data ? JSON.parse(data as string) : null);
+      } catch {
+        cacheMap.set(id, null);
+      }
+    });
+  } catch (error) {
+    console.error('[PNPT Track Cache Retrieval Error]:', error);
+    videoIds.forEach(id => cacheMap.set(id, null));
+  }
+
+  return cacheMap;
+}
+
+/**
+ * Set individual track in cache
+ */
+async function setTrackCache(videoId: string, track: Track): Promise<void> {
+  if (!container.redis?.redis) return;
+  
+  try {
+    await container.redis.redis.setex(
+      `track:${videoId}`,
+      TRACK_CACHE_TTL,
+      JSON.stringify(track),
+    );
+  } catch (error) {
+    console.error(`[PNPT Track Cache Set Error] ${videoId}:`, error);
+  }
+}
 
 function extractVideoId(track: Track): string | null {
   if (track.identifier && track.identifier.length === 11) {
@@ -65,7 +170,7 @@ export async function fetchAndCachePNPT(
           .map((t) => TrackUtils.markAsTrack(Object.assign(t, { requester: refTrack.requester, _isPNPT: true })))
           .filter((t) => t.identifier && !existingIds.has(t.identifier));
         if (filtered.length > 0) {
-          return filtered.slice(0, 10);
+          return filtered;
         }
       }
     }
@@ -83,27 +188,54 @@ export async function fetchAndCachePNPT(
       const watchPlaylistData = watchPlaylistRes.data;
       const rawTracks = watchPlaylistData?.result?.tracks || watchPlaylistData?.tracks || watchPlaylistData?.contents || [];
       if (Array.isArray(rawTracks) && rawTracks.length > 0) {
-        const trackPromises = rawTracks
-          .slice(0, 15)
-          .map(async (trackData: any) => {
-            try {
-              const itemVideoId = trackData.videoId || trackData.id;
-              if (!itemVideoId || itemVideoId === videoId) return null;
+        // Extract and deduplicate video IDs
+        const videoIds = Array.from(new Set(
+          rawTracks
+            .map((t: any) => t.videoId || t.id)
+            .filter((id: any): id is string => !!id && id !== videoId)
+        )) as string[];
 
-              const searchRes = await player.search(
+        // Batch fetch from cache first
+        const cachedTracks = await getTracksFromCache(videoIds);
+        const cachedFiltered = Array.from(cachedTracks.values())
+          .filter((t): t is Track => t !== null)
+          .filter(t => !existingIds.has(t.identifier));
+
+        // Identify which tracks need searching
+        const toSearch = videoIds.filter((id: string) => !cachedTracks.has(id) || cachedTracks.get(id) === null);
+
+        // Create search tasks for uncached tracks
+        const searchTasks = toSearch.map((itemVideoId: string) => async () => {
+          try {
+            const searchRes = await withTimeout(
+              player.search(
                 `https://www.youtube.com/watch?v=${itemVideoId}`,
                 refTrack.requester,
-              ).catch(() => null);
-              return searchRes?.tracks?.[0] || null;
-            } catch {
-              return null;
+              ),
+              SEARCH_TIMEOUT_MS,
+            );
+            const track = searchRes?.tracks?.[0] || null;
+            
+            // Cache successful results
+            if (track && isSongOnly(track)) {
+              await setTrackCache(itemVideoId, track);
+              return track;
             }
-          });
+            return null;
+          } catch {
+            return null;
+          }
+        });
 
-        const resolved = (await Promise.all(trackPromises)).filter(Boolean) as Track[];
-        if (resolved.length > 0) {
-          fetchedTracks = resolved.filter((t) => isSongOnly(t));
-        }
+        // Execute searches with concurrency limit
+        const searchResults = await executeWithConcurrency(searchTasks, MAX_CONCURRENT_SEARCHES);
+        const searchedTracks = searchResults
+          .filter((t): t is Track => t !== null)
+          .filter(t => !existingIds.has(t.identifier));
+
+        // Combine cached and newly searched tracks
+        fetchedTracks = [...cachedFiltered, ...searchedTracks]
+          .filter((t) => isSongOnly(t));
       }
     }
   } catch (err) {
@@ -117,19 +249,54 @@ export async function fetchAndCachePNPT(
         const info = await (container.ytmusic.client.music as any).getInfo(videoId).catch(() => null);
         if (info && (info.watch_next_feed || info.related)) {
           const items = info.watch_next_feed || info.related || [];
-          const trackPromises = items.map(async (item: any) => {
-            const itemVideoId = item.id || item.video_id || item.videoId;
-            if (!itemVideoId || itemVideoId === videoId) return null;
-            const searchRes = await player.search(
-              `https://www.youtube.com/watch?v=${itemVideoId}`,
-              refTrack.requester,
-            ).catch(() => null);
-            return searchRes?.tracks?.[0] || null;
+          
+          // Extract and deduplicate video IDs
+          const videoIds = Array.from(new Set(
+            items
+              .map((i: any) => i.id || i.video_id || i.videoId)
+              .filter((id: any): id is string => !!id && id !== videoId)
+          )) as string[];
+
+          // Batch fetch from cache first
+          const cachedTracks = await getTracksFromCache(videoIds);
+          const cachedFiltered = Array.from(cachedTracks.values())
+            .filter((t): t is Track => t !== null)
+            .filter(t => !existingIds.has(t.identifier));
+
+          // Identify which tracks need searching
+          const toSearch = videoIds.filter((id: string) => !cachedTracks.has(id) || cachedTracks.get(id) === null);
+
+          // Create search tasks
+          const searchTasks = toSearch.map((itemVideoId: string) => async () => {
+            try {
+              const searchRes = await withTimeout(
+                player.search(
+                  `https://www.youtube.com/watch?v=${itemVideoId}`,
+                  refTrack.requester,
+                ),
+                SEARCH_TIMEOUT_MS,
+              );
+              const track = searchRes?.tracks?.[0] || null;
+              
+              if (track && isSongOnly(track)) {
+                await setTrackCache(itemVideoId, track);
+                return track;
+              }
+              return null;
+            } catch {
+              return null;
+            }
           });
-          const resolved = (await Promise.all(trackPromises)).filter(Boolean) as Track[];
-          if (resolved.length > 0) {
-            fetchedTracks = resolved.filter((t) => isSongOnly(t));
-          }
+
+          // Execute searches with concurrency limit
+          const searchResults = await executeWithConcurrency(searchTasks, MAX_CONCURRENT_SEARCHES);
+          const searchedTracks = searchResults
+            .filter((t): t is Track => t !== null)
+            .filter(t => !existingIds.has(t.identifier));
+
+          // Combine cached and newly searched tracks
+          fetchedTracks = [...cachedFiltered, ...searchedTracks]
+            .filter(t => isSongOnly(t));
         }
       }
     } catch (err) {
@@ -150,7 +317,15 @@ export async function fetchAndCachePNPT(
           rawList = searchRes.tracks;
         }
         fetchedTracks = rawList
-          .filter((t) => t.identifier !== videoId && isSongOnly(t));
+          .filter((t) => t.identifier !== videoId && isSongOnly(t) && !existingIds.has(t.identifier));
+        
+        // Cache the fallback tracks
+        for (const track of fetchedTracks.slice(0, 10)) {
+          const trackVideoId = extractVideoId(track);
+          if (trackVideoId) {
+            await setTrackCache(trackVideoId, track);
+          }
+        }
       }
     } catch (err) {
       console.error(`[PNPT Fallback Fetch Error] for ${videoId}:`, err);
@@ -178,6 +353,5 @@ export async function fetchAndCachePNPT(
   }
 
   return processedTracks
-    .filter((t) => t.identifier && !existingIds.has(t.identifier))
-    .slice(0, 10);
+    .filter((t) => t.identifier && !existingIds.has(t.identifier));
 }

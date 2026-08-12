@@ -56,6 +56,25 @@ async function listSubscriptions(user: any, limit?: string | number) {
         !channel.cache || now.getTime() - lastUpdated.getTime() > ONE_DAY_MS;
 
       if (needsFetch) {
+        if (channel.cache) {
+          getChannel(channel.target, true).then(async (fetchChannel: any) => {
+            if (fetchChannel?.result) {
+              await prisma.subscribe_artist.update({
+                where: { uid_target: { uid: user.id, target: channel.target } },
+                data: {
+                  cache: JSON.stringify(fetchChannel.result),
+                  cache_lastupdated: new Date(),
+                },
+              });
+              await clearUserSubscribeCache(user.id);
+            }
+          }).catch(() => {});
+          return {
+            artistId: channel.target,
+            info: JSON.parse(channel.cache),
+          };
+        }
+
         const fetchChannel: any = await getChannel(channel.target, true);
         if (fetchChannel?.result) {
           await prisma.subscribe_artist.update({
@@ -85,7 +104,7 @@ async function listSubscriptions(user: any, limit?: string | number) {
     multi.expire(`user:${user.id}:subscribe`, 86400);
     multi.setex(
       cacheKey,
-      30,
+      300,
       JSON.stringify(subscribed_channels),
     );
     multi.exec();

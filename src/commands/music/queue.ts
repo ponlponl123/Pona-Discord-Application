@@ -48,15 +48,20 @@ export default async function execute(
 
     const playback = await isPonaInVoiceChannel(member.guild.id);
 
-    if (playback && (playback.queue.current || playback.queue.length > 0)) {
+    if (playback && (playback.queue.current || playback.queue.length > 0 || (playback.isPNPTEnabled && playback.queuePNPT.length > 0))) {
       const current = playback.queue.current;
       const tracksToShow = playback.queue.slice(0, 7);
+      const autoBadge = (lang.data.music.queue as any)?.pnpt_auto_badge || 'อัตโนมัติ';
 
       const fields = tracksToShow.map((track, index) => {
+        const isPnpt = Boolean((track as any)._isPNPT);
         const reqId = track.requester?.id || (track as any).user_id || '';
+        const displayRequester = isPnpt
+          ? autoBadge
+          : (reqId ? `<@${reqId}>` : (track.author || autoBadge));
         return {
           name: `${index + 1}. ${track.title}`,
-          value: `${lang.data.music.queue.added_by} ${reqId ? `<@${reqId}>` : track.author}\n‎ `,
+          value: `${lang.data.music.queue.added_by} ${displayRequester}\n‎ `,
           inline: false,
         };
       });
@@ -69,16 +74,30 @@ export default async function execute(
         });
       }
 
+      if (playback.isPNPTEnabled && playback.queuePNPT && playback.queuePNPT.length > 0) {
+        const autoNext = (lang.data.music.queue as any)?.pnpt_auto_next || 'ถัดไป (อัตโนมัติ)';
+        const pnptTracksToShow = playback.queuePNPT.slice(0, 3);
+        pnptTracksToShow.forEach((track, index) => {
+          fields.push({
+            name: `✨ ${autoNext} ${index + 1}. ${track.title}`,
+            value: `${lang.data.music.queue.added_by} ${autoBadge}\n‎ `,
+            inline: false,
+          });
+        });
+      }
+
       const requesterUser = current?.requester;
       const requesterId = requesterUser?.id || (current as any)?.user_id || '';
       const cachedUser = requesterId
         ? container.pona.client.users.cache.get(requesterId)
         : null;
-      const requesterName =
-        requesterUser?.username ||
-        cachedUser?.username ||
-        (current as any)?.user_tag ||
-        (requesterId ? `<@${requesterId}>` : 'Unknown');
+      const isCurrentPNPT = Boolean((current as any)?._isPNPT);
+      const requesterName = isCurrentPNPT
+        ? autoBadge
+        : (requesterUser?.username ||
+          cachedUser?.username ||
+          (current as any)?.user_tag ||
+          (requesterId ? `<@${requesterId}>` : autoBadge));
       const getAvatarUrl = (userObj: any): string | undefined => {
         if (!userObj) return undefined;
         if (typeof userObj.avatarURL === 'function') return userObj.avatarURL();
@@ -90,11 +109,12 @@ export default async function execute(
         return undefined;
       };
 
-      const requesterAvatar =
-        getAvatarUrl(requesterUser) ||
-        getAvatarUrl(cachedUser) ||
-        (current as any)?.user_avatar ||
-        undefined;
+      const requesterAvatar = isCurrentPNPT
+        ? undefined
+        : (getAvatarUrl(requesterUser) ||
+          getAvatarUrl(cachedUser) ||
+          (current as any)?.user_avatar ||
+          undefined);
 
       const queueEmbed = new EmbedBuilder()
         .setAuthor({

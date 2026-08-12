@@ -158,8 +158,8 @@ export default new Elysia()
 
         const statsSql = `
           SELECT 
-            COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(track, '$.uri'))) AS totalTracks,
-            COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(track, '$.duration')) AS UNSIGNED)), 0) AS totalDurationMs
+            COUNT(DISTINCT JSON_EXTRACT(track, '$.uri')) AS totalTracks,
+            COALESCE(SUM(JSON_EXTRACT(track, '$.duration')), 0) AS totalDurationMs
           FROM player_track_history
           WHERE requestby = ?
         `;
@@ -170,17 +170,11 @@ export default new Elysia()
             TRIM(REPLACE(JSON_UNQUOTE(JSON_EXTRACT(track, '$.author')), ' - Topic', '')) AS artistName,
             COUNT(*) AS count,
             MAX(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(track, '$.artist[0].id')), 'null')) AS artistId,
-            MAX(NULLIF(COALESCE(
-              JSON_UNQUOTE(JSON_EXTRACT(track, '$.artworkUrl')),
-              JSON_UNQUOTE(JSON_EXTRACT(track, '$.proxyHighResArtworkUrl')),
-              JSON_UNQUOTE(JSON_EXTRACT(track, '$.proxyArtworkUrl')),
-              JSON_UNQUOTE(JSON_EXTRACT(track, '$.highResArtworkUrl')),
-              JSON_UNQUOTE(JSON_EXTRACT(track, '$.thumbnail'))
-            ), 'null')) AS thumbnail
+            MAX(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(track, '$.thumbnail')), 'null')) AS thumbnail
           FROM player_track_history
           WHERE requestby = ? 
-            AND JSON_UNQUOTE(JSON_EXTRACT(track, '$.author')) IS NOT NULL
             AND time >= NOW() - INTERVAL 30 DAY
+            AND JSON_EXTRACT(track, '$.author') IS NOT NULL
           GROUP BY artistName
           ORDER BY count DESC
           LIMIT 10
@@ -236,7 +230,7 @@ export default new Elysia()
         };
 
         if (container.redis?.redis) {
-          container.redis.redis.setex(cacheKey, 300, JSONBig.stringify(responsePayload));
+          container.redis.redis.setex(cacheKey, 600, JSONBig.stringify(responsePayload));
         }
 
         set.status = HttpStatusCode.Ok;

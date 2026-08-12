@@ -7,6 +7,12 @@
     },
     "music": {
         "state": {
+            "pnpt": {
+                "title": "Auto-continue",
+                "enabled": "Auto-continue enabled",
+                "disabled": "Auto-continue disabled",
+                "repeat_incompatible": "Auto-continue is incompatible with Queue Repeat mode."
+            },
             "repeat": {
                 "title": "Repeat state",
                 "track": "Only this track",
@@ -63,7 +69,9 @@
             "too_long": {
                 "title": "Queue is too long to be displayed.",
                 "value": "Show all queue in pona! app"
-            }
+            },
+            "pnpt_auto_badge": "Auto",
+            "pnpt_auto_next": "Up Next (Auto)"
         },
         "errors": {
             "not_in_voice_channel": "Please enter a voice channel.",

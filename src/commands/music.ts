@@ -18,6 +18,7 @@ import queueSubsystem from './music/queue';
 import removeSubsystem from './music/remove';
 import loopSubsystem from './music/loop';
 import loopQueueSubsystem from './music/loop_queue';
+import pnptSubsystem from './music/pnpt';
 
 import isPonaInVoiceChannel from '@/utils/isPonaInVoiceChannel';
 import color from '@/config/embedColor';
@@ -200,6 +201,29 @@ export const data = new SlashCommandBuilder()
           .setRequired(true),
       ),
   )
+  .addSubcommand((subcommand) =>
+    subcommand
+      .setName('pnpt')
+      .setNameLocalizations({
+        th: 'ต่อเพลงอัตโนมัติ',
+      })
+      .setDescriptionLocalizations({
+        th: 'เปิด/ปิด โหมดต่อเพลงอัตโนมัติ',
+      })
+      .setDescription('Toggle Auto-continue (PNPT) mode')
+      .addBooleanOption((option) =>
+        option
+          .setName('enabled')
+          .setNameLocalizations({
+            th: 'เปิดใช้งาน',
+          })
+          .setDescriptionLocalizations({
+            th: 'เปิดหรือปิดการต่อเพลงอัตโนมัติ',
+          })
+          .setDescription('Enable or disable Auto-continue')
+          .setRequired(false),
+      ),
+  )
   .setContexts([InteractionContextType.Guild]);
 
 export async function execute(interaction: ChatInputCommandInteraction) {
@@ -218,6 +242,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       });
 
     switch (subCommand) {
+      case 'pnpt':
+        return pnptSubsystem(interaction);
       case 'play':
         return playSubsystem(interaction);
       case 'stop':

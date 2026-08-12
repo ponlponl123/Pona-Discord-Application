@@ -439,15 +439,22 @@ export class Node {
       this.manager.emit('trackEnd', player, track, payload);
       player.queue.previous = player.queue.current;
     } else if (player.queue.length) this.playNextTrack(player, track, payload);
-    else if (player.isPNPTEnabled && player.queuePNPT && player.queuePNPT.length > 0) {
-      const nextTrack = player.queuePNPT.shift();
-      if (nextTrack) {
-        player.queue.add(nextTrack);
-        // Emit queue update before playing next track to ensure client sees the shift
-        this.manager.emit('playerStateUpdate', player, player, 'pnptChange' as any);
-        this.playNextTrack(player, track, payload);
-        if (player.queuePNPT.length < 6) {
-          player.ensurePNPTQueue().catch(() => { });
+    else if (player.isPNPTEnabled) {
+      if (!player.queuePNPT || player.queuePNPT.length === 0) {
+        await player.ensurePNPTQueue().catch(() => { });
+      }
+      if (player.queuePNPT && player.queuePNPT.length > 0) {
+        const nextTrack = player.queuePNPT.shift();
+        if (nextTrack) {
+          player.queue.add(nextTrack);
+          // Emit queue update before playing next track to ensure client sees the shift
+          this.manager.emit('playerStateUpdate', player, player, 'pnptChange' as any);
+          this.playNextTrack(player, track, payload);
+          if (player.queuePNPT.length < 6) {
+            player.ensurePNPTQueue().catch(() => { });
+          }
+        } else {
+          await this.queueEnd(player, track, payload);
         }
       } else {
         await this.queueEnd(player, track, payload);

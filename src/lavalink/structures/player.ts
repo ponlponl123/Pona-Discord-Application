@@ -418,7 +418,6 @@ export class Player {
 
   public async ensurePNPTQueue(): Promise<void> {
     if (!this.isPNPTEnabled) return;
-    if (this.queue.length > 0) return;
     if (this.queuePNPT.length >= 5) return;
 
     if ((this as any)._isRefillingPNPT) return;
@@ -511,7 +510,6 @@ export class Player {
         encodedTrack: null,
       },
     });
-    if (this.queuePNPT) this.queuePNPT.splice(0);
     this.manager.emit('playerStateUpdate', oldPlayer, this, 'trackChange');
     this.manager.emit('playerStateUpdate', oldPlayer, this, 'pnptChange' as any);
     return this;

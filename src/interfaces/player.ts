@@ -31,19 +31,10 @@ export interface PlayerOptions {
   lastActive: number;
 }
 
-export interface TimestampLyrics {
-  seconds: number;
-  lyrics: string;
-}
+import type { TimestampLyrics, NonTimestampLyrics, Lyric } from './lyrics';
 
-export type NonTimestampLyrics = string;
+export type { TimestampLyrics, NonTimestampLyrics, Lyric };
 
-export interface Lyric {
-  isTimestamp: boolean;
-  lyrics: TimestampLyrics[] | NonTimestampLyrics[];
-  source?: string;
-  error?: string;
-}
 
 export interface Track {
   readonly track: string;

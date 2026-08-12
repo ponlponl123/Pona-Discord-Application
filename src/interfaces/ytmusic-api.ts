@@ -384,3 +384,8 @@ export type SearchResult =
     ProfileDetailed |
     PodcastDetailed |
     EpisodeDetailed;
+
+import type { TimedLyricsDataItem, TimedLyricsRes } from './lyrics';
+
+export type { TimedLyricsDataItem, TimedLyricsRes };
+

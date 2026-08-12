@@ -117,7 +117,7 @@ export async function fetchAndCachePNPT(
         const info = await (container.ytmusic.client.music as any).getInfo(videoId).catch(() => null);
         if (info && (info.watch_next_feed || info.related)) {
           const items = info.watch_next_feed || info.related || [];
-          const trackPromises = items.slice(0, 10).map(async (item: any) => {
+          const trackPromises = items.map(async (item: any) => {
             const itemVideoId = item.id || item.video_id || item.videoId;
             if (!itemVideoId || itemVideoId === videoId) return null;
             const searchRes = await player.search(

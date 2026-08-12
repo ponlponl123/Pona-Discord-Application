@@ -255,9 +255,10 @@ export class Manager extends EventEmitter {
               key !== 'manager'
             ) {
               const song = state.queuePNPT[key];
-              pnptTracks.push(
-                TrackUtils.build(createTrackData(song), song.requester),
-              );
+              const track = TrackUtils.build(createTrackData(song), song.requester);
+              // Restore the _isPNPT flag so tracks display with "อัตโนมัติ" author
+              track._isPNPT = true;
+              pnptTracks.push(track);
             }
           }
           if (pnptTracks.length > 0) {
@@ -350,9 +351,10 @@ export class Manager extends EventEmitter {
             key !== 'manager'
           ) {
             const song = state.queuePNPT[key];
-            pnptTracks.push(
-              TrackUtils.build(createTrackData(song), song.requester),
-            );
+            const track = TrackUtils.build(createTrackData(song), song.requester);
+            // Restore the _isPNPT flag so tracks display with "อัตโนมัติ" author
+            (track as any)._isPNPT = true;
+            pnptTracks.push(track);
           }
         }
         if (pnptTracks.length > 0) {

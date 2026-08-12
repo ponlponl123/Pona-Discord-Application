@@ -523,7 +523,7 @@ export default function setupGuildWS(ioInstance?: Server) {
             player.queuePNPT.remove(pnptIndex);
             emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
             if (typeof cb === 'function') cb({ status: 'ok' });
-            if (player.queue.length === 0 && player.queuePNPT.length < 5) {
+            if (player.queue.length === 0 && player.queuePNPT.length < 10) {
               player.ensurePNPTQueue().catch(() => {});
             }
             return;

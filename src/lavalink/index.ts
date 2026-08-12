@@ -161,7 +161,7 @@ class LavalinkServer extends EventEmitter {
         const { getGuildPNPTEnabled } = await import('@/utils/guildSettingsCache');
         const pnptEnabled = await getGuildPNPTEnabled(player.guild);
         player.isPNPTEnabled = pnptEnabled;
-        if (pnptEnabled && player.queue.current && player.queuePNPT.length < 5) {
+        if (pnptEnabled && player.queue.current && player.queuePNPT.length < 10) {
           player.ensurePNPTQueue().catch(() => { });
         }
       } catch (err) {

@@ -163,7 +163,7 @@ export class Node {
       console.log(
         consoleType.info,
         consolePrefix.lavalink +
-          `Updated lavalink sessionId for ${this.options.identifier} to ${this.sessionId}`,
+        `Updated lavalink sessionId for ${this.options.identifier} to ${this.sessionId}`,
       );
     } catch (err) {
       console.error(
@@ -193,7 +193,7 @@ export class Node {
         console.log(
           consoleType.info,
           consolePrefix.lavalink +
-            `Resuming lavalink session with Id: ${this.sessionId}`,
+          `Resuming lavalink session with Id: ${this.sessionId}`,
         );
       }
     }
@@ -306,13 +306,13 @@ export class Node {
           console.log(
             consoleType.info,
             consolePrefix.lavalink +
-              `Lavalink session resumed for ${this.options.identifier} successfully.`,
+            `Lavalink session resumed for ${this.options.identifier} successfully.`,
           );
         } else {
           console.log(
             consoleType.info,
             consolePrefix.lavalink +
-              `Lavalink session started fresh for ${this.options.identifier}, restoring player states from Redis...`,
+            `Lavalink session started fresh for ${this.options.identifier}, restoring player states from Redis...`,
           );
         }
 
@@ -357,7 +357,7 @@ export class Node {
 
       case 'TrackEndEvent':
         if (player?.nowPlayingMessage && player?.nowPlayingMessage.deletable) {
-          await player?.nowPlayingMessage?.delete().catch(() => {});
+          await player?.nowPlayingMessage?.delete().catch(() => { });
         }
 
         this.trackEnd(player, track as Track, payload);
@@ -439,7 +439,20 @@ export class Node {
       this.manager.emit('trackEnd', player, track, payload);
       player.queue.previous = player.queue.current;
     } else if (player.queue.length) this.playNextTrack(player, track, payload);
-    else await this.queueEnd(player, track, payload);
+    else if (player.isPNPTEnabled && player.queuePNPT && player.queuePNPT.length > 0) {
+      const nextTrack = player.queuePNPT.shift();
+      if (nextTrack) {
+        player.queue.add(nextTrack);
+        // Emit queue update before playing next track to ensure client sees the shift
+        this.manager.emit('playerStateUpdate', player, player, 'pnptChange' as any);
+        this.playNextTrack(player, track, payload);
+        if (player.queuePNPT.length < 6) {
+          player.ensurePNPTQueue().catch(() => { });
+        }
+      } else {
+        await this.queueEnd(player, track, payload);
+      }
+    } else await this.queueEnd(player, track, payload);
     this.manager.emit('playerStateUpdate', oldPlayer, player, 'trackChange');
   }
 
@@ -656,15 +669,36 @@ export class Node {
     player.queue.previous = player.queue.current;
     player.queue.current = null;
 
+    if (player.isPNPTEnabled && player.queuePNPT && player.queuePNPT.length > 0) {
+      const nextPNPTTrack = player.queuePNPT.shift();
+      if (nextPNPTTrack) {
+        player.queue.add(nextPNPTTrack);
+        // Emit queue update to notify client of PNPT shift before playing
+        this.manager.emit('playerStateUpdate', player, player, 'pnptChange' as any);
+        player.play();
+        return;
+      }
+    }
+
     if (!player.isAutoplay) {
       player.queue.previous = player.queue.current;
       player.queue.current = null;
       player.playing = false;
+      if (player.queuePNPT) {
+        player.queuePNPT.splice(0);
+      }
       this.manager.emit('queueEnd', player, track, payload);
+      this.manager.emit('playerStateUpdate', player, player, 'pnptChange' as any);
       return;
     }
 
     await this.handleAutoplay(player, track);
+    if (!player.queue.current) {
+      if (player.queuePNPT) {
+        player.queuePNPT.splice(0);
+      }
+      this.manager.emit('playerStateUpdate', player, player, 'pnptChange' as any);
+    }
   }
 
   protected trackStuck(

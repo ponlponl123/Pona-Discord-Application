@@ -98,6 +98,10 @@ class LavalinkServer extends EventEmitter {
           `${lang.data.music.state.voiceChannel.status} ${track.cleanTitle} ${lang.data.music.play.author} ${track.cleanAuthor}`,
         );
         this.emit('trackStart', player, track);
+
+        if (player.isPNPTEnabled && player.queue.length === 0 && player.queuePNPT.length < 6) {
+          player.ensurePNPTQueue().catch(() => { });
+        }
       } catch (error) {
         this.handleError(error);
       }
@@ -147,12 +151,22 @@ class LavalinkServer extends EventEmitter {
       );
     });
 
-    this.manager.on('playerCreate', (player: Player) => {
+    this.manager.on('playerCreate', async (player: Player) => {
       console.log(
         consoleType.info,
         consolePrefix.lavalink +
         `Player created, playing ${player.queue.current?.title} for ${player.guild}`,
       );
+      try {
+        const { getGuildPNPTEnabled } = await import('@/utils/guildSettingsCache');
+        const pnptEnabled = await getGuildPNPTEnabled(player.guild);
+        player.isPNPTEnabled = pnptEnabled;
+        if (pnptEnabled && player.queue.current && player.queuePNPT.length < 5) {
+          player.ensurePNPTQueue().catch(() => { });
+        }
+      } catch (err) {
+        console.error(`[PNPT Init Error] Guild ${player.guild}:`, err);
+      }
       this.emit('playerCreate', player);
     });
 

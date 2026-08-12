@@ -7,6 +7,7 @@ export class Queue extends Array<Track | UnresolvedTrack> {
   public current: Track | UnresolvedTrack | null = null;
   public previous: Track | UnresolvedTrack | null = null;
   public manager: Manager;
+  public isPNPTQueue = false;
 
   public get duration(): number {
     const current = this.current?.duration ?? 0;
@@ -43,10 +44,11 @@ export class Queue extends Array<Track | UnresolvedTrack> {
       }
     };
 
-    if (!this.current) {
+    if (!this.isPNPTQueue && !this.current) {
       if (Array.isArray(track)) {
-        this.current = track.shift() || null;
-        track.forEach(addTrack);
+        const trackCopy = [...track];
+        this.current = trackCopy.shift() || null;
+        trackCopy.forEach(addTrack);
       } else {
         this.current = track;
       }

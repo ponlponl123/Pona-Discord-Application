@@ -4,6 +4,7 @@ import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import register from '../register';
 import {
   HTTP_PonaRepeatState,
+  Track,
 } from '@/interfaces/player';
 import {
   convertTo_HTTPPlayerState,
@@ -29,6 +30,8 @@ type GuildEvents =
   | 'pause_updated'
   | 'queue_updated'
   | 'repeat_updated'
+  | 'pnpt_updated'
+  | 'pnpt_queue_updated'
   | 'member_state_updated';
 
 function encodeData(data: unknown): string {
@@ -81,12 +84,31 @@ export async function sendHandshake(socket: any) {
     }
 
     const ponaState = guildId ? await getHTTP_PlayerState(guildId) : null;
-    const handshakePayload = {
-      pona: ponaState,
+    const handshakePayload = ponaState ? {
+      ...ponaState,
+      isMemberInVC,
+    } : {
+      pona: null,
+      current: null,
+      queue: [],
+      queuePNPT: [],
       isMemberInVC,
     };
 
     socket.emit('handshake', encodeData(handshakePayload));
+
+    // Auto-refill PNPT tracks if active player has empty PNPT queue on reconnect
+    if (guildId) {
+      const player = container.lavalink?.manager?.get(guildId);
+      if (player && player.isPNPTEnabled && player.queue.current && player.queuePNPT.length === 0) {
+        player.fetchPNPTTracks(player.queue.current as Track).then((tracks: Track[]) => {
+          if (tracks && tracks.length > 0) {
+            player.queuePNPT.add(tracks);
+            emitToGuild(guildId, 'pnpt_queue_updated', encodeData([...player.queuePNPT]), 'pona! music');
+          }
+        }).catch(() => {});
+      }
+    }
   } catch (err) {
     console.error('Handshake error on WS connection:', err);
   }
@@ -167,6 +189,7 @@ export default function setupGuildWS(ioInstance?: Server) {
             const ponaState = (await getHTTP_PlayerState(guildId)) || convertTo_HTTPPlayerState(player);
             socket.emit('player_created', encodeData(ponaState));
             emitToGuild(guildId, 'state_updated', encodeData(ponaState), 'pona! music');
+            emitToGuild(guildId, 'pnpt_queue_updated', encodeData([...player.queuePNPT]), 'pona! music');
           }
         } catch (err) {
           console.error('Error handling join socket event:', err);
@@ -488,7 +511,21 @@ export default function setupGuildWS(ioInstance?: Server) {
           if (index !== -1) {
             player.queue.remove(index);
             emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
+            emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
             if (typeof cb === 'function') cb({ status: 'ok' });
+            return;
+          }
+
+          const pnptIndex = player.queuePNPT.findIndex(
+            (t: any) => t.uniqueId === uniqueId || t.identifier === uniqueId,
+          );
+          if (pnptIndex !== -1) {
+            player.queuePNPT.remove(pnptIndex);
+            emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+            if (typeof cb === 'function') cb({ status: 'ok' });
+            if (player.queue.length === 0 && player.queuePNPT.length < 5) {
+              player.ensurePNPTQueue().catch(() => {});
+            }
             return;
           }
         }
@@ -530,6 +567,69 @@ export default function setupGuildWS(ioInstance?: Server) {
         },
       );
 
+      // 11b. Move track in PNPT queue
+      socket.on(
+        'move_pnpt',
+        async (
+          oldIndex: number,
+          newIndex: number,
+          cb?: (res: any) => void,
+        ) => {
+          const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+          const guildId = match ? match[1] : null;
+          if (!guildId) {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+            return;
+          }
+          const player = container.lavalink.manager.get(guildId);
+          if (
+            player &&
+            typeof oldIndex === 'number' &&
+            typeof newIndex === 'number' &&
+            oldIndex >= 0 &&
+            oldIndex < player.queuePNPT.length &&
+            newIndex >= 0 &&
+            newIndex < player.queuePNPT.length
+          ) {
+            const track = player.queuePNPT[oldIndex];
+            player.queuePNPT.splice(oldIndex, 1);
+            player.queuePNPT.splice(newIndex, 0, track);
+            const statePayload = await getHTTP_PlayerState(guildId);
+            emitToGuild(guildId, 'state_updated', encodeData(statePayload));
+            if (typeof cb === 'function') cb({ status: 'ok' });
+          } else {
+            if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid indices or no player' });
+          }
+        },
+      );
+
+      // 11c. Move track from PNPT queue to main queue
+      socket.on('move_pnpt_to_queue', async (uniqueId: string, cb?: (res: any) => void) => {
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) return;
+        const player = container.lavalink.manager.get(guildId);
+        if (player) {
+          const pnptIndex = player.queuePNPT.findIndex(
+            (t: any) => t.uniqueId === uniqueId || t.identifier === uniqueId,
+          );
+          if (pnptIndex !== -1) {
+            const track = player.queuePNPT[pnptIndex];
+            player.queuePNPT.splice(pnptIndex, 1);
+            delete (track as any)._isPNPT;
+            player.queue.add(track);
+            emitToGuild(guildId, 'queue_updated', encodeData(player.queue), 'pona! music');
+            emitToGuild(guildId, 'state_updated', encodeData(await getHTTP_PlayerState(guildId)), 'pona! music');
+            if (typeof cb === 'function') cb({ status: 'ok' });
+            if (player.queue.length === 0 && player.queuePNPT.length < 6) {
+              player.ensurePNPTQueue().catch(() => {});
+            }
+            return;
+          }
+        }
+        if (typeof cb === 'function') cb({ status: 'error', message: 'Track not found' });
+      });
+
       // 12. Volume
       socket.on('volume', async (vol: number, cb?: (res: any) => void) => {
         const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
@@ -561,6 +661,41 @@ export default function setupGuildWS(ioInstance?: Server) {
           await leaveVoiceChannelAsPlayer(guildId);
           emitToGuild(guildId, 'state_updated', encodeData(null), 'pona! music');
           if (typeof cb === 'function') cb({ status: 'ok' });
+        } else {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No active player' });
+        }
+      });
+
+      // 14. PNPT Toggle
+      socket.on('pnpt_toggle', async (enabledParam?: boolean | ((res: any) => void), cbParam?: (res: any) => void) => {
+        const cb = typeof enabledParam === 'function' ? enabledParam : cbParam;
+        const enabled = typeof enabledParam === 'boolean' ? enabledParam : true;
+        const match = socket.nsp.name.match(/^\/(?:guild|guilds)\/([0-9]+)$/);
+        const guildId = match ? match[1] : null;
+        if (!guildId) {
+          if (typeof cb === 'function') cb({ status: 'error', message: 'No guild ID' });
+          return;
+        }
+        const player = container.lavalink.manager.get(guildId);
+        if (player) {
+          if (player.queueRepeat && enabled) {
+            if (typeof cb === 'function') cb({ status: 'incompatible', message: 'PNPT is not compatible with Queue Repeat' });
+            return;
+          }
+          player.setPNPT(enabled);
+          const { setGuildPNPTEnabled } = await import('@/utils/guildSettingsCache');
+          await setGuildPNPTEnabled(guildId, enabled);
+          if (enabled && player.queuePNPT.length < 6 && player.queue.current) {
+            player.fetchPNPTTracks(player.queue.current as Track).then((tracks) => {
+              if (tracks && tracks.length > 0) {
+                player.queuePNPT.add(tracks);
+                emitToGuild(guildId, 'pnpt_queue_updated', encodeData([...player.queuePNPT]), 'pona! music');
+              }
+            }).catch(() => {});
+          }
+          emitToGuild(guildId, 'pnpt_updated', encodeData({ enabled: player.isPNPTEnabled }), 'pona! music');
+          emitToGuild(guildId, 'pnpt_queue_updated', encodeData([...player.queuePNPT]), 'pona! music');
+          if (typeof cb === 'function') cb({ status: 'ok', enabled: player.isPNPTEnabled });
         } else {
           if (typeof cb === 'function') cb({ status: 'error', message: 'No active player' });
         }
@@ -631,6 +766,12 @@ export default function setupGuildWS(ioInstance?: Server) {
         dynamic: newPlayer.dynamicRepeat,
       };
       emitToGuild(newPlayer.guild, 'repeat_updated', encodeData(repeatData), 'pona! music');
+      emitToGuild(newPlayer.guild, 'pnpt_updated', encodeData({ enabled: newPlayer.isPNPTEnabled }), 'pona! music');
+    }
+
+    if ((changeType as string) === 'pnptChange') {
+      emitToGuild(newPlayer.guild, 'pnpt_updated', encodeData({ enabled: newPlayer.isPNPTEnabled }), 'pona! music');
+      emitToGuild(newPlayer.guild, 'pnpt_queue_updated', encodeData([...newPlayer.queuePNPT]), 'pona! music');
     }
   });
 
@@ -643,6 +784,7 @@ export default function setupGuildWS(ioInstance?: Server) {
     await ensureTrackArtist(track);
     emitToGuild(player.guild, 'track_started', encodeData(track), 'pona! music');
     emitToGuild(player.guild, 'queue_updated', encodeData([track, ...player.queue]), 'pona! music');
+    emitToGuild(player.guild, 'pnpt_queue_updated', encodeData([...player.queuePNPT]), 'pona! music');
 
     try {
       const requesterId =

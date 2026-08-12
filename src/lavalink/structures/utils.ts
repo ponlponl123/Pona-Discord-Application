@@ -98,6 +98,16 @@ export abstract class TrackUtils {
       this.trackPartial.unshift('track');
   }
 
+  static markAsTrack(track: any): any {
+    if (track && typeof track === 'object') {
+      Object.defineProperty(track, TRACK_SYMBOL, {
+        configurable: true,
+        value: true,
+      });
+    }
+    return track;
+  }
+
   /**
    * @param trackOrTracks
    */
@@ -107,17 +117,32 @@ export abstract class TrackUtils {
 
     if (Array.isArray(trackOrTracks) && trackOrTracks.length) {
       for (const track of trackOrTracks) {
-        if (!(track[TRACK_SYMBOL] || track[UNRESOLVED_TRACK_SYMBOL]))
-          return false;
+        if (!track || typeof track !== 'object') return false;
+        if (!((track as any)[TRACK_SYMBOL] || (track as any)[UNRESOLVED_TRACK_SYMBOL])) {
+          if ((track as any).identifier || (track as any).title) {
+            TrackUtils.markAsTrack(track);
+          } else {
+            return false;
+          }
+        }
       }
       return true;
     }
 
-    return (
+    if (!trackOrTracks || typeof trackOrTracks !== 'object') return false;
+    if (
       (trackOrTracks as Track)[TRACK_SYMBOL] ||
-      (trackOrTracks as UnresolvedTrack)[UNRESOLVED_TRACK_SYMBOL] ||
-      false
-    );
+      (trackOrTracks as UnresolvedTrack)[UNRESOLVED_TRACK_SYMBOL]
+    ) {
+      return true;
+    }
+
+    if ((trackOrTracks as any).identifier || (trackOrTracks as any).title) {
+      TrackUtils.markAsTrack(trackOrTracks);
+      return true;
+    }
+
+    return false;
   }
 
   /**

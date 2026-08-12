@@ -28,6 +28,8 @@ export class Player {
   public trackRepeat = false;
   public queueRepeat = false;
   public dynamicRepeat = false;
+  public isPNPTEnabled = true;
+  public readonly queuePNPT!: Queue;
   public position = 0;
   public length = 0;
   public playing = false;
@@ -81,6 +83,8 @@ export class Player {
     if (!this.node) throw new RangeError('No available nodes.');
 
     this.queue = new Queue(this.guild, this.manager);
+    this.queuePNPT = new Queue(this.guild, this.manager);
+    this.queuePNPT.isPNPTQueue = true;
     this.manager.players.set(options.guild, this);
     this.manager.emit('playerCreate', this);
     this.setVolume(options.volume ?? 100);
@@ -137,6 +141,7 @@ export class Player {
   public destroy(disconnect = true): void {
     const oldPlayer = { ...this };
     this.state = 'DESTROYING';
+    if (this.queuePNPT) this.queuePNPT.splice(0);
     if (disconnect) this.disconnect();
     this.node.rest.destroyPlayer(this.guild);
     this.manager.emit('playerDestroy', this);
@@ -382,6 +387,7 @@ export class Player {
       this.trackRepeat = false;
       this.queueRepeat = true;
       this.dynamicRepeat = false;
+      this.isPNPTEnabled = false;
     } else {
       this.trackRepeat = false;
       this.queueRepeat = false;
@@ -389,6 +395,63 @@ export class Player {
     }
     this.manager.emit('playerStateUpdate', oldPlayer, this, 'repeatChange');
     return this;
+  }
+
+  public setPNPT(enabled: boolean): this {
+    if (typeof enabled !== 'boolean')
+      throw new TypeError('Enabled can only be "true" or "false".');
+    const oldPlayer = { ...this };
+    if (enabled && this.queueRepeat) {
+      this.isPNPTEnabled = false;
+    } else {
+      this.isPNPTEnabled = enabled;
+    }
+    this.manager.emit('playerStateUpdate', oldPlayer, this, 'pnptChange');
+    return this;
+  }
+
+  public async fetchPNPTTracks(refTrack: Interface.Track): Promise<Interface.Track[]> {
+    if (!this.isPNPTEnabled || !refTrack) return [];
+    const { fetchAndCachePNPT } = await import('@/utils/player/pnptFetcher');
+    return fetchAndCachePNPT(this, refTrack);
+  }
+
+  public async ensurePNPTQueue(): Promise<void> {
+    if (!this.isPNPTEnabled) return;
+    if (this.queue.length > 0) return;
+    if (this.queuePNPT.length >= 5) return;
+
+    if ((this as any)._isRefillingPNPT) return;
+    (this as any)._isRefillingPNPT = true;
+
+    try {
+      const refTrack = this.queuePNPT.length > 0
+        ? this.queuePNPT[this.queuePNPT.length - 1]
+        : (this.queue.current || this.queue.previous);
+
+      if (!refTrack) return;
+
+      const newPNPTTracks = await this.fetchPNPTTracks(refTrack as Interface.Track);
+      if (newPNPTTracks && newPNPTTracks.length > 0) {
+        const existingIds = new Set<string>();
+        if (this.queue.current?.identifier) existingIds.add(this.queue.current.identifier);
+        for (const t of this.queue) if (t.identifier) existingIds.add(t.identifier);
+        for (const t of this.queuePNPT) if (t.identifier) existingIds.add(t.identifier);
+
+        const uniqueNewTracks = newPNPTTracks.filter(
+          (t) => t.identifier && !existingIds.has(t.identifier),
+        );
+
+        if (uniqueNewTracks.length > 0) {
+          this.queuePNPT.add(uniqueNewTracks);
+          this.manager.emit('playerStateUpdate', this, this, 'pnptChange' as any);
+        }
+      }
+    } catch (err) {
+      console.error(`[PNPT Refill Error] Guild ${this.guild}:`, err);
+    } finally {
+      (this as any)._isRefillingPNPT = false;
+    }
   }
 
   public setDynamicRepeat(repeat: boolean, ms: number): this {
@@ -448,7 +511,9 @@ export class Player {
         encodedTrack: null,
       },
     });
+    if (this.queuePNPT) this.queuePNPT.splice(0);
     this.manager.emit('playerStateUpdate', oldPlayer, this, 'trackChange');
+    this.manager.emit('playerStateUpdate', oldPlayer, this, 'pnptChange' as any);
     return this;
   }
 

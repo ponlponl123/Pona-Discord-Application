@@ -242,6 +242,28 @@ export class Manager extends EventEmitter {
         if (state.paused) player.pause(true);
         player.setTrackRepeat(state.trackRepeat);
         player.setQueueRepeat(state.queueRepeat);
+        if (typeof state.isPNPTEnabled === 'boolean') {
+          player.setPNPT(state.isPNPTEnabled);
+        }
+        if (state.queuePNPT) {
+          const pnptTracks = [];
+          for (const key in state.queuePNPT) {
+            if (
+              !isNaN(Number(key)) &&
+              key !== 'current' &&
+              key !== 'previous' &&
+              key !== 'manager'
+            ) {
+              const song = state.queuePNPT[key];
+              pnptTracks.push(
+                TrackUtils.build(createTrackData(song), song.requester),
+              );
+            }
+          }
+          if (pnptTracks.length > 0) {
+            player.queuePNPT.add(pnptTracks);
+          }
+        }
         if (state.dynamicRepeat)
           player.setDynamicRepeat(
             state.dynamicRepeat,
@@ -315,6 +337,28 @@ export class Manager extends EventEmitter {
       if (state.paused) player.pause(true);
       player.setTrackRepeat(state.trackRepeat);
       player.setQueueRepeat(state.queueRepeat);
+      if (typeof state.isPNPTEnabled === 'boolean') {
+        player.setPNPT(state.isPNPTEnabled);
+      }
+      if (state.queuePNPT) {
+        const pnptTracks = [];
+        for (const key in state.queuePNPT) {
+          if (
+            !isNaN(Number(key)) &&
+            key !== 'current' &&
+            key !== 'previous' &&
+            key !== 'manager'
+          ) {
+            const song = state.queuePNPT[key];
+            pnptTracks.push(
+              TrackUtils.build(createTrackData(song), song.requester),
+            );
+          }
+        }
+        if (pnptTracks.length > 0) {
+          player.queuePNPT.add(pnptTracks);
+        }
+      }
       if (state.dynamicRepeat)
         player.setDynamicRepeat(
           state.dynamicRepeat,
@@ -389,7 +433,7 @@ export class Manager extends EventEmitter {
           return null;
         }
 
-        if (key === 'queue') {
+        if (key === 'queue' || key === 'queuePNPT') {
           return {
             ...value,
             current: value.current || null,

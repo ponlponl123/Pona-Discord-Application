@@ -58,6 +58,7 @@ export interface Track {
   lyrics?: Lyric;
   readonly requester?: User | ClientUser;
   accentColor?: string;
+  _isPNPT?: boolean;
   displayThumbnail(size?: Sizes): string;
   pluginInfo: any;
   customData: Record<string, unknown>;
@@ -99,6 +100,7 @@ export interface HTTP_PonaCommonState {
   paused: boolean;
   playing: boolean;
   isAutoplay: boolean;
+  isPNPTEnabled: boolean;
   voiceChannel: string;
 }
 
@@ -106,4 +108,5 @@ export interface HTTP_PonaCommonStateWithTracks {
   pona: HTTP_PonaCommonState;
   current: Track | UnresolvedTrack | null;
   queue: Queue;
+  queuePNPT?: (Track | UnresolvedTrack)[] | Queue;
 }

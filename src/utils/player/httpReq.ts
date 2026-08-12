@@ -23,11 +23,13 @@ export async function getHTTP_PlayerState(guildId: string): Promise<HTTP_PonaCom
           dynamic: player.dynamicRepeat
         },
         isAutoplay: player.isAutoplay,
+        isPNPTEnabled: player.isPNPTEnabled,
         paused: player.paused,
         playing: player.playing,
       },
       current: player.queue.current,
       queue: player.queue,
+      queuePNPT: [...player.queuePNPT],
     };
   }
   return null;
@@ -48,11 +50,13 @@ export function convertTo_HTTPPlayerState(player: Player): HTTP_PonaCommonStateW
           dynamic: player.dynamicRepeat
         },
         isAutoplay: player.isAutoplay,
+        isPNPTEnabled: player.isPNPTEnabled,
         paused: player.paused,
         playing: player.playing,
       },
       current: player.queue.current,
       queue: player.queue,
+      queuePNPT: [...player.queuePNPT],
     }
   } catch {
     return null;

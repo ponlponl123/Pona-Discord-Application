@@ -24,6 +24,8 @@ export default new Elysia().get(
           message: 'OK',
           current: player.queue.current,
           queue: player.queue,
+          pnptQueue: player.queuePNPT,
+          isPNPTEnabled: player.isPNPTEnabled,
         };
       }
       set.status = HttpStatusCode.NoContent;

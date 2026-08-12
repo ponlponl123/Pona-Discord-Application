@@ -34,6 +34,7 @@ export default new Elysia().get(
           paused: player.paused,
           playing: player.playing,
           isAutoplay: player.isAutoplay,
+          isPNPTEnabled: player.isPNPTEnabled,
           equalizer: player.filters.equalizer,
           track: {
             position: player.position,

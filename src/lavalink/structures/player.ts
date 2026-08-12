@@ -459,13 +459,20 @@ export class Player {
     if (!this.queue.current)
       throw new ReferenceError('Cannot get current track.');
 
-    // Extract preceding tracks before target track index and push to end of queue
-    if (index > 0) {
-      const preceding = this.queue.splice(0, index);
-      preceding.forEach((track) => this.queue.push(track));
+    if (this.queueRepeat) {
+      if (this.queue.current) {
+        this.queue.add(this.queue.current);
+      }
+      if (index > 0) {
+        const preceding = this.queue.splice(0, index);
+        preceding.forEach((track) => this.queue.add(track));
+      }
+    } else {
+      if (index > 0) {
+        this.queue.splice(0, index);
+      }
     }
-    
-    // Play the target track immediately
+
     const targetTrack = this.queue.shift();
     if (targetTrack) {
       this.play(targetTrack);

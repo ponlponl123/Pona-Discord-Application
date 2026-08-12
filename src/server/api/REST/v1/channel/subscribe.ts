@@ -5,12 +5,30 @@ import { prisma } from '@/prisma';
 import { fetchUserByOAuthAccessToken } from '@/utils/oauth';
 import { getChannel, IsValidChannel } from '@/utils/ytmusic-api/getChannel';
 
+async function clearUserSubscribeCache(userId: string) {
+  if (!container.redis?.redis) return;
+  try {
+    const keys = await container.redis.redis.keys(`user:${userId}:subscribe_cache*`);
+    if (keys.length > 0) {
+      await container.redis.redis.del(...keys);
+    }
+  } catch (err) {
+    console.error('Failed to clear user subscribe cache:', err);
+  }
+}
+
 async function listSubscriptions(user: any, limit?: string | number) {
-  const q_limit = Number(limit) || 14;
+  const isAll =
+    !limit ||
+    limit === 'all' ||
+    limit === '0' ||
+    Number(limit) === 0;
+
+  const q_limit = isAll ? undefined : Number(limit) > 0 ? Number(limit) : undefined;
+  const cacheKey = `user:${user.id}:subscribe_cache:${isAll ? 'all' : q_limit}`;
+
   if (container.redis?.redis) {
-    const value = await container.redis.redis.get(
-      `user:${user.id}:subscribe_cache`,
-    );
+    const value = await container.redis.redis.get(cacheKey);
     if (value) {
       return { message: 'Ok', result: JSON.parse(value) };
     }
@@ -19,7 +37,7 @@ async function listSubscriptions(user: any, limit?: string | number) {
   const channels = await prisma.subscribe_artist.findMany({
     where: { uid: user.id },
     orderBy: { time: 'desc' },
-    take: q_limit,
+    ...(q_limit ? { take: q_limit } : {}),
   });
 
   if (!channels || channels.length === 0) {
@@ -66,7 +84,7 @@ async function listSubscriptions(user: any, limit?: string | number) {
     }
     multi.expire(`user:${user.id}:subscribe`, 86400);
     multi.setex(
-      `user:${user.id}:subscribe_cache`,
+      cacheKey,
       30,
       JSON.stringify(subscribed_channels),
     );
@@ -239,7 +257,7 @@ export default new Elysia()
         if (container.redis?.redis) {
           container.redis.redis.hset(`user:${user.id}:subscribe`, channelId, 1);
           container.redis.redis.expire(`user:${user.id}:subscribe`, 86400);
-          container.redis.redis.del(`user:${user.id}:subscribe_cache`);
+          await clearUserSubscribeCache(user.id);
         }
 
         await prisma.subscribe_artist.upsert({
@@ -296,7 +314,7 @@ export default new Elysia()
         if (container.redis?.redis) {
           container.redis.redis.hset(`user:${user.id}:subscribe`, channelId, 0);
           container.redis.redis.expire(`user:${user.id}:subscribe`, 86400);
-          container.redis.redis.del(`user:${user.id}:subscribe_cache`);
+          await clearUserSubscribeCache(user.id);
         }
 
         await prisma.subscribe_artist.deleteMany({

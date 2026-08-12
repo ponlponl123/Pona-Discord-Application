@@ -2,10 +2,13 @@ import blob from './blob';
 import Elysia from 'elysia';
 import guilds from './guilds';
 import music_fetch from './music/fetch';
+import music_browse from './music/browse';
 import debug from './player/debug';
 
 export const player = new Elysia({ prefix: '/:guildId/player' });
-export const music = new Elysia({ prefix: '/music' }).use(music_fetch);
+export const music = new Elysia({ prefix: '/music' })
+  .use(music_fetch)
+  .use(music_browse);
 
 if (process.env.NODE_ENV === 'development') {
   player.use(debug);

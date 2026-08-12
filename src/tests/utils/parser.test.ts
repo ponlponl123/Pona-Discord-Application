@@ -24,6 +24,10 @@ describe('parseYouTubeAuthorTitle', () => {
     expect(parseYouTubeAuthorTitle('Taylor Swift')).toBe('Taylor Swift');
   });
 
+  it('removes " - Release" suffix', () => {
+    expect(parseYouTubeAuthorTitle('Adele - Release')).toBe('Adele');
+  });
+
   it('trims surrounding whitespace', () => {
     expect(parseYouTubeAuthorTitle('  Artist - Topic  ')).toBe('Artist');
   });
@@ -80,6 +84,15 @@ describe('parseYouTubeTitle', () => {
     const result = parseYouTubeTitle('Some Song', 'Some Artist');
     expect(result).toHaveProperty('cleanTitle');
     expect(result).toHaveProperty('cleanAuthor');
+  });
+
+  it('correctly splits Artist - Song Title when author is Artist - Release', () => {
+    const { cleanTitle, cleanAuthor } = parseYouTubeTitle(
+      'Billie Eilish - Bad Guy',
+      'Billie Eilish - Release',
+    );
+    expect(cleanAuthor).toBe('Billie Eilish');
+    expect(cleanTitle).toBe('Bad Guy');
   });
 });
 

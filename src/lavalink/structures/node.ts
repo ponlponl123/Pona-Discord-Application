@@ -433,12 +433,12 @@ export class Node {
 
     if (['loadFailed', 'cleanup'].includes(reason))
       this.handleFailedTrack(player, track, payload);
+    else if (track && (player.trackRepeat || player.queueRepeat))
+      this.handleRepeatedTrack(player, track, payload);
     else if (reason === 'replaced') {
       this.manager.emit('trackEnd', player, track, payload);
       player.queue.previous = player.queue.current;
-    } else if (track && (player.trackRepeat || player.queueRepeat))
-      this.handleRepeatedTrack(player, track, payload);
-    else if (player.queue.length) this.playNextTrack(player, track, payload);
+    } else if (player.queue.length) this.playNextTrack(player, track, payload);
     else await this.queueEnd(player, track, payload);
     this.manager.emit('playerStateUpdate', oldPlayer, player, 'trackChange');
   }
@@ -599,11 +599,20 @@ export class Node {
     const { queue, trackRepeat, queueRepeat } = player;
     const { autoPlay } = this.manager.options;
 
-    if (!queue.current) return;
+    const currentTrack = queue.current || track;
+    if (!currentTrack) return;
+
+    if (payload.reason === 'replaced') {
+      if (queueRepeat && currentTrack && queue.previous !== currentTrack) {
+        queue.add(currentTrack);
+      }
+      this.manager.emit('trackEnd', player, track, payload);
+      return;
+    }
 
     if (payload.reason === 'stopped') {
-      if (queueRepeat) queue.add(queue.current);
-      queue.previous = queue.current;
+      if (queueRepeat && currentTrack) queue.add(currentTrack);
+      queue.previous = currentTrack;
       queue.current = queue.shift() as Track | UnresolvedTrack;
       this.manager.emit('trackEnd', player, track, payload);
       if (!queue.current) {
@@ -614,10 +623,10 @@ export class Node {
       return;
     }
 
-    if (trackRepeat) queue.unshift(queue.current);
-    if (queueRepeat) queue.add(queue.current);
+    if (trackRepeat) queue.unshift(currentTrack);
+    else if (queueRepeat) queue.add(currentTrack);
 
-    queue.previous = queue.current;
+    queue.previous = currentTrack;
     queue.current = queue.shift() as Track | UnresolvedTrack;
     this.manager.emit('trackEnd', player, track, payload);
     if (!queue.current) {

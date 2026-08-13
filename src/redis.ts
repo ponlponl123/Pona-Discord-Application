@@ -72,7 +72,7 @@ export class RedisClient {
       db: parseInt(process.env['REDIS_DB'] || '0'),
       lazyConnect: true,
       enableReadyCheck: true,
-      keyPrefix: 'pona:',
+      keyPrefix: process.env['REDIS_PREFIX'] || 'pona:',
       sentinelReconnectStrategy: (times) =>
         times > 20 ? null : Math.min(times * 200, 5000),
       retryStrategy: (times) =>

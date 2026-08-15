@@ -9,16 +9,17 @@ import {
   ActivityType,
   VoiceBasedChannel,
   VoiceState,
+  ChatInputCommandInteraction,
+  ContextMenuCommandInteraction,
 } from 'discord.js';
 import { config } from '@config/discord';
 import commandIndex from '@commands/index';
-import type slashCommand from '@interfaces/command';
-import { prefix as consolePrefix, type as consoleType } from '@config/console';
+import type ApplicationCommandStructure from '@interfaces/command';
+import { prefix as consolePrefix } from '@config/console';
 import isPonaInVoiceChannel from '@utils/isPonaInVoiceChannel';
 import {
   BaseMessage,
   ClusterClient,
-  getInfo,
   messageType,
 } from 'discord-hybrid-sharding';
 import setVoiceChannelStatus from '@utils/setVoiceChannelStatus';
@@ -68,7 +69,7 @@ class Pona extends EventEmitter {
     60_000,
   );
   public slashCommands = new Array<ApplicationCommandDataResolvable>();
-  public slashCommandsMap = new Collection<string, slashCommand>();
+  public slashCommandsMap = new Collection<string, ApplicationCommandStructure>();
   public ponaId: string;
   private lavalink?: LavalinkServer;
 
@@ -150,13 +151,23 @@ class Pona extends EventEmitter {
     });
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
-      if (!interaction.isChatInputCommand()) return;
-      const command = this.slashCommandsMap.get(interaction.commandName);
-      if (command) {
-        try {
-          await command.execute(interaction);
-        } catch (error) {
-          logger.error(consolePrefix.discord, `Error executing command ${interaction.commandName}`, error);
+      if (interaction.isChatInputCommand()) {
+        const command = this.slashCommandsMap.get(interaction.commandName);
+        if (command) {
+          try {
+            await (command.execute as (i: ChatInputCommandInteraction) => Promise<any>)(interaction);
+          } catch (error) {
+            logger.error(consolePrefix.discord, `Error executing command ${interaction.commandName}`, error);
+          }
+        }
+      } else if (interaction.isContextMenuCommand()) {
+        const command = this.slashCommandsMap.get(interaction.commandName);
+        if (command) {
+          try {
+            await (command.execute as (i: ContextMenuCommandInteraction) => Promise<any>)(interaction);
+          } catch (error) {
+            logger.error(consolePrefix.discord, `Error executing command ${interaction.commandName}`, error);
+          }
         }
       }
     });
@@ -164,27 +175,56 @@ class Pona extends EventEmitter {
 
   private async handleBotVoiceStateUpdate(oldState: VoiceState, newState: VoiceState, guildId: string) {
     if (!oldState.channelId && newState.channelId) {
+      const player = this.lavalink?.manager.get(guildId);
+      if (player && player.voiceChannel === newState.channelId) {
+        try {
+          const channel = (this.client.channels.cache.get(newState.channelId) ||
+            await this.client.channels.fetch(newState.channelId).catch(() => null)) as VoiceBasedChannel | null;
+          if (channel && channel.members.filter((m) => !m.user.bot).size === 0) {
+            player.destroy();
+            this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
+            return;
+          }
+        } catch (e) {
+          logger.error(consolePrefix.discord, `Error checking members on bot join for guild ${guildId}:`, e);
+        }
+      }
       this.emit('voiceStateUpdate', 'clientJoined', oldState, newState);
     } else if (oldState.channelId && !newState.channelId) {
       const currentPlayer = await isPonaInVoiceChannel(guildId);
-      if (currentPlayer && oldState.channelId) {
-        const prevChannel = await this.client.channels.fetch(oldState.channelId) as VoiceBasedChannel;
-        await setVoiceChannelStatus(prevChannel);
+      if (currentPlayer) {
+        if (oldState.channelId) {
+          const prevChannel = (this.client.channels.cache.get(oldState.channelId) ||
+            await this.client.channels.fetch(oldState.channelId).catch(() => null)) as VoiceBasedChannel | null;
+          if (prevChannel) await setVoiceChannelStatus(prevChannel);
+        }
+        if (currentPlayer.state !== 'DESTROYING') {
+          currentPlayer.destroy();
+        }
       }
       this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
     } else if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
       const currentPlayer = await isPonaInVoiceChannel(guildId);
       if (currentPlayer) {
         if (oldState.channelId) {
-          const prevChannel = await this.client.channels.fetch(oldState.channelId) as VoiceBasedChannel;
-          await setVoiceChannelStatus(prevChannel);
+          const prevChannel = (this.client.channels.cache.get(oldState.channelId) ||
+            await this.client.channels.fetch(oldState.channelId).catch(() => null)) as VoiceBasedChannel | null;
+          if (prevChannel) await setVoiceChannelStatus(prevChannel);
         }
         if (newState.channelId) {
-          const newChannel = await this.client.channels.fetch(newState.channelId) as VoiceBasedChannel;
-          const player = this.lavalink?.manager.get(guildId);
-          if (player?.queue?.current) {
-            const lang = await getGuildLanguage(guildId);
-            await setVoiceChannelStatus(newChannel, `${lang.data.music.state.voiceChannel.status} ${player.queue.current.title}`);
+          const newChannel = (this.client.channels.cache.get(newState.channelId) ||
+            await this.client.channels.fetch(newState.channelId).catch(() => null)) as VoiceBasedChannel | null;
+          if (newChannel) {
+            const player = this.lavalink?.manager.get(guildId);
+            if (player?.queue?.current) {
+              const lang = await getGuildLanguage(guildId);
+              await setVoiceChannelStatus(newChannel, `${lang.data.music.state.voiceChannel.status} ${player.queue.current.title}`);
+            }
+            if (newChannel.members.filter((m) => !m.user.bot).size === 0 && player) {
+              player.destroy();
+              this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
+              return;
+            }
           }
         }
       }
@@ -202,9 +242,23 @@ class Pona extends EventEmitter {
     }
 
     const player = this.lavalink?.manager.get(guildId);
-    if (oldState.channelId && !newState.channelId && oldState.channel && oldState.channel.members.size <= 1 && player && player.voiceChannel === oldState.channelId) {
-      player.destroy();
-      this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
+    if (player && player.voiceChannel) {
+      const channelIdToCheck = player.voiceChannel;
+      if (oldState.channelId === channelIdToCheck || newState.channelId === channelIdToCheck) {
+        try {
+          const channel = (this.client.channels.cache.get(channelIdToCheck) ||
+            await this.client.channels.fetch(channelIdToCheck).catch(() => null)) as VoiceBasedChannel | null;
+          if (channel) {
+            const humanMembers = channel.members.filter((m) => !m.user.bot);
+            if (humanMembers.size === 0) {
+              player.destroy();
+              this.emit('voiceStateUpdate', 'clientLeaved', oldState, newState);
+            }
+          }
+        } catch (e) {
+          logger.error(consolePrefix.discord, `Error checking channel members for guild ${guildId}:`, e);
+        }
+      }
     }
   }
 

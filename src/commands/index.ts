@@ -2,13 +2,21 @@
 import * as ping from "@commands/ping";
 import * as music from "@commands/music";
 import * as setting from "@commands/setting";
+import {
+  userPlayPause,
+  userPreviousTrack,
+  userNextTrack,
+} from "@commands/controls";
 
-import SlashCommandStructure from "@/interfaces/command";
+import ApplicationCommandStructure from "@/interfaces/command";
 
-export const commands: SlashCommandStructure[] =[
+export const commands: ApplicationCommandStructure[] = [
   ping,
   music,
-  setting
+  setting,
+  userPlayPause,
+  userPreviousTrack,
+  userNextTrack,
 ];
 
 export default commands;

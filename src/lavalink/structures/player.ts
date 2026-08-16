@@ -30,6 +30,7 @@ export class Player {
   public dynamicRepeat = false;
   public isPNPTEnabled = true;
   public readonly queuePNPT!: Queue;
+  public originTrack: Interface.Track | Interface.UnresolvedTrack | null = null;
   public position = 0;
   public length = 0;
   public playing = false;
@@ -141,6 +142,7 @@ export class Player {
   public destroy(disconnect = true): void {
     const oldPlayer = { ...this };
     this.state = 'DESTROYING';
+    this.originTrack = null;
     if (this.queuePNPT) this.queuePNPT.splice(0);
     if (disconnect) this.disconnect();
     this.node.rest.destroyPlayer(this.guild);
@@ -199,8 +201,14 @@ export class Player {
     ) {
       if (this.queue.current) this.queue.previous = this.queue.current;
       this.queue.current = optionsOrTrack as Interface.Track;
+      if (!this.originTrack) {
+        this.originTrack = this.queue.current;
+      }
     }
     if (!this.queue.current) throw new RangeError('No current track.');
+    if (!this.originTrack) {
+      this.originTrack = this.queue.current;
+    }
     const finalOptions = playOptions
       ? playOptions
       : ['startTime', 'endTime', 'noReplace'].every((v) =>

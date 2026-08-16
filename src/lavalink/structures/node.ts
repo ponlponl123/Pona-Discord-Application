@@ -690,6 +690,7 @@ export class Node {
     if (!player.isAutoplay) {
       player.queue.previous = player.queue.current;
       player.queue.current = null;
+      player.originTrack = null;
       player.playing = false;
       if (player.queuePNPT) {
         player.queuePNPT.splice(0);
@@ -701,6 +702,7 @@ export class Node {
 
     await this.handleAutoplay(player, track);
     if (!player.queue.current) {
+      player.originTrack = null;
       if (player.queuePNPT) {
         player.queuePNPT.splice(0);
       }

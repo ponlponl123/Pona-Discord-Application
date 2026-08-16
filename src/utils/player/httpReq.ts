@@ -28,6 +28,7 @@ export async function getHTTP_PlayerState(guildId: string): Promise<HTTP_PonaCom
         playing: player.playing,
       },
       current: player.queue.current,
+      originTrack: player.originTrack || null,
       queue: player.queue,
       queuePNPT: [...player.queuePNPT],
     };
@@ -55,6 +56,7 @@ export function convertTo_HTTPPlayerState(player: Player): HTTP_PonaCommonStateW
         playing: player.playing,
       },
       current: player.queue.current,
+      originTrack: player.originTrack || null,
       queue: player.queue,
       queuePNPT: [...player.queuePNPT],
     }

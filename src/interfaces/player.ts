@@ -107,6 +107,7 @@ export interface HTTP_PonaCommonState {
 export interface HTTP_PonaCommonStateWithTracks {
   pona: HTTP_PonaCommonState;
   current: Track | UnresolvedTrack | null;
+  originTrack?: Track | UnresolvedTrack | null;
   queue: Queue;
   queuePNPT?: (Track | UnresolvedTrack)[] | Queue;
 }

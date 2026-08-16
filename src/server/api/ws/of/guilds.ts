@@ -281,14 +281,39 @@ export default function setupGuildWS(ioInstance?: Server) {
         }
         const targetIndex = typeof index === 'string' ? parseInt(index, 10) : index;
         const player = container.lavalink.manager.get(guildId);
-        if (player && typeof targetIndex === 'number' && !isNaN(targetIndex) && targetIndex >= 0 && targetIndex < player.queue.length) {
-          player.skipto(targetIndex);
-          const statePayload = await getHTTP_PlayerState(guildId);
-          emitToGuild(guildId, 'state_updated', encodeData(statePayload));
-          if (typeof cb === 'function') cb({ status: 'ok' });
-        } else {
-          if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid track index or no player' });
+        if (player && typeof targetIndex === 'number' && !isNaN(targetIndex)) {
+          if (targetIndex >= 0 && targetIndex < player.queue.length) {
+            player.skipto(targetIndex);
+            const statePayload = await getHTTP_PlayerState(guildId);
+            emitToGuild(guildId, 'state_updated', encodeData(statePayload));
+            if (typeof cb === 'function') cb({ status: 'ok' });
+            return;
+          } else if (
+            player.isPNPTEnabled &&
+            player.queuePNPT &&
+            targetIndex >= player.queue.length &&
+            targetIndex < player.queue.length + player.queuePNPT.length
+          ) {
+            const pnptIndex = targetIndex - player.queue.length;
+            const targetTrack = player.queuePNPT[pnptIndex];
+            if (targetTrack) {
+              player.queuePNPT.splice(pnptIndex, 1);
+              if (player.queueRepeat && player.queue.current) {
+                player.queue.add(player.queue.current);
+              }
+              delete (targetTrack as any)._isPNPT;
+              player.play(targetTrack);
+              const statePayload = await getHTTP_PlayerState(guildId);
+              emitToGuild(guildId, 'state_updated', encodeData(statePayload));
+              if (typeof cb === 'function') cb({ status: 'ok' });
+              if (player.queue.length === 0 && player.queuePNPT.length < 6) {
+                player.ensurePNPTQueue().catch(() => {});
+              }
+              return;
+            }
+          }
         }
+        if (typeof cb === 'function') cb({ status: 'error', message: 'Invalid track index or no player' });
       });
 
       // 7. Seek

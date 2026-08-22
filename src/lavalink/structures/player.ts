@@ -47,6 +47,10 @@ export class Player {
   public manager: Manager;
   public isAutoplay: boolean = false;
   public createdTimestamp: number = Date.now();
+  public consecutiveTrackErrors: number = 0;
+  public maxConsecutiveErrors: number = 5;
+  public errorResetTimeout?: NodeJS.Timeout;
+  public nextTrackTimeout?: NodeJS.Timeout;
   private static _manager: Manager;
   private readonly data: Record<string, unknown> = {};
   private dynamicLoopInterval!: NodeJS.Timeout;
@@ -140,6 +144,14 @@ export class Player {
   }
 
   public destroy(disconnect = true): void {
+    if (this.nextTrackTimeout) {
+      clearTimeout(this.nextTrackTimeout);
+      this.nextTrackTimeout = undefined;
+    }
+    if (this.errorResetTimeout) {
+      clearTimeout(this.errorResetTimeout);
+      this.errorResetTimeout = undefined;
+    }
     const oldPlayer = { ...this };
     this.state = 'DESTROYING';
     this.originTrack = null;

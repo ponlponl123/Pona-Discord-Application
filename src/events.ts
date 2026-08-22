@@ -31,6 +31,8 @@ interface CommonEventHandler {
   playerCreate: (player: Player) => void;
   clientReady: (client: Client) => void;
   queueEnded: (player: Player) => void;
+  trackError: (player: Player, track: Track, payload: any) => void;
+  trackStuck: (player: Player, track: Track, payload: any) => void;
 }
 
 function bangkokNow(): Date {
@@ -57,6 +59,8 @@ export default class eventManager {
     this.lavalink.on('playerCreate', this.player_playerCreate.bind(this));
     this.lavalink.on('playerDestroy', this.player_playerDestroy.bind(this));
     this.lavalink.on('playerStateUpdate', this.player_playerStateUpdate.bind(this));
+    this.lavalink.on('trackError', this.player_trackError.bind(this));
+    this.lavalink.on('trackStuck', this.player_trackStuck.bind(this));
   }
 
   public registerHandler<T extends EventEmitter>(
@@ -234,5 +238,13 @@ export default class eventManager {
 
     this.apiServer?.io?.to(player.guild).emit('playerDestroyed');
     await this.invokeHandlers('playerDestroy', player);
+  }
+
+  private async player_trackError(player: Player, track: Track, payload: any) {
+    await this.invokeHandlers('trackError', player, track, payload);
+  }
+
+  private async player_trackStuck(player: Player, track: Track, payload: any) {
+    await this.invokeHandlers('trackStuck', player, track, payload);
   }
 }

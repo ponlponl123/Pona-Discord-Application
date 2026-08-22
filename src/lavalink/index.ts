@@ -26,6 +26,8 @@ export interface PlayerEvents {
   queueEnded: (player: Player) => void;
   playerCreate: (player: Player) => void;
   playerDestroy: (player: Player) => void;
+  trackError: (player: Player, track: Track, payload: any) => void;
+  trackStuck: (player: Player, track: Track, payload: any) => void;
 }
 
 declare interface LavalinkServer {
@@ -184,6 +186,14 @@ class LavalinkServer extends EventEmitter {
         consolePrefix.lavalink +
         `Segments loaded for ${player.queue.current?.title} in ${player.guild}`,
       );
+    });
+
+    this.manager.on('trackError', (player: Player, track: any, payload: any) => {
+      this.emit('trackError', player, track, payload);
+    });
+
+    this.manager.on('trackStuck', (player: Player, track: any, payload: any) => {
+      this.emit('trackStuck', player, track, payload);
     });
   }
 }

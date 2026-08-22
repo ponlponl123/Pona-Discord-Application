@@ -419,6 +419,21 @@ export class Node {
     const oldPlayer = player;
     player.playing = true;
     player.paused = false;
+
+    if (player.nextTrackTimeout) {
+      clearTimeout(player.nextTrackTimeout);
+      player.nextTrackTimeout = undefined;
+    }
+    if (player.errorResetTimeout) {
+      clearTimeout(player.errorResetTimeout);
+      player.errorResetTimeout = undefined;
+    }
+    player.errorResetTimeout = setTimeout(() => {
+      if (player.playing && player.queue.current?.track === track.track) {
+        player.consecutiveTrackErrors = 0;
+      }
+    }, 10000);
+
     this.manager.emit('trackStart', player, track, payload);
     this.manager.emit('playerStateUpdate', oldPlayer, player, 'trackChange');
   }
@@ -431,6 +446,15 @@ export class Node {
     const { reason } = payload;
     const oldPlayer = player;
 
+    if (player.errorResetTimeout) {
+      clearTimeout(player.errorResetTimeout);
+      player.errorResetTimeout = undefined;
+    }
+
+    if (reason === 'finished') {
+      player.consecutiveTrackErrors = 0;
+    }
+
     if (['loadFailed', 'cleanup'].includes(reason))
       this.handleFailedTrack(player, track, payload);
     else if (track && (player.trackRepeat || player.queueRepeat))
@@ -440,6 +464,10 @@ export class Node {
       player.queue.previous = player.queue.current;
     } else if (player.queue.length) this.playNextTrack(player, track, payload);
     else if (player.isPNPTEnabled) {
+      if (player.consecutiveTrackErrors >= player.maxConsecutiveErrors) {
+        await this.queueEnd(player, track, payload);
+        return;
+      }
       if (!player.queuePNPT || player.queuePNPT.length === 0) {
         await player.ensurePNPTQueue().catch(() => { });
       }
@@ -599,6 +627,31 @@ export class Node {
     track: Track,
     payload: TrackEndEvent,
   ): void {
+    player.consecutiveTrackErrors = (player.consecutiveTrackErrors || 0) + 1;
+    console.warn(
+      consoleType.warn,
+      consolePrefix.lavalink +
+      `[Playback Failed] Guild ${player.guild} (${player.consecutiveTrackErrors}/${player.maxConsecutiveErrors}): ${track?.title || 'Unknown'} (reason: ${payload.reason})`,
+    );
+
+    if (player.consecutiveTrackErrors >= player.maxConsecutiveErrors) {
+      console.error(
+        consoleType.error,
+        consolePrefix.lavalink +
+        `[Circuit Breaker] Too many consecutive playback errors in guild ${player.guild} (${player.consecutiveTrackErrors}). Halting playback to prevent loop.`,
+      );
+      player.queue.previous = player.queue.current;
+      player.queue.current = null;
+      player.originTrack = null;
+      if (player.queuePNPT) player.queuePNPT.splice(0);
+      player.queue.clear();
+      player.playing = false;
+      this.manager.emit('trackEnd', player, track, payload);
+      this.manager.emit('queueEnd', player, track, payload);
+      this.manager.emit('playerStateUpdate', player, player, 'trackChange');
+      return;
+    }
+
     player.queue.previous = player.queue.current;
     player.queue.current = player.queue.shift() as Track | UnresolvedTrack;
 
@@ -608,7 +661,15 @@ export class Node {
     }
 
     this.manager.emit('trackEnd', player, track, payload);
-    if (this.manager.options.autoPlay) player.play();
+    if (this.manager.options.autoPlay) {
+      const delay = Math.min(1000 * player.consecutiveTrackErrors, 3000);
+      if (player.nextTrackTimeout) clearTimeout(player.nextTrackTimeout);
+      player.nextTrackTimeout = setTimeout(() => {
+        player.play().catch((err) => {
+          console.error(consoleType.error, consolePrefix.lavalink + 'Error playing next track:', err);
+        });
+      }, delay);
+    }
   }
 
   private handleRepeatedTrack(
@@ -665,7 +726,21 @@ export class Node {
     player.queue.current = player.queue.shift() as Track | UnresolvedTrack;
 
     this.manager.emit('trackEnd', player, track, payload);
-    if (this.manager.options.autoPlay) player.play();
+    if (this.manager.options.autoPlay) {
+      if (player.consecutiveTrackErrors > 0) {
+        const delay = Math.min(1000 * player.consecutiveTrackErrors, 3000);
+        if (player.nextTrackTimeout) clearTimeout(player.nextTrackTimeout);
+        player.nextTrackTimeout = setTimeout(() => {
+          player.play().catch((err) => {
+            console.error(consoleType.error, consolePrefix.lavalink + 'Error playing next track:', err);
+          });
+        }, delay);
+      } else {
+        player.play().catch((err) => {
+          console.error(consoleType.error, consolePrefix.lavalink + 'Error playing next track:', err);
+        });
+      }
+    }
   }
 
   public async queueEnd(
@@ -676,13 +751,32 @@ export class Node {
     player.queue.previous = player.queue.current;
     player.queue.current = null;
 
+    if (player.consecutiveTrackErrors >= player.maxConsecutiveErrors) {
+      player.originTrack = null;
+      player.playing = false;
+      if (player.queuePNPT) {
+        player.queuePNPT.splice(0);
+      }
+      this.manager.emit('queueEnd', player, track, payload);
+      this.manager.emit('playerStateUpdate', player, player, 'pnptChange' as any);
+      return;
+    }
+
     if (player.isPNPTEnabled && player.queuePNPT && player.queuePNPT.length > 0) {
       const nextPNPTTrack = player.queuePNPT.shift();
       if (nextPNPTTrack) {
         player.queue.add(nextPNPTTrack);
         // Emit queue update to notify client of PNPT shift before playing
         this.manager.emit('playerStateUpdate', player, player, 'pnptChange' as any);
-        player.play();
+        if (player.consecutiveTrackErrors > 0) {
+          const delay = Math.min(1000 * player.consecutiveTrackErrors, 3000);
+          if (player.nextTrackTimeout) clearTimeout(player.nextTrackTimeout);
+          player.nextTrackTimeout = setTimeout(() => {
+            player.play().catch(() => {});
+          }, delay);
+        } else {
+          player.play().catch(() => {});
+        }
         return;
       }
     }
@@ -715,8 +809,14 @@ export class Node {
     track: Track,
     payload: TrackStuckEvent,
   ): void {
-    player.stop();
+    player.consecutiveTrackErrors = (player.consecutiveTrackErrors || 0) + 1;
+    console.warn(
+      consoleType.warn,
+      consolePrefix.lavalink +
+      `[Track Stuck] Guild ${player.guild} (${player.consecutiveTrackErrors}/${player.maxConsecutiveErrors}): ${track?.title || 'Unknown'} at ${payload.thresholdMs}ms`,
+    );
     this.manager.emit('trackStuck', player, track, payload);
+    player.stop();
   }
 
   protected trackError(
@@ -724,8 +824,28 @@ export class Node {
     track: Track | UnresolvedTrack,
     payload: TrackExceptionEvent,
   ): void {
-    player.stop();
+    player.consecutiveTrackErrors = (player.consecutiveTrackErrors || 0) + 1;
+    console.warn(
+      consoleType.warn,
+      consolePrefix.lavalink +
+      `[Track Exception] Guild ${player.guild} (${player.consecutiveTrackErrors}/${player.maxConsecutiveErrors}): ${payload.exception?.message || 'Unknown exception'} (Track: ${track?.title || 'Unknown'})`,
+    );
     this.manager.emit('trackError', player, track, payload);
+
+    if (player.consecutiveTrackErrors >= player.maxConsecutiveErrors) {
+      console.error(
+        consoleType.error,
+        consolePrefix.lavalink +
+        `[Circuit Breaker] Too many consecutive exceptions in guild ${player.guild} (${player.consecutiveTrackErrors}). Halting playback.`,
+      );
+      if (player.queuePNPT) player.queuePNPT.splice(0);
+      player.queue.clear();
+      player.playing = false;
+      player.stop();
+      return;
+    }
+
+    player.stop();
   }
 
   protected socketClosed(player: Player, payload: WebSocketClosedEvent): void {

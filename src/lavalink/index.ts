@@ -7,7 +7,7 @@ import type { Track } from '@interfaces/player';
 import type { PlayerStateEventType } from '@/interfaces/manager';
 import { prefix as consolePrefix, type as consoleType } from '@config/console';
 import { config as discordConf } from '@config/discord';
-import { config } from '@config/lavalink';
+import { config, nodelinkConfig } from '@config/lavalink';
 import { getGuildLanguage } from '@/utils/i18n';
 import { EventEmitter } from 'events';
 import setVoiceChannelStatus from '@/utils/setVoiceChannelStatus';
@@ -60,16 +60,32 @@ class LavalinkServer extends EventEmitter {
     );
 
     this.lavanodes.push({
-      identifier: 'Node 1',
+      identifier: 'Lavalink',
       host: config.host,
       port: config.port,
       password: config.password,
+      priority: 10,
       retryAmount: 1000,
       retryDelay: 10_000,
       resumeStatus: true,
       resumeTimeout: 1000,
-      secure: false,
+      secure: config.secure || false,
     });
+
+    if (nodelinkConfig.enabled) {
+      this.lavanodes.push({
+        identifier: 'NodeLink',
+        host: nodelinkConfig.host,
+        port: nodelinkConfig.port,
+        password: nodelinkConfig.password,
+        priority: 1,
+        retryAmount: 1000,
+        retryDelay: 10_000,
+        resumeStatus: true,
+        resumeTimeout: 1000,
+        secure: nodelinkConfig.secure || false,
+      });
+    }
 
     this.manager = new Manager({
       nodes: this.lavanodes,

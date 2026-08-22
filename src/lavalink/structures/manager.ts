@@ -470,39 +470,27 @@ export class Manager extends EventEmitter {
   }
 
   private get priorityNode(): Node {
-    const filteredNodes = this.nodes.filter(
-      (node) => node.connected && (node.options.priority as number) > 0,
-    );
-    const totalWeight = filteredNodes.reduce(
-      (total, node) => total + (node.options.priority as number),
-      0,
-    );
-    const weightedNodes = filteredNodes.map((node) => ({
-      node,
-      weight: (node.options.priority as number) / totalWeight,
-    }));
-    const randomNumber = Math.random();
-
-    let cumulativeWeight = 0;
-
-    for (const { node, weight } of weightedNodes) {
-      cumulativeWeight += weight;
-      if (randomNumber <= cumulativeWeight) {
-        return node;
-      }
+    const connected = this.nodes.filter((node) => node.connected);
+    if (connected.size === 0) {
+      return this.nodes.first() as Node;
     }
-
-    return this.options.useNode === 'leastLoad'
-      ? (this.leastLoadNode.first() as Node)
-      : (this.leastPlayersNode.first() as Node);
+    const sorted = connected.sort((a, b) => {
+      const pA = a.options.priority ?? 0;
+      const pB = b.options.priority ?? 0;
+      if (pA !== pB) return pB - pA;
+      const aload = a.stats.cpu
+        ? (a.stats.cpu.lavalinkLoad / (a.stats.cpu.cores || 1)) * 100
+        : 0;
+      const bload = b.stats.cpu
+        ? (b.stats.cpu.lavalinkLoad / (b.stats.cpu.cores || 1)) * 100
+        : 0;
+      return aload - bload;
+    });
+    return sorted.first() as Node;
   }
 
   public get useableNodes(): Node {
-    return this.options.usePriority
-      ? this.priorityNode
-      : this.options.useNode === 'leastLoad'
-        ? (this.leastLoadNode.first() as Node)
-        : (this.leastPlayersNode.first() as Node);
+    return this.priorityNode;
   }
 
   private registerPlayerStateEvents(): void {
@@ -635,10 +623,19 @@ export class Manager extends EventEmitter {
     query: string | SearchQuery,
     requester?: T,
   ): Promise<SearchResult> {
-    const node = this.useableNodes;
-    if (!node) {
+    const connectedNodes = this.nodes
+      .filter((n) => n.connected)
+      .sort((a, b) => (b.options.priority ?? 0) - (a.options.priority ?? 0));
+
+    const candidateNodes =
+      connectedNodes.size > 0
+        ? Array.from(connectedNodes.values())
+        : [this.useableNodes].filter(Boolean);
+
+    if (candidateNodes.length === 0) {
       throw new Error('No available nodes.');
     }
+
     const _query: SearchQuery = typeof query === 'string' ? { query } : query;
 
     // Determine the source to use for searching
@@ -665,12 +662,26 @@ export class Manager extends EventEmitter {
     }
 
     try {
-      let res;
-      if (!res)
-        res = (await node.rest.get(
-          `/v4/loadtracks?identifier=${encodeURIComponent(search)}`,
-        )) as LavalinkResponse;
-      if (!res) throw new Error('Query not found.');
+      let res: LavalinkResponse | null = null;
+      let lastError: Error | null = null;
+
+      for (const node of candidateNodes) {
+        try {
+          res = (await node.rest.get(
+            `/v4/loadtracks?identifier=${encodeURIComponent(search)}`,
+          )) as LavalinkResponse;
+          if (res) break;
+        } catch (err: any) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          console.warn(
+            consoleType.warn,
+            consolePrefix.lavalink +
+              `Search failed on node ${node.options.identifier || 'unknown'}, trying fallback node...`,
+          );
+        }
+      }
+
+      if (!res) throw lastError || new Error('Query not found.');
       let searchData: any[] = [];
       let playlistData: PlaylistRawData | undefined;
       switch (res.loadType) {

@@ -218,7 +218,21 @@ export class Node {
     if (!this.connected || !this.socket) return;
 
     const players = this.manager.players.filter((p) => p.node == this);
-    if (players.size) players.forEach((p) => p.destroy());
+    if (players.size) {
+      const fallbackNode = this.manager.nodes.find((n) => n !== this && n.connected);
+      if (fallbackNode) {
+        console.log(
+          consoleType.info,
+          consolePrefix.lavalink +
+            `Migrating ${players.size} player(s) from destroyed node ${this.options.identifier} to fallback node ${fallbackNode.options.identifier}...`,
+        );
+        players.forEach((p) => {
+          p.setNode(fallbackNode).catch(() => {});
+        });
+      } else {
+        players.forEach((p) => p.destroy());
+      }
+    }
 
     this.socket.close(1000, 'destroy');
     this.socket.removeAllListeners();
@@ -256,6 +270,20 @@ export class Node {
 
   protected close(code: number, reason: string): void {
     this.manager.emit('nodeDisconnect', this, { code, reason });
+    const players = this.manager.players.filter((p) => p.node == this);
+    if (players.size) {
+      const fallbackNode = this.manager.nodes.find((n) => n !== this && n.connected);
+      if (fallbackNode) {
+        console.log(
+          consoleType.info,
+          consolePrefix.lavalink +
+            `Node ${this.options.identifier} disconnected (${reason}). Migrating ${players.size} player(s) to fallback node ${fallbackNode.options.identifier}...`,
+        );
+        players.forEach((p) => {
+          p.setNode(fallbackNode).catch(() => {});
+        });
+      }
+    }
     if (code !== 1000 || reason !== 'destroy') this.reconnect();
   }
 

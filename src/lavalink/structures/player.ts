@@ -191,6 +191,55 @@ export class Player {
     return this.nowPlayingMessage;
   }
 
+  public async setNode(node: Node): Promise<this> {
+    if (!node || !node.connected) throw new RangeError('Provided node is not connected.');
+    if (this.node === node) return this;
+
+    const oldNode = this.node;
+    this.node = node;
+
+    if (this.voiceState?.event?.token && this.voiceState?.event?.endpoint) {
+      const {
+        sessionId,
+        event: { token, endpoint },
+      } = this.voiceState;
+
+      if (sessionId && this.voiceChannel) {
+        await this.node.rest
+          .updatePlayer({
+            guildId: this.guild,
+            data: {
+              voice: {
+                token,
+                endpoint,
+                sessionId: sessionId as string,
+                channelId: this.voiceChannel as string,
+              },
+              volume: this.volume,
+              paused: this.paused,
+              ...(this.queue.current
+                ? {
+                    encodedTrack: this.queue.current.track,
+                    position: this.position,
+                  }
+                : {}),
+            },
+          })
+          .catch((err) => {
+            console.error(
+              `${prefix} Failed to migrate player ${this.guild} to node ${node.options.identifier}:`,
+              err,
+            );
+          });
+      }
+    }
+
+    console.log(
+      `${prefix} Migrated player for ${this.guild} from node ${oldNode?.options?.identifier || 'unknown'} to ${node.options.identifier}.`,
+    );
+    return this;
+  }
+
   public async play(): Promise<void>;
   public async play(
     track: Interface.Track | Interface.UnresolvedTrack,
@@ -244,14 +293,34 @@ export class Player {
       }
     }
 
-    await this.node.rest.updatePlayer({
-      guildId: this.guild,
-      data: {
-        encodedTrack: this.queue.current?.track,
-        ...finalOptions,
-      },
-    });
-    Object.assign(this, { position: 0, playing: true });
+    try {
+      await this.node.rest.updatePlayer({
+        guildId: this.guild,
+        data: {
+          encodedTrack: this.queue.current?.track,
+          ...finalOptions,
+        },
+      });
+      Object.assign(this, { position: 0, playing: true });
+    } catch (error) {
+      const fallbackNode = this.manager.useableNodes;
+      if (fallbackNode && fallbackNode !== this.node && fallbackNode.connected) {
+        console.warn(
+          `${prefix} Play failed on node ${this.node.options.identifier}. Falling back to node ${fallbackNode.options.identifier}...`,
+        );
+        await this.setNode(fallbackNode);
+        await this.node.rest.updatePlayer({
+          guildId: this.guild,
+          data: {
+            encodedTrack: this.queue.current?.track,
+            ...finalOptions,
+          },
+        });
+        Object.assign(this, { position: 0, playing: true });
+      } else {
+        throw error;
+      }
+    }
   }
 
   public setAutoplay(autoplayState: boolean, botUser: object) {

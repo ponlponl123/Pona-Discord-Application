@@ -5,6 +5,7 @@ FROM oven/bun:1.3.1-alpine AS bun-builder
 WORKDIR /pona-builder
 
 # Install build dependencies and copy package files
+ENV FFMPEG_STATIC_NO_DOWNLOAD=1
 RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json* bun.lock* bun.lockb* ./
 
@@ -27,6 +28,7 @@ FROM oven/bun:1.3.1-alpine AS deps
 WORKDIR /deps
 
 # Install only runtime build tools and install production deps in single stage
+ENV FFMPEG_STATIC_NO_DOWNLOAD=1
 RUN apk add --no-cache python3 make g++
 COPY package.json package-lock.json* bun.lock* bun.lockb* ./
 COPY prisma ./prisma

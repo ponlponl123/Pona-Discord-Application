@@ -6,13 +6,14 @@ WORKDIR /pona-builder
 
 # Install build dependencies and copy package files
 RUN apk add --no-cache python3 make g++
-COPY package.json package-lock.json* bun.lockb* ./
+COPY package.json package-lock.json* bun.lock* bun.lockb* ./
 
 # Install all dependencies (cached layer - only invalidated on package changes)
 RUN bun install
 
 # Copy source code and config files
 COPY tsup.config.ts tsconfig.json ./
+COPY prisma ./prisma
 COPY src ./src
 COPY public ./public
 
@@ -27,7 +28,8 @@ WORKDIR /deps
 
 # Install only runtime build tools and install production deps in single stage
 RUN apk add --no-cache python3 make g++
-COPY package.json ./
+COPY package.json package-lock.json* bun.lock* bun.lockb* ./
+COPY prisma ./prisma
 RUN bun install --production
 
 # Aggressive cleanup - remove unnecessary files and directories

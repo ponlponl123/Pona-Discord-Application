@@ -11,6 +11,15 @@ import YTMusicAPI from '@/utils/ytmusic-api/request';
 import { parseYouTubeAuthorTitle, parseYouTubeTitle } from '@/utils/parser';
 import randomString from '@/utils/randomString';
 import { container } from '@/core/container';
+import { Player } from './player';
+import { Queue } from './queue';
+import { Node } from './node';
+
+const structures = {
+  Player,
+  Queue,
+  Node,
+};
 
 /** In-process cache: videoId → resolved artist info. TTL = 30 minutes. */
 interface ArtistCache { channelId: string; authorName: string; expiresAt: number; }
@@ -29,12 +38,6 @@ function getCachedArtist(videoId: string): ArtistCache | null {
 function setCachedArtist(videoId: string, channelId: string, authorName: string): void {
   _artistCache.set(videoId, { channelId, authorName, expiresAt: Date.now() + ARTIST_CACHE_TTL_MS });
 }
-
-const structures = {
-  Player: require('./player').Player,
-  Queue: require('./queue').Queue,
-  Node: require('./node').Node,
-};
 
 interface Track extends PlayerTrack {
   [TRACK_SYMBOL]?: boolean;

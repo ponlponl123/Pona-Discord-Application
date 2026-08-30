@@ -61,6 +61,8 @@ export async function sendHandshake(socket: any) {
     if (type && key && guildId) {
       const user: any = await fetchUserByOAuthAccessToken(type, key).catch(() => null);
       if (user?.id) {
+        socket.data.userId = user.id;
+        socket.join(`user:${user.id}`);
         const guild =
           container.pona.client.guilds.cache.get(guildId) ||
           (await container.pona.client.guilds.fetch(guildId).catch(() => null));
@@ -736,13 +738,14 @@ export default function setupGuildWS(ioInstance?: Server) {
         type === 'clientSwitched'
       )
         return;
-      const guildId = oldState?.guild.id || newState?.guild.id;
+      const guildId = oldState?.guild?.id || newState?.guild?.id;
       if (!guildId) return;
-      const memberId = oldState?.member?.id || newState?.member?.id;
+      const memberId = oldState?.member?.id || newState?.member?.id || oldState?.id || newState?.id;
+      if (!memberId) return;
 
-      const isUserJoined = oldState?.channel === undefined && newState?.channel !== undefined;
-      const isUserSwitched = oldState?.channel !== undefined && newState?.channel !== undefined && oldState?.channel?.id !== newState?.channel?.id;
-      const isUserLeaved = oldState?.channel !== undefined && newState?.channel === undefined;
+      const isUserJoined = !oldState?.channelId && !!newState?.channelId;
+      const isUserSwitched = !!oldState?.channelId && !!newState?.channelId && oldState?.channelId !== newState?.channelId;
+      const isUserLeaved = !!oldState?.channelId && !newState?.channelId;
       const isSameVC = guildId && memberId ? await fetchIsUserInVoiceChannel(guildId, memberId) : false;
 
       const formatVC = (ch: any) =>
@@ -756,6 +759,7 @@ export default function setupGuildWS(ioInstance?: Server) {
           : null;
 
       const data: MemberVoiceChangedState = {
+        memberId,
         oldVC: formatVC(oldState?.channel) as any,
         newVC: formatVC(newState?.channel) as any,
         isUserJoined,
@@ -764,7 +768,12 @@ export default function setupGuildWS(ioInstance?: Server) {
         isSameVC: !!isSameVC,
       };
 
-      emitToGuild(guildId, 'member_state_updated', encodeData(data), 'pona! voice');
+      const io = (container.apiServer as any)?.io;
+      if (io) {
+        const encoded = encodeData(data);
+        io.of(`/guild/${guildId}`).to(`user:${memberId}`).emit('member_state_updated', encoded);
+        io.of(`/guilds/${guildId}`).to(`user:${memberId}`).emit('member_state_updated', encoded);
+      }
     } catch {
       return;
     }

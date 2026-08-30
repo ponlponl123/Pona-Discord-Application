@@ -141,9 +141,10 @@ class Pona extends EventEmitter {
 
     this.client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       const guildId = oldState?.guild?.id || newState?.guild?.id;
-      if (!this.client.user || !oldState.member || !guildId) return;
+      const member = oldState.member || newState.member;
+      if (!this.client.user || !member || !guildId) return;
 
-      if (oldState.member.user.id === this.client.user.id) {
+      if (member.id === this.client.user.id || member.user?.id === this.client.user.id) {
         await this.handleBotVoiceStateUpdate(oldState, newState, guildId);
       } else {
         await this.handleMemberVoiceStateUpdate(oldState, newState, guildId);

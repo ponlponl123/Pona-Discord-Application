@@ -1,6 +1,6 @@
 {
   "name": "pona-discord-application",
-  "version": "0.2.2-optimized",
+  "version": "0.2.5-hotfix-1",
   "description": "A useful discord bot",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",

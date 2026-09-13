@@ -1,3 +1,12 @@
+import tls from "node:tls";
+if (tls?.TLSSocket?.prototype?.getPeerCertificate) {
+  const orig = tls.TLSSocket.prototype.getPeerCertificate;
+  tls.TLSSocket.prototype.getPeerCertificate = function (detailed?: boolean) {
+    const cert = orig.call(this, detailed);
+    if (cert && typeof cert === "object" && !cert.fingerprint256) cert.fingerprint256 = "";
+    return cert;
+  };
+}
 import fs from 'node:fs';
 import env, { argv } from './env';
 
@@ -259,3 +268,4 @@ if (
 }
 
 export default config;
+

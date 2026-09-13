@@ -1,12 +1,13 @@
 import tls from "node:tls";
 if (tls?.TLSSocket?.prototype?.getPeerCertificate) {
   const orig = tls.TLSSocket.prototype.getPeerCertificate;
-  tls.TLSSocket.prototype.getPeerCertificate = function (detailed?: boolean) {
-    const cert = orig.call(this, detailed);
+  (tls.TLSSocket.prototype as any).getPeerCertificate = function (this: any, detailed?: boolean) {
+    const cert = orig.call(this, detailed as any);
     if (cert && typeof cert === "object" && !cert.fingerprint256) cert.fingerprint256 = "";
     return cert;
   };
 }
+
 import fs from 'node:fs';
 import env, { argv } from './env';
 
@@ -80,52 +81,43 @@ export function formatDbUrl(cfg: DatabaseConnectionOptions): string {
   return qs ? `${base}?${qs}` : base;
 }
 
-export function buildMariaDbSsl(cfg: {
+const buildMariaDbSsl = (cfg: {
   sslMode?: string;
   sslCa?: string;
   sslCert?: string;
   sslKey?: string;
-  rejectUnauthorized?: boolean;
-}) {
+}) => {
+  if (!cfg.sslMode && !cfg.sslCa && !cfg.sslCert && !cfg.sslKey) return undefined;
   const mode = cfg.sslMode?.toLowerCase();
-  if (mode === 'disable' || mode === 'disabled' || mode === 'false') {
-    return false;
-  }
+  if (mode === "disabled" || mode === "disable" || mode === "false") return false;
 
-  const hasCert = !!cfg.sslCa || !!cfg.sslCert || !!cfg.sslKey;
-  const isModeActive =
-    !!mode && mode !== 'disable' && mode !== 'disabled' && mode !== 'false';
+  const readCert = (val?: string) => (val && fs.existsSync(val) ? fs.readFileSync(val) : val);
+  const ssl: Record<string, any> = {};
+  const isVerifyFull = mode === "verify-identity" || mode === "verify_identity" || mode === "verify-full";
+  const isVerifyCa = mode === "verify-ca" || mode === "verify_ca";
 
-  if (!hasCert && !isModeActive && cfg.rejectUnauthorized === undefined) {
-    return undefined;
-  }
-
-  const ssl: {
-    ca?: string;
-    cert?: string;
-    key?: string;
-    rejectUnauthorized?: boolean;
-  } = {};
-
-  if (cfg.sslCa) ssl.ca = readCertFileOrContent(cfg.sslCa);
-  if (cfg.sslCert) ssl.cert = readCertFileOrContent(cfg.sslCert);
-  if (cfg.sslKey) ssl.key = readCertFileOrContent(cfg.sslKey);
-
-  if (cfg.rejectUnauthorized !== undefined) {
-    ssl.rejectUnauthorized = cfg.rejectUnauthorized;
-  } else if (mode === 'require' && !cfg.sslCa) {
-    ssl.rejectUnauthorized = false;
-  } else if (
-    mode === 'verify-ca' ||
-    mode === 'verify-identity' ||
-    mode === 'verify-full' ||
-    !!cfg.sslCa
-  ) {
+  if (isVerifyFull) {
     ssl.rejectUnauthorized = true;
+  } else if (isVerifyCa) {
+    ssl.rejectUnauthorized = true;
+    ssl.checkServerIdentity = () => undefined;
+  } else {
+    ssl.rejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED === "true";
+    ssl.checkServerIdentity = () => undefined;
   }
 
-  return ssl;
-}
+  if (process.env.DB_SSL_REJECT_UNAUTHORIZED !== undefined) {
+    ssl.rejectUnauthorized =
+      process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false" &&
+      process.env.DB_SSL_REJECT_UNAUTHORIZED !== "0";
+  }
+
+  if (cfg.sslCa) ssl.ca = readCert(cfg.sslCa);
+  if (cfg.sslCert) ssl.cert = readCert(cfg.sslCert);
+  if (cfg.sslKey) ssl.key = readCert(cfg.sslKey);
+
+  return Object.keys(ssl).length > 0 ? ssl : true;
+};
 
 function parseBool(val?: string): boolean | undefined {
   if (val === 'true' || val === '1') return true;
@@ -153,7 +145,6 @@ const ssl = buildMariaDbSsl({
   sslCa,
   sslCert,
   sslKey,
-  rejectUnauthorized,
 });
 const isSslActive = !!ssl;
 
@@ -187,7 +178,6 @@ const migrationSsl = buildMariaDbSsl({
   sslCa: migrationSslCa,
   sslCert: migrationSslCert,
   sslKey: migrationSslKey,
-  rejectUnauthorized: migrationRejectUnauthorized,
 });
 
 const url =
@@ -226,17 +216,17 @@ const shadowUrl =
   env.SHADOW_DATABASE_URL ||
   (shadowDatabase
     ? formatDbUrl({
-        host: migrationHost,
-        port: migrationPort,
-        user: migrationUser,
-        password: migrationPassword,
-        database: shadowDatabase,
-        sslMode: migrationSslMode,
-        sslCa: migrationSslCa,
-        sslCert: migrationSslCert,
-        sslKey: migrationSslKey,
-        rejectUnauthorized: migrationRejectUnauthorized,
-      })
+      host: migrationHost,
+      port: migrationPort,
+      user: migrationUser,
+      password: migrationPassword,
+      database: shadowDatabase,
+      sslMode: migrationSslMode,
+      sslCa: migrationSslCa,
+      sslCert: migrationSslCert,
+      sslKey: migrationSslKey,
+      rejectUnauthorized: migrationRejectUnauthorized,
+    })
     : undefined);
 
 export const config = {

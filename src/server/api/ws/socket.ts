@@ -77,11 +77,15 @@ export class initialize {
           ? {
               sentinelPassword: redis_conf.REDIS_SENTINEL_PASSWORD || undefined,
               sentinels: redis_conf.sentinels,
+              ...(redis_conf.sentinelTLS
+                ? { sentinelTLS: redis_conf.sentinelTLS }
+                : {}),
             }
           : {
               host: redis_conf.REDIS_HOST || 'localhost',
               port: redis_conf.REDIS_PORT || 6379,
             }),
+        ...(redis_conf.tls ? { tls: redis_conf.tls } : {}),
         natMap: natMapData
           ? Object.fromEntries(
               natMapData.map((nat: any) => [

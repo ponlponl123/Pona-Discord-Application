@@ -14,3 +14,19 @@ title = "Pona! Discord Application"
 # [features]
 # music_enabled = true
 # moderation_enabled = true
+
+# Redis TLS Configuration
+# [redis.tls]
+# enabled = false
+# ca = "/path/to/redis-ca.crt"
+# cert = "/path/to/redis-client.crt"
+# key = "/path/to/redis-client.key"
+# rejectUnauthorized = true
+
+# Redis Sentinel TLS Configuration
+# [redis.sentinel.tls]
+# enabled = false
+# ca = "/path/to/sentinel-ca.crt"
+# cert = "/path/to/sentinel-client.crt"
+# key = "/path/to/sentinel-client.key"
+# rejectUnauthorized = true

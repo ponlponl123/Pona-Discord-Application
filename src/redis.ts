@@ -1,6 +1,7 @@
 import Redis, { type SentinelAddress } from 'ioredis';
 import { prefix as consolePrefix, type as consoleType } from '@config/console';
 import toml from './config/toml';
+import { config as redisConfig } from './config/redis';
 
 export class RedisClient {
   public redis: Redis;
@@ -56,23 +57,27 @@ export class RedisClient {
       : undefined;
 
     this.redis = new Redis({
-      password: process.env['REDIS_PASSWORD'] || undefined,
+      password: redisConfig.REDIS_PASSWORD || undefined,
       ...(isSentinel
         ? {
             sentinelPassword:
-              process.env['REDIS_SENTINEL_PASSWORD'] || undefined,
+              redisConfig.REDIS_SENTINEL_PASSWORD || undefined,
             sentinels: this.redisSentinels,
+            ...(redisConfig.sentinelTLS
+              ? { sentinelTLS: redisConfig.sentinelTLS }
+              : {}),
           }
         : {
-            host: process.env['REDIS_HOST'] || 'localhost',
-            port: parseInt(process.env['REDIS_PORT'] || '6379'),
+            host: redisConfig.REDIS_HOST || 'localhost',
+            port: redisConfig.REDIS_PORT || 6379,
           }),
+      ...(redisConfig.tls ? { tls: redisConfig.tls } : {}),
       natMap,
-      name: process.env['REDIS_NAME'] || 'mymaster',
-      db: parseInt(process.env['REDIS_DB'] || '0'),
+      name: redisConfig.REDIS_NAME || 'mymaster',
+      db: redisConfig.REDIS_DB || 0,
       lazyConnect: true,
       enableReadyCheck: true,
-      keyPrefix: process.env['REDIS_PREFIX'] || 'pona:',
+      keyPrefix: redisConfig.REDIS_PREFIX || 'pona:',
       sentinelReconnectStrategy: (times) =>
         times > 20 ? null : Math.min(times * 200, 5000),
       retryStrategy: (times) =>

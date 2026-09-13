@@ -3,6 +3,13 @@ title = "Pona! Discord Application (prod)"
 # Production-specific Redis configuration
 [redis]
 
+[redis.tls]
+# enabled = true
+# ca = "/etc/redis-certs/ca.crt"
+# cert = "/etc/redis-certs/tls.crt"
+# key = "/etc/redis-certs/tls.key"
+# rejectUnauthorized = true
+
 # Production Redis Sentinel Configuration
 [redis.sentinel]
 natmap = [
@@ -11,4 +18,12 @@ natmap = [
     { nat = "redis-replica-2:6379", host = "redis-replica-2-prod.example.com", port = 6381 },
 ]
 
+[redis.sentinel.tls]
+# enabled = true
+# ca = "/etc/redis-certs/ca.crt"
+# cert = "/etc/redis-certs/tls.crt"
+# key = "/etc/redis-certs/tls.key"
+# rejectUnauthorized = true
+
 # Add more production-specific configurations here
+

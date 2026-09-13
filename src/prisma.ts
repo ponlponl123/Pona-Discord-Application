@@ -6,8 +6,9 @@ const adapter = new PrismaMariaDb({
   host: databaseConf.host,
   port: databaseConf.port,
   user: databaseConf.user,
-  password: databaseConf.password,
+  ...(databaseConf.password ? { password: databaseConf.password } : {}),
   database: databaseConf.database,
+  ...(databaseConf.ssl ? { ssl: databaseConf.ssl } : {}),
 });
 
 export const prisma = new PrismaClient({ adapter });

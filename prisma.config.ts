@@ -5,5 +5,6 @@ module.exports = {
   schema: 'prisma/schema.prisma',
   datasource: {
     url: config.url,
+    ...(config.shadowUrl ? { shadowDatabaseUrl: config.shadowUrl } : {}),
   },
 };

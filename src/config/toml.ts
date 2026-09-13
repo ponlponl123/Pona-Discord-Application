@@ -1,15 +1,19 @@
 import { TOML } from 'bun';
 import { prefix as consolePrefix, type as consoleType } from './console';
 
+import type { RedisTlsConfig } from '@/interfaces/redis';
+
 export interface TomlConfig {
   title?: string;
   redis?: {
+    tls?: RedisTlsConfig;
     sentinel?: {
       natmap?: Array<{
         nat: string;
         host: string;
         port: number;
       }>;
+      tls?: RedisTlsConfig;
     };
   };
   [key: string]: unknown;
